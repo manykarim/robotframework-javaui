@@ -1,0 +1,332 @@
+// PEG Grammar for CSS/XPath-like locator syntax
+// Robot Framework Swing Library
+
+// =============================================================================
+// Top-Level Rules
+// =============================================================================
+
+/// Main entry point - a locator can be CSS or XPath style
+locator = _{ SOI ~ (xpath_expr | css_selector_list) ~ EOI }
+
+/// List of CSS selectors separated by commas
+css_selector_list = { complex_selector ~ ("," ~ explicit_ws* ~ complex_selector)* }
+
+/// A complex selector consists of compound selectors with combinators
+complex_selector = { compound_selector ~ (combinator ~ compound_selector)* }
+
+/// Compound selector = type + modifiers (no combinator inside)
+compound_selector = {
+    type_selector? ~
+    (id_selector | class_selector | attribute_selector | pseudo_selector)*
+}
+
+// =============================================================================
+// Type Selectors
+// =============================================================================
+
+/// Type selector: element name or universal selector
+type_selector = { universal_selector | type_name }
+
+/// Universal selector matches any element
+universal_selector = { "*" }
+
+/// Type name: Java class simple name (e.g., JButton, JTextField)
+type_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
+
+// =============================================================================
+// ID and Class Selectors
+// =============================================================================
+
+/// ID selector: #identifier
+id_selector = { "#" ~ identifier }
+
+/// Class selector: .className
+class_selector = { "." ~ identifier }
+
+/// Identifier for names, classes, IDs
+identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }
+
+// =============================================================================
+// Attribute Selectors
+// =============================================================================
+
+/// Attribute selector: [attr], [attr=value], [attr~=value], etc.
+attribute_selector = {
+    "[" ~ explicit_ws* ~
+    attribute_name ~
+    (explicit_ws* ~ attribute_matcher)? ~
+    explicit_ws* ~ "]"
+}
+
+/// Attribute name
+attribute_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-" | ".")* }
+
+/// Attribute matcher: operator + value
+attribute_matcher = { match_operator ~ explicit_ws* ~ attribute_value }
+
+/// Match operators for attribute comparison
+match_operator = {
+    prefix_match |      // ^= (starts with)
+    suffix_match |      // $= (ends with)
+    substring_match |   // *= (contains)
+    word_match |        // ~= (contains word)
+    dash_match |        // |= (hyphen-separated prefix)
+    regex_match |       // /= (regex)
+    not_equals |        // != (not equals)
+    equals              // = (exact match)
+}
+
+equals = { "=" }
+not_equals = { "!=" }
+prefix_match = { "^=" }
+suffix_match = { "$=" }
+substring_match = { "*=" }
+word_match = { "~=" }
+dash_match = { "|=" }
+regex_match = { "/=" }
+
+/// Attribute value: quoted string or unquoted value
+attribute_value = { quoted_string | unquoted_value }
+
+/// Quoted string with single or double quotes
+quoted_string = { single_quoted | double_quoted }
+single_quoted = ${ "'" ~ single_quoted_inner ~ "'" }
+single_quoted_inner = @{ (!"'" ~ ANY)* }
+double_quoted = ${ "\"" ~ double_quoted_inner ~ "\"" }
+double_quoted_inner = @{ (!"\"" ~ ANY)* }
+
+/// Unquoted value (no spaces or special chars)
+unquoted_value = @{ (ASCII_ALPHANUMERIC | "_" | "-" | ".")+ }
+
+// =============================================================================
+// Pseudo Selectors
+// =============================================================================
+
+/// Pseudo selector: :name or :name(arg)
+pseudo_selector = {
+    ":" ~ pseudo_name ~ ("(" ~ pseudo_arg ~ ")")?
+}
+
+/// Names for pseudo selectors
+pseudo_name = @{
+    "first-child" |
+    "last-child" |
+    "nth-child" |
+    "nth-last-child" |
+    "only-child" |
+    "first-of-type" |
+    "last-of-type" |
+    "nth-of-type" |
+    "nth-last-of-type" |
+    "only-of-type" |
+    "empty" |
+    "enabled" |
+    "disabled" |
+    "visible" |
+    "hidden" |
+    "showing" |
+    "focused" |
+    "focus" |
+    "selected" |
+    "checked" |
+    "editable" |
+    "readonly" |
+    "root" |
+    "not" |
+    "has" |
+    "contains"
+}
+
+/// Pseudo selector argument
+pseudo_arg = {
+    nth_expr |           // For nth-child, nth-of-type, etc.
+    string_arg           // For :contains(), :not(), :has()
+}
+
+/// Nth expression: number, odd, even, or an+b
+nth_expr = {
+    nth_odd |
+    nth_even |
+    nth_formula |
+    nth_number
+}
+
+nth_odd = { "odd" }
+nth_even = { "even" }
+nth_number = @{ "-"? ~ ASCII_DIGIT+ }
+nth_formula = { nth_a? ~ "n" ~ nth_b? }
+nth_a = @{ "-"? ~ ASCII_DIGIT* }
+nth_b = @{ ("+" | "-") ~ ASCII_DIGIT+ }
+
+/// String argument for :contains(), :not(), :has()
+string_arg = { quoted_string | unquoted_arg }
+unquoted_arg = @{ (!(")" | explicit_ws) ~ ANY)+ }
+
+// =============================================================================
+// Combinators
+// =============================================================================
+
+/// Combinators connect compound selectors
+/// Note: The order matters - explicit combinators must be tried before descendant
+combinator = {
+    child_combinator |
+    adjacent_sibling |
+    general_sibling |
+    descendant_combinator
+}
+
+/// Child combinator: > (with optional surrounding whitespace)
+child_combinator = { explicit_ws* ~ ">" ~ explicit_ws* }
+
+/// Adjacent sibling: + (with optional surrounding whitespace)
+adjacent_sibling = { explicit_ws* ~ "+" ~ explicit_ws* }
+
+/// General sibling: ~ (with optional surrounding whitespace)
+general_sibling = { explicit_ws* ~ "~" ~ explicit_ws* }
+
+/// Descendant combinator: at least one whitespace character
+descendant_combinator = { explicit_ws+ }
+
+/// Explicit whitespace characters (not silent - captured for combinator detection)
+explicit_ws = { " " | "\t" }
+
+// =============================================================================
+// XPath Expression
+// =============================================================================
+
+/// XPath-style expression starting with / or //
+xpath_expr = { xpath_start ~ xpath_step ~ ("/" ~ xpath_step)* }
+
+/// XPath start: / or //
+xpath_start = { "//" | "/" }
+
+/// Single step in XPath
+xpath_step = { xpath_axis? ~ xpath_node_test ~ xpath_predicate* }
+
+/// XPath axis (optional)
+xpath_axis = {
+    "child::" |
+    "descendant::" |
+    "descendant-or-self::" |
+    "parent::" |
+    "ancestor::" |
+    "ancestor-or-self::" |
+    "following::" |
+    "preceding::" |
+    "following-sibling::" |
+    "preceding-sibling::" |
+    "self::" |
+    "attribute::" |
+    ".." |
+    "." |
+    "@"
+}
+
+/// XPath node test: element name, *, or node type test
+xpath_node_test = {
+    xpath_node_type |
+    universal_selector |
+    type_name
+}
+
+/// XPath node type tests
+xpath_node_type = {
+    "node()" |
+    "text()" |
+    "comment()" |
+    "processing-instruction()"
+}
+
+/// XPath predicate: [...]
+xpath_predicate = { "[" ~ xpath_predicate_expr ~ "]" }
+
+/// XPath predicate expression
+xpath_predicate_expr = {
+    xpath_index |
+    xpath_function_call |
+    xpath_comparison |
+    xpath_attr_exists |
+    xpath_or_expr
+}
+
+/// Numeric index predicate
+xpath_index = @{ ASCII_DIGIT+ }
+
+/// XPath attribute existence check
+xpath_attr_exists = { "@" ~ attribute_name }
+
+/// XPath comparison: @attr='value'
+xpath_comparison = {
+    xpath_lhs ~ explicit_ws* ~ xpath_comp_op ~ explicit_ws* ~ xpath_rhs
+}
+
+xpath_lhs = { "@" ~ attribute_name | xpath_function_call }
+xpath_rhs = { quoted_string | xpath_number | xpath_function_call }
+xpath_number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+
+xpath_comp_op = {
+    "!=" |
+    "<=" |
+    ">=" |
+    "=" |
+    "<" |
+    ">"
+}
+
+/// XPath function calls
+xpath_function_call = {
+    xpath_function_name ~ "(" ~ xpath_function_args? ~ ")"
+}
+
+xpath_function_name = @{
+    "contains" |
+    "starts-with" |
+    "ends-with" |
+    "normalize-space" |
+    "text" |
+    "string" |
+    "string-length" |
+    "concat" |
+    "substring" |
+    "substring-before" |
+    "substring-after" |
+    "translate" |
+    "not" |
+    "true" |
+    "false" |
+    "last" |
+    "position" |
+    "count" |
+    "name" |
+    "local-name"
+}
+
+xpath_function_args = { xpath_function_arg ~ ("," ~ explicit_ws* ~ xpath_function_arg)* }
+xpath_function_arg = {
+    "@" ~ attribute_name |
+    quoted_string |
+    xpath_number |
+    xpath_function_call |
+    "."
+}
+
+/// XPath or expression (for complex predicates)
+xpath_or_expr = { xpath_and_expr ~ (explicit_ws* ~ "or" ~ explicit_ws* ~ xpath_and_expr)* }
+xpath_and_expr = { xpath_primary_expr ~ (explicit_ws* ~ "and" ~ explicit_ws* ~ xpath_primary_expr)* }
+xpath_primary_expr = {
+    "(" ~ xpath_predicate_expr ~ ")" |
+    xpath_comparison |
+    xpath_attr_exists |
+    xpath_function_call
+}
+
+// =============================================================================
+// Whitespace and Comments
+// =============================================================================
+
+// NOTE: explicit_ws is NOT defined to allow explicit whitespace handling for
+// descendant combinators. Whitespace must be handled explicitly in rules.
+// This allows "JFrame JButton" to be parsed as descendant combinator.
+
+/// Comment (CSS-style, for future use)
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }

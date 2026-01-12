@@ -1,0 +1,518 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://robotframework-swing.io/schemas/ui-tree.json",
+  "title": "UI Tree Schema",
+  "description": "Schema for Robot Framework Swing UI Tree output",
+  "type": "object",
+  "required": ["roots", "metadata", "statistics"],
+  "properties": {
+    "roots": {
+      "type": "array",
+      "description": "Root components of the UI tree",
+      "items": { "$ref": "#/definitions/UIComponent" }
+    },
+    "metadata": { "$ref": "#/definitions/TreeMetadata" },
+    "statistics": { "$ref": "#/definitions/TreeStatistics" }
+  },
+  "definitions": {
+    "UIComponent": {
+      "type": "object",
+      "required": ["id", "component_type", "identity", "geometry", "state", "metadata"],
+      "properties": {
+        "id": { "$ref": "#/definitions/ComponentId" },
+        "component_type": { "$ref": "#/definitions/ComponentType" },
+        "identity": { "$ref": "#/definitions/ComponentIdentity" },
+        "geometry": { "$ref": "#/definitions/ComponentGeometry" },
+        "state": { "$ref": "#/definitions/ComponentState" },
+        "properties": { "$ref": "#/definitions/ComponentProperties" },
+        "accessibility": { "$ref": "#/definitions/AccessibilityInfo" },
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/UIComponent" }
+        },
+        "metadata": { "$ref": "#/definitions/TraversalMetadata" }
+      }
+    },
+    "ComponentId": {
+      "type": "object",
+      "required": ["hash_code", "tree_path", "depth"],
+      "properties": {
+        "hash_code": {
+          "type": "integer",
+          "description": "Java object hash code"
+        },
+        "tree_path": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)*$",
+          "description": "Path from root (e.g., '0.2.1.0')"
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Depth level in tree"
+        }
+      }
+    },
+    "ComponentType": {
+      "type": "object",
+      "required": ["class_name", "simple_name", "base_type"],
+      "properties": {
+        "class_name": {
+          "type": "string",
+          "description": "Full Java class name (e.g., 'javax.swing.JButton')"
+        },
+        "simple_name": {
+          "type": "string",
+          "description": "Simple class name (e.g., 'JButton')"
+        },
+        "base_type": {
+          "type": "string",
+          "enum": [
+            "frame", "dialog", "panel", "scroll_pane", "split_pane",
+            "tabbed_pane", "tool_bar", "internal_frame", "layered_pane",
+            "root_pane", "desktop_pane", "content_pane",
+            "button", "toggle_button", "check_box", "radio_button",
+            "label", "text_field", "text_area", "password_field",
+            "editor_pane", "text_pane", "formatted_text_field",
+            "combo_box", "list", "spinner", "slider",
+            "table", "tree", "progress_bar",
+            "menu_bar", "menu", "menu_item", "popup_menu",
+            "check_box_menu_item", "radio_button_menu_item",
+            "separator", "tool_tip", "color_chooser", "file_chooser",
+            "option_pane", "viewport", "scroll_bar", "custom"
+          ],
+          "description": "Base Swing component type"
+        },
+        "interfaces": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "All implemented interfaces"
+        },
+        "class_hierarchy": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Superclass hierarchy"
+        }
+      }
+    },
+    "ComponentIdentity": {
+      "type": "object",
+      "description": "Identity and naming properties",
+      "properties": {
+        "name": {
+          "type": ["string", "null"],
+          "description": "Component name from setName()"
+        },
+        "text": {
+          "type": ["string", "null"],
+          "description": "Text content from getText()"
+        },
+        "title": {
+          "type": ["string", "null"],
+          "description": "Title for frames, dialogs, titled borders"
+        },
+        "tooltip": {
+          "type": ["string", "null"],
+          "description": "Tooltip text"
+        },
+        "action_command": {
+          "type": ["string", "null"],
+          "description": "Action command for buttons"
+        },
+        "label_text": {
+          "type": ["string", "null"],
+          "description": "Associated label text"
+        },
+        "internal_name": {
+          "type": ["string", "null"],
+          "description": "Internal name for test automation"
+        }
+      }
+    },
+    "ComponentGeometry": {
+      "type": "object",
+      "required": ["bounds", "preferred_size", "minimum_size", "maximum_size"],
+      "description": "Spatial/geometric properties",
+      "properties": {
+        "bounds": { "$ref": "#/definitions/Bounds" },
+        "screen_location": { "$ref": "#/definitions/Point" },
+        "preferred_size": { "$ref": "#/definitions/Dimension" },
+        "minimum_size": { "$ref": "#/definitions/Dimension" },
+        "maximum_size": { "$ref": "#/definitions/Dimension" },
+        "alignment": { "$ref": "#/definitions/Alignment" }
+      }
+    },
+    "Bounds": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "Point": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" }
+      }
+    },
+    "Dimension": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer" },
+        "height": { "type": "integer" }
+      }
+    },
+    "Alignment": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "ComponentState": {
+      "type": "object",
+      "required": ["visible", "showing", "enabled", "focusable", "focused"],
+      "description": "State properties",
+      "properties": {
+        "visible": {
+          "type": "boolean",
+          "description": "Is component visible"
+        },
+        "showing": {
+          "type": "boolean",
+          "description": "Is component showing on screen"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Is component enabled"
+        },
+        "focusable": {
+          "type": "boolean",
+          "description": "Is component focusable"
+        },
+        "focused": {
+          "type": "boolean",
+          "description": "Has focus"
+        },
+        "opaque": {
+          "type": "boolean",
+          "description": "Is component opaque"
+        },
+        "valid": {
+          "type": "boolean",
+          "description": "Is component valid (layout calculated)"
+        },
+        "double_buffered": {
+          "type": "boolean",
+          "description": "Is double buffered"
+        },
+        "selected": {
+          "type": ["boolean", "null"],
+          "description": "Is selected (for toggle buttons, list items)"
+        },
+        "editable": {
+          "type": ["boolean", "null"],
+          "description": "Is editable (for text components)"
+        }
+      }
+    },
+    "ComponentProperties": {
+      "type": "object",
+      "required": ["type"],
+      "description": "Component-specific properties",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "Button", "TextField", "ComboBox", "List", "Table",
+            "Tree", "Slider", "ProgressBar", "TabbedPane", "Spinner",
+            "Menu", "ScrollPane", "SplitPane", "Generic"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "description": "Type-specific property data"
+        }
+      }
+    },
+    "ButtonProperties": {
+      "type": "object",
+      "properties": {
+        "mnemonic": { "type": ["string", "null"] },
+        "icon_path": { "type": ["string", "null"] },
+        "pressed": { "type": "boolean" },
+        "rollover": { "type": "boolean" },
+        "content_area_filled": { "type": "boolean" },
+        "border_painted": { "type": "boolean" }
+      }
+    },
+    "TextFieldProperties": {
+      "type": "object",
+      "properties": {
+        "columns": { "type": "integer" },
+        "caret_position": { "type": "integer" },
+        "selection_start": { "type": "integer" },
+        "selection_end": { "type": "integer" },
+        "horizontal_alignment": { "type": "integer" },
+        "echo_char": { "type": ["string", "null"] }
+      }
+    },
+    "ComboBoxProperties": {
+      "type": "object",
+      "properties": {
+        "item_count": { "type": "integer" },
+        "selected_index": { "type": "integer" },
+        "selected_item": { "type": ["string", "null"] },
+        "items": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "is_popup_visible": { "type": "boolean" },
+        "maximum_row_count": { "type": "integer" }
+      }
+    },
+    "ListProperties": {
+      "type": "object",
+      "properties": {
+        "item_count": { "type": "integer" },
+        "selected_indices": {
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "selected_values": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "visible_row_count": { "type": "integer" },
+        "selection_mode": {
+          "type": "string",
+          "enum": ["Single", "SingleInterval", "MultipleInterval"]
+        },
+        "items": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "TableProperties": {
+      "type": "object",
+      "properties": {
+        "row_count": { "type": "integer" },
+        "column_count": { "type": "integer" },
+        "selected_rows": {
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "selected_columns": {
+          "type": "array",
+          "items": { "type": "integer" }
+        },
+        "column_names": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "auto_resize_mode": { "type": "integer" },
+        "row_height": { "type": "integer" },
+        "show_grid": { "type": "boolean" },
+        "cell_selection_enabled": { "type": "boolean" },
+        "row_selection_allowed": { "type": "boolean" },
+        "column_selection_allowed": { "type": "boolean" }
+      }
+    },
+    "TreeProperties": {
+      "type": "object",
+      "properties": {
+        "row_count": { "type": "integer" },
+        "selection_count": { "type": "integer" },
+        "selected_paths": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "expanded_paths": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "root_visible": { "type": "boolean" },
+        "shows_root_handles": { "type": "boolean" },
+        "row_height": { "type": "integer" },
+        "large_model": { "type": "boolean" }
+      }
+    },
+    "AccessibilityInfo": {
+      "type": "object",
+      "description": "Accessibility information",
+      "properties": {
+        "accessible_name": { "type": ["string", "null"] },
+        "accessible_description": { "type": ["string", "null"] },
+        "accessible_role": { "type": ["string", "null"] },
+        "accessible_state": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "TraversalMetadata": {
+      "type": "object",
+      "required": ["sibling_index", "sibling_count", "child_count", "is_leaf"],
+      "description": "Traversal metadata",
+      "properties": {
+        "sibling_index": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Index among siblings"
+        },
+        "sibling_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Total sibling count"
+        },
+        "child_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of children"
+        },
+        "is_leaf": {
+          "type": "boolean",
+          "description": "Is leaf node"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Traversal timestamp"
+        },
+        "children_loaded": {
+          "type": "boolean",
+          "description": "Whether children are loaded"
+        }
+      }
+    },
+    "TreeMetadata": {
+      "type": "object",
+      "required": ["captured_at", "library_version", "max_depth"],
+      "description": "Tree metadata",
+      "properties": {
+        "application_name": { "type": ["string", "null"] },
+        "captured_at": { "type": "string", "format": "date-time" },
+        "library_version": { "type": "string" },
+        "jvm_version": { "type": ["string", "null"] },
+        "filter_applied": { "$ref": "#/definitions/FilterSpecification" },
+        "max_depth": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "TreeStatistics": {
+      "type": "object",
+      "required": ["total_components", "max_depth"],
+      "description": "Statistics about the tree",
+      "properties": {
+        "total_components": { "type": "integer", "minimum": 0 },
+        "components_by_type": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "visible_count": { "type": "integer", "minimum": 0 },
+        "enabled_count": { "type": "integer", "minimum": 0 },
+        "capture_duration_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "FilterSpecification": {
+      "type": "object",
+      "description": "Filter specification",
+      "properties": {
+        "component_types": {
+          "type": "object",
+          "properties": {
+            "include_types": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "exclude_types": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "class_pattern": { "type": "string" },
+            "interfaces": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "extends": { "type": "string" }
+          }
+        },
+        "properties": {
+          "type": "object",
+          "properties": {
+            "conditions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "path": { "type": "string" },
+                  "operator": { "type": "string" },
+                  "value": {}
+                }
+              }
+            }
+          }
+        },
+        "depth": {
+          "type": "object",
+          "properties": {
+            "min_depth": { "type": "integer", "minimum": 0 },
+            "max_depth": { "type": "integer", "minimum": 0 },
+            "exact_depth": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "state": {
+          "type": "object",
+          "properties": {
+            "visible": { "type": "boolean" },
+            "showing": { "type": "boolean" },
+            "enabled": { "type": "boolean" },
+            "focusable": { "type": "boolean" },
+            "focused": { "type": "boolean" },
+            "selected": { "type": "boolean" },
+            "editable": { "type": "boolean" }
+          }
+        },
+        "patterns": {
+          "type": "object",
+          "properties": {
+            "name_pattern": { "$ref": "#/definitions/PatternSpec" },
+            "text_pattern": { "$ref": "#/definitions/PatternSpec" },
+            "tooltip_pattern": { "$ref": "#/definitions/PatternSpec" },
+            "title_pattern": { "$ref": "#/definitions/PatternSpec" },
+            "any_text_pattern": { "$ref": "#/definitions/PatternSpec" }
+          }
+        },
+        "expression": { "type": "string" },
+        "combination": {
+          "type": "string",
+          "enum": ["and", "or"],
+          "default": "and"
+        }
+      }
+    },
+    "PatternSpec": {
+      "type": "object",
+      "required": ["pattern", "pattern_type"],
+      "properties": {
+        "pattern": { "type": "string" },
+        "pattern_type": {
+          "type": "string",
+          "enum": ["exact", "glob", "regex", "contains"]
+        },
+        "case_sensitive": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  }
+}

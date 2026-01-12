@@ -1,0 +1,133 @@
+# =============================================================================
+# Rust
+# =============================================================================
+/target/
+**/*.rs.bk
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.dylib
+*.dll
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# =============================================================================
+# Java
+# =============================================================================
+agent/target/
+agent/build/
+agent/.gradle/
+demo/target/
+demo/build/
+demo/.gradle/
+*.class
+
+# Third-party demo JARs (large binary files)
+demo/*.jar
+!demo/src/
+
+# =============================================================================
+# Test Output
+# =============================================================================
+/results/
+output.xml
+log.html
+report.html
+screenshot*.png
+custom_screenshot.png
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# =============================================================================
+# IDE / Editor
+# =============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# Claude Code / Flow (Runtime Data)
+# =============================================================================
+.claude/settings.local.json
+.claude-flow/metrics/
+.swarm/*.db*
+.hive-mind/*.db
+memory/claude-flow@alpha-data.json
+memory/claude-flow-data.json
+
+# Keep directory structure
+memory/sessions/*
+!memory/sessions/README.md
+memory/agents/*
+!memory/agents/README.md
+
+# Coordination runtime
+coordination/memory_bank/*
+coordination/subtasks/*
+coordination/orchestration/*
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+
+# Prompt files
+hive-mind-prompt-*.txt
+
+# =============================================================================
+# Temporary Files
+# =============================================================================
+*.tmp
+*.temp
+*.bak
+*.log
