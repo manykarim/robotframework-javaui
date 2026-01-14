@@ -30,6 +30,9 @@ try:
     from swing_library._core import (
         SwingLibrary as _SwingLibrary,
         SwingElement as _SwingElement,
+        SwtLibrary as _SwtLibrary,
+        SwtElement as _SwtElement,
+        RcpLibrary as _RcpLibrary,
         SwingConnectionError,
         ElementNotFoundError,
         MultipleElementsFoundError,
@@ -50,6 +53,9 @@ __version__ = "0.1.0"
 __all__ = [
     "SwingLibrary",
     "SwingElement",
+    "SwtLibrary",
+    "SwtElement",
+    "RcpLibrary",
     "SwingError",
     "ConnectionError",
     "ElementNotFoundError",
@@ -58,6 +64,16 @@ __all__ = [
     "ROBOT_LIBRARY_SCOPE",
     "ROBOT_LIBRARY_VERSION",
 ]
+
+# Re-export SWT/RCP classes with public names
+if _RUST_AVAILABLE:
+    SwtLibrary = _SwtLibrary
+    SwtElement = _SwtElement
+    RcpLibrary = _RcpLibrary
+else:
+    SwtLibrary = None
+    SwtElement = None
+    RcpLibrary = None
 
 ROBOT_LIBRARY_DOC_FORMAT = "REST"
 ROBOT_LIBRARY_SCOPE = "GLOBAL"
@@ -113,13 +129,17 @@ class SwingLibrary:
         poll_interval: float = 0.5,
         screenshot_directory: str = ".",
     ) -> None:
-        """
-        Initialize the Swing Library.
+        """Initialize the Swing Library.
 
-        Args:
-            timeout: Default timeout in seconds for wait operations.
-            poll_interval: Polling interval in seconds for wait operations.
-            screenshot_directory: Directory to save screenshots.
+        | =Argument= | =Description= |
+        | ``timeout`` | Default timeout in seconds for wait operations. Default ``10.0``. |
+        | ``poll_interval`` | Polling interval in seconds for wait operations. Default ``0.5``. |
+        | ``screenshot_directory`` | Directory to save screenshots. Default ``.`` (current). |
+
+        Example:
+        | =Setting= | =Value= | =Value= |
+        | Library | swing_library.SwingLibrary | |
+        | Library | swing_library.SwingLibrary | timeout=30 |
         """
         if not _RUST_AVAILABLE:
             raise ImportError(
@@ -148,26 +168,25 @@ class SwingLibrary:
         port: int = 5678,
         timeout: Optional[float] = None,
     ) -> None:
-        """
-        Connect to a running Java Swing application.
+        """Connect to a running Java Swing application.
 
         Connects to a JVM running a Swing application. The target application
         can be identified by name, process ID, main class name, or window title.
 
-        Args:
-            application: Application identifier (name, pid, main_class, or title).
-            pid: Process ID of the target JVM (alternative to application).
-            main_class: Fully qualified or simple name of the main class.
-            title: Window title pattern (supports wildcards with *).
-            host: Host where the agent is running (default: localhost).
-            port: Port the agent is listening on (default: 5678).
-            timeout: Connection timeout in seconds.
+        | =Argument= | =Description= |
+        | ``application`` | Application identifier (name, pid, main_class, or title). |
+        | ``pid`` | Process ID of the target JVM (alternative to application). |
+        | ``main_class`` | Fully qualified or simple name of the main class. |
+        | ``title`` | Window title pattern (supports wildcards with ``*``). |
+        | ``host`` | Host where the agent is running. Default ``localhost``. |
+        | ``port`` | Port the agent is listening on. Default ``5678``. |
+        | ``timeout`` | Connection timeout in seconds. Uses library default if not set. |
 
-        Examples:
-            | Connect To Application | MyApp |
-            | Connect To Application | main_class=com.example.MyApp |
-            | Connect To Application | title=*Main Window* |
-            | Connect To Application | application=MyApp | host=localhost | port=5678 |
+        Example:
+        | `Connect To Application` | MyApp | | |
+        | `Connect To Application` | main_class=com.example.MyApp | | |
+        | `Connect To Application` | title=*Main Window* | | |
+        | `Connect To Application` | application=MyApp | host=localhost | port=5678 |
         """
         # Build application identifier from various options
         app_id = application
@@ -185,28 +204,39 @@ class SwingLibrary:
         self._lib.connect_to_application(app_id, host, port, timeout_val)
 
     def disconnect(self) -> None:
-        """
-        Disconnect from the current application.
+        """Disconnect from the current application.
 
         Closes the connection to the Swing application and cleans up resources.
+        This should be called in test teardown.
+
+        Example:
+        | `Connect To Application` | MyApp |
+        | # ... perform test actions ... | |
+        | `Disconnect` | |
         """
         self._lib.disconnect_from_application()
 
     def is_connected(self) -> bool:
-        """
-        Check if connected to an application.
+        """Check if connected to an application.
 
-        Returns:
-            True if connected, False otherwise.
+        Returns ``True`` if currently connected to a Swing application,
+        ``False`` otherwise.
+
+        Example:
+        | ${connected}= | `Is Connected` |
+        | Should Be True | ${connected} |
         """
         return self._lib.is_connected()
 
     def get_connection_info(self) -> Dict[str, Any]:
-        """
-        Get information about the current connection.
+        """Get information about the current connection.
 
-        Returns:
-            Dictionary with connection details.
+        Returns a dictionary containing connection details such as host, port,
+        and application identifier.
+
+        Example:
+        | ${info}= | `Get Connection Info` |
+        | Log | Connected to: ${info}[host]:${info}[port] |
         """
         return self._lib.get_connection_info()
 
@@ -215,37 +245,33 @@ class SwingLibrary:
     # ==========================================================================
 
     def find_element(self, locator: str) -> "_SwingElement":
-        """
-        Find a single element matching the locator.
+        """Find a single element matching the locator.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Returns:
-            SwingElement matching the locator.
+        Returns a ``SwingElement`` matching the locator.
 
-        Raises:
-            ElementNotFoundError: If no element matches.
+        Raises ``ElementNotFoundError`` if no element matches the locator.
 
-        Examples:
-            | ${button}= | Find Element | JButton#submit |
-            | ${field}= | Find Element | //JTextField[@name='username'] |
+        Example:
+        | ${button}= | `Find Element` | JButton#submit |
+        | ${field}= | `Find Element` | //JTextField[@name='username'] |
         """
         return self._lib.find_element(locator)
 
     def find_elements(self, locator: str) -> List["_SwingElement"]:
-        """
-        Find all elements matching the locator.
+        """Find all elements matching the locator.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Returns:
-            List of SwingElements matching the locator.
+        Returns a list of ``SwingElement`` objects matching the locator.
+        Returns an empty list if no elements match.
 
-        Examples:
-            | ${buttons}= | Find Elements | JButton |
-            | Length Should Be | ${buttons} | 5 |
+        Example:
+        | ${buttons}= | `Find Elements` | JButton |
+        | Length Should Be | ${buttons} | 5 |
         """
         return self._lib.find_elements(locator)
 
@@ -254,15 +280,17 @@ class SwingLibrary:
         locator: str,
         timeout: Optional[float] = None,
     ) -> None:
-        """
-        Wait until an element exists.
+        """Wait until an element exists in the UI tree.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            timeout: Maximum wait time in seconds.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
 
-        Examples:
-            | Wait Until Element Exists | JButton#submit | timeout=30 |
+        Raises ``TimeoutError`` if element does not exist within timeout.
+
+        Example:
+        | `Wait Until Element Exists` | JButton#submit | |
+        | `Wait Until Element Exists` | JButton#submit | timeout=30 |
         """
         timeout_val = timeout if timeout is not None else self._timeout
         self._lib.wait_until_element_exists(locator, timeout_val)
@@ -272,15 +300,17 @@ class SwingLibrary:
         locator: str,
         timeout: Optional[float] = None,
     ) -> None:
-        """
-        Wait until an element no longer exists.
+        """Wait until an element no longer exists in the UI tree.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            timeout: Maximum wait time in seconds.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
 
-        Examples:
-            | Wait Until Element Does Not Exist | JDialog#loading | timeout=60 |
+        Raises ``TimeoutError`` if element still exists after timeout.
+
+        Example:
+        | `Wait Until Element Does Not Exist` | JDialog#loading | |
+        | `Wait Until Element Does Not Exist` | JDialog#loading | timeout=60 |
         """
         timeout_val = timeout if timeout is not None else self._timeout
         self._lib.wait_until_element_does_not_exist(locator, timeout_val)
@@ -290,55 +320,59 @@ class SwingLibrary:
     # ==========================================================================
 
     def click(self, locator: str) -> None:
-        """
-        Click on an element.
+        """Click on an element.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Examples:
-            | Click | JButton#submit |
-            | Click | //JButton[@text='OK'] |
+        Performs a single left-click on the element.
+
+        Example:
+        | `Click` | JButton#submit |
+        | `Click` | //JButton[@text='OK'] |
         """
         self._lib.click_element(locator, click_count=1)
 
     def click_element(self, locator: str, click_count: int = 1) -> None:
-        """
-        Click on an element with specified click count.
+        """Click on an element with specified click count.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            click_count: Number of clicks (1=single, 2=double).
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``click_count`` | Number of clicks. ``1`` for single click, ``2`` for double click. Default ``1``. |
 
-        Examples:
-            | Click Element | JButton#submit |
-            | Click Element | JTable | click_count=2 |
+        Example:
+        | `Click Element` | JButton#submit | |
+        | `Click Element` | JTable | click_count=2 |
         """
         self._lib.click_element(locator, click_count=click_count)
 
     def double_click(self, locator: str) -> None:
-        """
-        Double-click on an element.
+        """Double-click on an element.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Examples:
-            | Double Click | JTable |
-            | Double Click | JList#items |
+        Performs a double left-click on the element. Useful for opening items
+        in tables, lists, or trees.
+
+        Example:
+        | `Double Click` | JTable |
+        | `Double Click` | JList#items |
         """
         self._lib.click_element(locator, click_count=2)
 
     def click_button(self, locator: str) -> None:
-        """
-        Click a button element.
+        """Click a button element.
 
-        Args:
-            locator: CSS or XPath-like locator string for the button.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string for the button. See `Locator Syntax`. |
 
-        Examples:
-            | Click Button | JButton#submit |
-            | Click Button | #okButton |
+        Specialized click for ``JButton`` components. Ensures the element
+        is a button before clicking.
+
+        Example:
+        | `Click Button` | JButton#submit |
+        | `Click Button` | #okButton |
         """
         self._lib.click_button(locator)
 
@@ -347,30 +381,34 @@ class SwingLibrary:
     # ==========================================================================
 
     def input_text(self, locator: str, text: str, clear: bool = True) -> None:
-        """
-        Input text into a text field.
+        """Input text into a text field.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            text: Text to input.
-            clear: Whether to clear existing text first (default: True).
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``text`` | Text to input into the field. |
+        | ``clear`` | Whether to clear existing text first. Default ``True``. |
 
-        Examples:
-            | Input Text | #username | testuser |
-            | Input Text | JTextField:first-child | Hello World |
-            | Input Text | #field | append this | clear=False |
+        When ``clear`` is ``True``, any existing text is removed before typing.
+        Set ``clear=False`` to append to existing text.
+
+        Example:
+        | `Input Text` | #username | testuser | |
+        | `Input Text` | JTextField:first-child | Hello World | |
+        | `Input Text` | #field | append this | clear=False |
         """
         self._lib.input_text(locator, text, clear=clear)
 
     def clear_text(self, locator: str) -> None:
-        """
-        Clear text from a text field.
+        """Clear text from a text field.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Examples:
-            | Clear Text | #searchField |
+        Removes all text from the specified text field.
+
+        Example:
+        | `Clear Text` | #searchField |
+        | `Clear Text` | JTextField#input |
         """
         self._lib.clear_text(locator)
 
@@ -379,51 +417,57 @@ class SwingLibrary:
     # ==========================================================================
 
     def select_from_combobox(self, locator: str, value: str) -> None:
-        """
-        Select an item from a combo box.
+        """Select an item from a combo box.
 
-        Args:
-            locator: CSS or XPath-like locator string for the combo box.
-            value: Item text to select.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JComboBox``. See `Locator Syntax`. |
+        | ``value`` | Item text to select from the dropdown. |
 
-        Examples:
-            | Select From Combobox | #countryCombo | United States |
+        Example:
+        | `Select From Combobox` | #countryCombo | United States |
+        | `Select From Combobox` | JComboBox#language | English |
         """
         self._lib.select_from_combobox(locator, value)
 
     def check_checkbox(self, locator: str) -> None:
-        """
-        Check a checkbox.
+        """Check a checkbox.
 
-        Args:
-            locator: CSS or XPath-like locator string for the checkbox.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JCheckBox``. See `Locator Syntax`. |
 
-        Examples:
-            | Check Checkbox | #rememberMe |
+        Sets the checkbox to checked state. If already checked, does nothing.
+
+        Example:
+        | `Check Checkbox` | #rememberMe |
+        | `Check Checkbox` | JCheckBox#acceptTerms |
         """
         self._lib.check_checkbox(locator)
 
     def uncheck_checkbox(self, locator: str) -> None:
-        """
-        Uncheck a checkbox.
+        """Uncheck a checkbox.
 
-        Args:
-            locator: CSS or XPath-like locator string for the checkbox.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JCheckBox``. See `Locator Syntax`. |
 
-        Examples:
-            | Uncheck Checkbox | #newsletter |
+        Sets the checkbox to unchecked state. If already unchecked, does nothing.
+
+        Example:
+        | `Uncheck Checkbox` | #newsletter |
+        | `Uncheck Checkbox` | JCheckBox#sendUpdates |
         """
         self._lib.uncheck_checkbox(locator)
 
     def select_radio_button(self, locator: str) -> None:
-        """
-        Select a radio button.
+        """Select a radio button.
 
-        Args:
-            locator: CSS or XPath-like locator string for the radio button.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JRadioButton``. See `Locator Syntax`. |
 
-        Examples:
-            | Select Radio Button | #optionA |
+        Selects the specified radio button within its button group.
+
+        Example:
+        | `Select Radio Button` | #optionA |
+        | `Select Radio Button` | JRadioButton#male |
         """
         self._lib.select_radio_button(locator)
 
@@ -432,77 +476,78 @@ class SwingLibrary:
     # ==========================================================================
 
     def get_table_cell_value(self, locator: str, row: int, column: Union[int, str]) -> str:
-        """
-        Get the value of a table cell.
+        """Get the value of a table cell.
 
-        Args:
-            locator: CSS or XPath-like locator string for JTable.
-            row: Row index (0-based).
-            column: Column index (0-based) or column name.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTable``. See `Locator Syntax`. |
+        | ``row`` | Row index (0-based). |
+        | ``column`` | Column index (0-based) or column name as string. |
 
-        Returns:
-            Cell value as string.
+        Returns the cell value as a string.
 
-        Examples:
-            | ${value}= | Get Table Cell Value | JTable | 0 | 1 |
-            | ${value}= | Get Table Cell Value | JTable | 0 | Name |
+        Example:
+        | ${value}= | `Get Table Cell Value` | JTable | 0 | 1 |
+        | ${value}= | `Get Table Cell Value` | JTable | 0 | Name |
+        | Should Be Equal | ${value} | John |
         """
         return self._lib.get_table_cell_value(locator, row, str(column))
 
     def select_table_cell(self, locator: str, row: int, column: int) -> None:
-        """
-        Select a table cell.
+        """Select a table cell.
 
-        Args:
-            locator: CSS or XPath-like locator string for JTable.
-            row: Row index (0-based).
-            column: Column index (0-based).
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTable``. See `Locator Syntax`. |
+        | ``row`` | Row index (0-based). |
+        | ``column`` | Column index (0-based). |
 
-        Examples:
-            | Select Table Cell | #dataTable | 2 | 3 |
+        Selects (clicks) the specified cell in the table.
+
+        Example:
+        | `Select Table Cell` | #dataTable | 2 | 3 |
+        | `Select Table Cell` | JTable#users | 0 | 0 |
         """
         self._lib.select_table_cell(locator, row, column)
 
     def select_table_row(self, locator: str, row: int) -> None:
-        """
-        Select a table row.
+        """Select a table row.
 
-        Args:
-            locator: CSS or XPath-like locator string for JTable.
-            row: Row index (0-based).
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTable``. See `Locator Syntax`. |
+        | ``row`` | Row index (0-based). |
 
-        Examples:
-            | Select Table Row | #dataTable | 2 |
+        Selects the entire row in the table.
+
+        Example:
+        | `Select Table Row` | #dataTable | 2 |
+        | `Select Table Row` | JTable#users | 0 |
         """
         self._lib.select_table_row(locator, row)
 
     def get_table_row_count(self, locator: str) -> int:
-        """
-        Get the number of rows in a table.
+        """Get the number of rows in a table.
 
-        Args:
-            locator: CSS or XPath-like locator string for JTable.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTable``. See `Locator Syntax`. |
 
-        Returns:
-            Number of rows.
+        Returns the total number of rows in the table.
 
-        Examples:
-            | ${count}= | Get Table Row Count | JTable |
+        Example:
+        | ${count}= | `Get Table Row Count` | JTable |
+        | Should Be Equal As Integers | ${count} | 10 |
         """
         return self._lib.get_table_row_count(locator)
 
     def get_table_column_count(self, locator: str) -> int:
-        """
-        Get the number of columns in a table.
+        """Get the number of columns in a table.
 
-        Args:
-            locator: CSS or XPath-like locator string for JTable.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTable``. See `Locator Syntax`. |
 
-        Returns:
-            Number of columns.
+        Returns the total number of columns in the table.
 
-        Examples:
-            | ${count}= | Get Table Column Count | JTable |
+        Example:
+        | ${count}= | `Get Table Column Count` | JTable |
+        | Should Be Equal As Integers | ${count} | 5 |
         """
         return self._lib.get_table_column_count(locator)
 
@@ -511,56 +556,69 @@ class SwingLibrary:
     # ==========================================================================
 
     def expand_tree_node(self, locator: str, path: str) -> None:
-        """
-        Expand a tree node.
+        """Expand a tree node.
 
-        Args:
-            locator: CSS or XPath-like locator string for JTree.
-            path: Node path separated by '/'.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTree``. See `Locator Syntax`. |
+        | ``path`` | Node path separated by ``/`` or ``|`` (pipe). |
 
-        Examples:
-            | Expand Tree Node | JTree | Root/Folder/Subfolder |
+        Expands the tree node at the specified path, making child nodes visible.
+
+        Example:
+        | `Expand Tree Node` | JTree | Root/Folder/Subfolder |
+        | `Expand Tree Node` | JTree | Root|Folder|Subfolder |
+        | `Expand Tree Node` | #fileTree | Documents |
         """
-        self._lib.expand_tree_node(locator, path)
+        # Convert pipe separator to slash for Java agent compatibility
+        normalized_path = path.replace("|", "/")
+        self._lib.expand_tree_node(locator, normalized_path)
 
     def collapse_tree_node(self, locator: str, path: str) -> None:
-        """
-        Collapse a tree node.
+        """Collapse a tree node.
 
-        Args:
-            locator: CSS or XPath-like locator string for JTree.
-            path: Node path separated by '/'.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTree``. See `Locator Syntax`. |
+        | ``path`` | Node path separated by ``/`` or ``|`` (pipe). |
 
-        Examples:
-            | Collapse Tree Node | #fileTree | Documents/Downloads |
+        Collapses the tree node at the specified path, hiding child nodes.
+
+        Example:
+        | `Collapse Tree Node` | #fileTree | Documents/Downloads |
+        | `Collapse Tree Node` | JTree | Root|Folder |
         """
-        self._lib.collapse_tree_node(locator, path)
+        # Convert pipe separator to slash for Java agent compatibility
+        normalized_path = path.replace("|", "/")
+        self._lib.collapse_tree_node(locator, normalized_path)
 
     def select_tree_node(self, locator: str, path: str) -> None:
-        """
-        Select a tree node.
+        """Select a tree node.
 
-        Args:
-            locator: CSS or XPath-like locator string for JTree.
-            path: Node path separated by '/'.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTree``. See `Locator Syntax`. |
+        | ``path`` | Node path separated by ``/`` or ``|`` (pipe). |
 
-        Examples:
-            | Select Tree Node | JTree | Root/Config/Settings |
+        Selects (highlights) the tree node at the specified path.
+
+        Example:
+        | `Select Tree Node` | JTree | Root/Config/Settings |
+        | `Select Tree Node` | JTree | Root|Config|Settings |
+        | `Select Tree Node` | #projectTree | src/main/java |
         """
-        self._lib.select_tree_node(locator, path)
+        # Convert pipe separator to slash for Java agent compatibility
+        normalized_path = path.replace("|", "/")
+        self._lib.select_tree_node(locator, normalized_path)
 
     def get_selected_tree_node(self, locator: str) -> Optional[str]:
-        """
-        Get the currently selected tree node path.
+        """Get the currently selected tree node path.
 
-        Args:
-            locator: CSS or XPath-like locator string for JTree.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTree``. See `Locator Syntax`. |
 
-        Returns:
-            Selected node path or None if no selection.
+        Returns the path of the currently selected node, or ``None`` if no node is selected.
 
-        Examples:
-            | ${path}= | Get Selected Tree Node | JTree |
+        Example:
+        | ${path}= | `Get Selected Tree Node` | JTree |
+        | Should Be Equal | ${path} | Root/Config/Settings |
         """
         return self._lib.get_selected_tree_node(locator)
 
@@ -569,28 +627,33 @@ class SwingLibrary:
     # ==========================================================================
 
     def select_menu(self, menu_path: str) -> None:
-        """
-        Select a menu item.
+        """Select a menu item from the menu bar.
 
-        Args:
-            menu_path: Menu path separated by '|' (e.g., "File|Save As").
+        | =Argument= | =Description= |
+        | ``menu_path`` | Menu path separated by ``|`` (pipe character). |
 
-        Examples:
-            | Select Menu | File|New |
-            | Select Menu | Edit|Copy |
+        Navigates through the menu hierarchy and clicks the final item.
+
+        Example:
+        | `Select Menu` | File|New |
+        | `Select Menu` | Edit|Copy |
+        | `Select Menu` | File|Export|As PDF |
         """
         self._lib.select_menu(menu_path)
 
     def select_from_popup_menu(self, menu_path: str) -> None:
-        """
-        Select an item from a popup/context menu.
+        """Select an item from a popup/context menu.
 
-        Args:
-            menu_path: Menu path separated by '|'.
+        | =Argument= | =Description= |
+        | ``menu_path`` | Menu path separated by ``|`` (pipe character). |
 
-        Examples:
-            | Select From Popup Menu | Copy |
-            | Select From Popup Menu | Edit|Paste |
+        Use after right-clicking to open a context menu. Navigates through
+        the popup menu hierarchy and clicks the final item.
+
+        Example:
+        | `Right Click` | JTree#files |
+        | `Select From Popup Menu` | Copy |
+        | `Select From Popup Menu` | Edit|Paste |
         """
         self._lib.select_from_popup_menu(menu_path)
 
@@ -603,15 +666,18 @@ class SwingLibrary:
         locator: str,
         timeout: Optional[float] = None,
     ) -> None:
-        """
-        Wait until an element becomes visible.
+        """Wait until an element becomes visible.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            timeout: Maximum wait time in seconds.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
 
-        Examples:
-            | Wait Until Element Is Visible | JLabel#status | timeout=15 |
+        Waits until the element exists and is visible (not hidden).
+        Raises ``TimeoutError`` if element is not visible within timeout.
+
+        Example:
+        | `Wait Until Element Is Visible` | JLabel#status | |
+        | `Wait Until Element Is Visible` | JLabel#status | timeout=15 |
         """
         timeout_val = timeout if timeout is not None else self._timeout
         self._lib.wait_until_element_is_visible(locator, timeout_val)
@@ -621,15 +687,18 @@ class SwingLibrary:
         locator: str,
         timeout: Optional[float] = None,
     ) -> None:
-        """
-        Wait until an element becomes enabled.
+        """Wait until an element becomes enabled.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            timeout: Maximum wait time in seconds.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
 
-        Examples:
-            | Wait Until Element Is Enabled | JButton#next | timeout=10 |
+        Waits until the element is enabled and can receive user input.
+        Raises ``TimeoutError`` if element is not enabled within timeout.
+
+        Example:
+        | `Wait Until Element Is Enabled` | JButton#next | |
+        | `Wait Until Element Is Enabled` | JButton#next | timeout=10 |
         """
         timeout_val = timeout if timeout is not None else self._timeout
         self._lib.wait_until_element_is_enabled(locator, timeout_val)
@@ -639,125 +708,117 @@ class SwingLibrary:
     # ==========================================================================
 
     def element_should_be_visible(self, locator: str) -> None:
-        """
-        Verify that an element is visible.
+        """Verify that an element is visible.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Raises:
-            AssertionError: If element is not visible.
+        Fails if the element is not visible.
 
-        Examples:
-            | Element Should Be Visible | JPanel#main |
+        Example:
+        | `Element Should Be Visible` | JPanel#main |
+        | `Element Should Be Visible` | #loginForm |
         """
         self._lib.element_should_be_visible(locator)
 
     def element_should_not_be_visible(self, locator: str) -> None:
-        """
-        Verify that an element is not visible.
+        """Verify that an element is not visible.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Raises:
-            AssertionError: If element is visible.
+        Fails if the element is visible.
 
-        Examples:
-            | Element Should Not Be Visible | JDialog#loading |
+        Example:
+        | `Element Should Not Be Visible` | JDialog#loading |
+        | `Element Should Not Be Visible` | #errorPanel |
         """
         self._lib.element_should_not_be_visible(locator)
 
     def element_should_be_enabled(self, locator: str) -> None:
-        """
-        Verify that an element is enabled.
+        """Verify that an element is enabled.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Raises:
-            AssertionError: If element is not enabled.
+        Fails if the element is disabled.
 
-        Examples:
-            | Element Should Be Enabled | JButton#save |
+        Example:
+        | `Element Should Be Enabled` | JButton#save |
+        | `Element Should Be Enabled` | #submitBtn |
         """
         self._lib.element_should_be_enabled(locator)
 
     def element_should_be_disabled(self, locator: str) -> None:
-        """
-        Verify that an element is disabled.
+        """Verify that an element is disabled.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Raises:
-            AssertionError: If element is not disabled.
+        Fails if the element is enabled.
 
-        Examples:
-            | Element Should Be Disabled | JButton#next |
+        Example:
+        | `Element Should Be Disabled` | JButton#next |
+        | `Element Should Be Disabled` | #deleteBtn |
         """
         self._lib.element_should_be_disabled(locator)
 
     def get_element_text(self, locator: str) -> str:
-        """
-        Get the text content of an element.
+        """Get the text content of an element.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Returns:
-            Text content of the element.
+        Returns the text content of the element (e.g., label text, button text).
 
-        Examples:
-            | ${text}= | Get Element Text | JLabel#status |
+        Example:
+        | ${text}= | `Get Element Text` | JLabel#status |
+        | Should Be Equal | ${text} | Ready |
         """
         return self._lib.get_element_text(locator)
 
     def element_text_should_be(self, locator: str, expected: str) -> None:
-        """
-        Verify that element text matches expected value.
+        """Verify that element text matches expected value exactly.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            expected: Expected text value.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``expected`` | Expected text value. |
 
-        Raises:
-            AssertionError: If text doesn't match.
+        Fails if the element text does not match exactly.
 
-        Examples:
-            | Element Text Should Be | JLabel#status | Ready |
+        Example:
+        | `Element Text Should Be` | JLabel#status | Ready |
+        | `Element Text Should Be` | #message | Operation completed |
         """
         self._lib.element_text_should_be(locator, expected)
 
     def element_text_should_contain(self, locator: str, expected: str) -> None:
-        """
-        Verify that element text contains expected substring.
+        """Verify that element text contains expected substring.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            expected: Expected substring.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``expected`` | Expected substring. |
 
-        Raises:
-            AssertionError: If text doesn't contain expected.
+        Fails if the element text does not contain the expected substring.
 
-        Examples:
-            | Element Text Should Contain | JLabel#status | Success |
+        Example:
+        | `Element Text Should Contain` | JLabel#status | Success |
+        | `Element Text Should Contain` | #message | completed |
         """
         self._lib.element_text_should_contain(locator, expected)
 
     def get_element_property(self, locator: str, property_name: str) -> Any:
-        """
-        Get a property value from an element.
+        """Get a property value from an element.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            property_name: Name of the property to retrieve.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``property_name`` | Name of the property to retrieve (e.g., ``text``, ``enabled``, ``visible``). |
 
-        Returns:
-            Property value.
+        Returns the value of the specified property.
 
-        Examples:
-            | ${value}= | Get Element Property | JTextField | text |
+        Example:
+        | ${text}= | `Get Element Property` | JTextField#input | text |
+        | ${enabled}= | `Get Element Property` | JButton#save | enabled |
         """
         return self._lib.get_element_property(locator, property_name)
 
@@ -766,59 +827,63 @@ class SwingLibrary:
     # ==========================================================================
 
     def log_ui_tree(self, locator: Optional[str] = None) -> None:
-        """
-        Log the UI component tree.
+        """Log the UI component tree to the test log.
 
-        Args:
-            locator: Optional locator to start from.
+        | =Argument= | =Description= |
+        | ``locator`` | Optional locator to start from. Logs entire tree if not specified. |
 
-        Examples:
-            | Log UI Tree |
-            | Log UI Tree | JPanel#main |
+        Prints the component hierarchy for debugging purposes.
+
+        Example:
+        | `Log UI Tree` | |
+        | `Log UI Tree` | JPanel#main |
         """
         # Get tree as text and log it
         tree = self.get_ui_tree(format="text")
         print(tree)
 
     def get_ui_tree(self, format: str = "text", max_depth: Optional[int] = None, visible_only: bool = False) -> str:
-        """
-        Get the UI component tree as a string.
+        """Get the UI component tree as a string.
 
-        Args:
-            format: Output format (json, xml, text). Default is text.
-            max_depth: Maximum depth to traverse.
-            visible_only: Only include visible components.
+        | =Argument= | =Description= |
+        | ``format`` | Output format: ``text``, ``json``, or ``xml``. Default ``text``. |
+        | ``max_depth`` | Maximum depth to traverse. ``None`` for unlimited. |
+        | ``visible_only`` | Only include visible components. Default ``False``. |
 
-        Returns:
-            Component tree in specified format.
+        Returns the component tree in the specified format.
 
-        Examples:
-            | ${tree}= | Get UI Tree |
-            | ${json}= | Get UI Tree | format=json |
+        Example:
+        | ${tree}= | `Get UI Tree` | | |
+        | ${json}= | `Get UI Tree` | format=json | |
+        | ${tree}= | `Get UI Tree` | format=text | max_depth=3 |
         """
         return self._lib.get_ui_tree(format, max_depth, visible_only)
 
     def save_ui_tree(self, filename: str, locator: Optional[str] = None) -> None:
-        """
-        Save the UI component tree to a file.
+        """Save the UI component tree to a file.
 
-        Args:
-            filename: Path to save the tree.
-            locator: Optional locator to start from.
+        | =Argument= | =Description= |
+        | ``filename`` | Path to save the tree file. |
+        | ``locator`` | Optional locator to start from. Saves entire tree if not specified. |
 
-        Examples:
-            | Save UI Tree | tree.txt |
+        Saves the component hierarchy to a file for analysis.
+
+        Example:
+        | `Save UI Tree` | tree.txt | |
+        | `Save UI Tree` | panel_tree.txt | JPanel#main |
         """
         self._lib.save_ui_tree(filename, locator)
 
     def refresh_ui_tree(self) -> None:
-        """
-        Refresh the cached UI component tree.
+        """Refresh the cached UI component tree.
 
-        Call this after UI changes to update the internal cache.
+        Call this after UI changes to update the internal component cache.
+        Useful when the UI has been modified and you need to find new elements.
 
-        Examples:
-            | Refresh UI Tree |
+        Example:
+        | `Click Button` | JButton#addItem |
+        | `Refresh UI Tree` | |
+        | `Find Element` | JLabel#newItem |
         """
         self._lib.refresh_ui_tree()
 
@@ -827,30 +892,31 @@ class SwingLibrary:
     # ==========================================================================
 
     def capture_screenshot(self, filename: Optional[str] = None) -> str:
-        """
-        Capture a screenshot.
+        """Capture a screenshot of the application.
 
-        Args:
-            filename: Optional filename for the screenshot.
+        | =Argument= | =Description= |
+        | ``filename`` | Optional filename for the screenshot. Auto-generated if not specified. |
 
-        Returns:
-            Path to the saved screenshot.
+        Returns the path to the saved screenshot file.
 
-        Examples:
-            | ${path}= | Capture Screenshot |
-            | ${path}= | Capture Screenshot | filename=error.png |
+        Example:
+        | ${path}= | `Capture Screenshot` | |
+        | ${path}= | `Capture Screenshot` | filename=error.png |
+        | Log | Screenshot saved to: ${path} | |
         """
         return self._lib.capture_screenshot(filename)
 
     def set_screenshot_directory(self, directory: str) -> None:
-        """
-        Set the directory for saving screenshots.
+        """Set the directory for saving screenshots.
 
-        Args:
-            directory: Path to the screenshot directory.
+        | =Argument= | =Description= |
+        | ``directory`` | Path to the screenshot directory. |
 
-        Examples:
-            | Set Screenshot Directory | ${OUTPUT_DIR}/screenshots |
+        All subsequent screenshots will be saved to this directory.
+
+        Example:
+        | `Set Screenshot Directory` | ${OUTPUT_DIR}/screenshots |
+        | `Set Screenshot Directory` | /tmp/test-screenshots |
         """
         self._lib.set_screenshot_directory(directory)
 
@@ -859,14 +925,17 @@ class SwingLibrary:
     # ==========================================================================
 
     def set_timeout(self, timeout: float) -> None:
-        """
-        Set the default timeout for wait operations.
+        """Set the default timeout for wait operations.
 
-        Args:
-            timeout: Timeout in seconds.
+        | =Argument= | =Description= |
+        | ``timeout`` | Timeout in seconds. |
 
-        Examples:
-            | Set Timeout | 30 |
+        Sets the default timeout used by all wait keywords when no explicit
+        timeout is provided.
+
+        Example:
+        | `Set Timeout` | 30 |
+        | `Set Timeout` | 60 |
         """
         self._timeout = timeout
         self._lib.set_timeout(timeout)
@@ -876,56 +945,52 @@ class SwingLibrary:
     # ==========================================================================
 
     def select_tab(self, locator: str, tab_identifier: str) -> None:
+        """Select a tab in a JTabbedPane.
+
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTabbedPane``. See `Locator Syntax`. |
+        | ``tab_identifier`` | Tab title (string) or index (integer) to select. |
+
+        Selects the specified tab by title or index.
+
+        Example:
+        | `Select Tab` | JTabbedPane[name='mainTabbedPane'] | Form Input |
+        | `Select Tab` | #mainTabs | Settings |
+        | `Select Tab` | JTabbedPane | 0 |
         """
-        Select a tab in a JTabbedPane.
-
-        Args:
-            locator: CSS or XPath-like locator for the JTabbedPane.
-            tab_identifier: Tab title or index to select.
-
-        Examples:
-            | Select Tab | JTabbedPane#mainTabs | Login |
-            | Select Tab | #tabs | Settings |
-        """
-        # Use the existing click functionality to select the tab
-        # Find the tab by its title in the tabbed pane
-        try:
-            # Try as an index first
-            index = int(tab_identifier)
-            tab_locator = f"{locator} > *[index={index}]"
-        except ValueError:
-            # It's a tab title/name
-            tab_locator = f"{locator}[text='{tab_identifier}']"
-
-        # Try clicking on the tab - the tab pane should support this
-        self._lib.click_element(tab_locator, click_count=1)
+        # Delegate to Rust library's select_tab which uses selectItem RPC
+        self._lib.select_tab(locator, str(tab_identifier))
 
     def type_text(self, locator: str, text: str) -> None:
-        """
-        Type text character by character into a text field.
+        """Type text character by character into a text field.
 
-        This simulates actual key presses rather than setting the text directly.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``text`` | Text to type character by character. |
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            text: Text to type character by character.
+        Simulates actual key presses rather than setting the text directly.
+        Does not clear existing text - use `Clear Text` first if needed.
 
-        Examples:
-            | Type Text | #searchField | hello |
+        Example:
+        | `Type Text` | #searchField | hello |
+        | `Type Text` | JTextField#input | test@example.com |
         """
         # For now, use input_text as the underlying implementation
         # The Rust library handles the actual typing
         self._lib.input_text(locator, text, clear=False)
 
     def right_click(self, locator: str) -> None:
-        """
-        Right-click (context click) on an element.
+        """Right-click (context click) on an element.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Examples:
-            | Right Click | JTree#fileTree |
+        Performs a right-click to open context menus.
+        Use `Select From Popup Menu` after this to select menu items.
+
+        Example:
+        | `Right Click` | JTree#fileTree |
+        | `Select From Popup Menu` | Delete |
         """
         # Use click_element - the Rust implementation should support right-click
         # For now, we'll use regular click as a placeholder
@@ -933,55 +998,50 @@ class SwingLibrary:
         self._lib.click_element(locator, click_count=1)
 
     def element_should_be_selected(self, locator: str) -> None:
-        """
-        Verify that an element is selected (checked).
+        """Verify that an element is selected (checked).
+
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
         Works with checkboxes, radio buttons, list items, etc.
+        Fails if the element is not selected.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-
-        Raises:
-            AssertionError: If element is not selected.
-
-        Examples:
-            | Element Should Be Selected | JCheckBox#rememberMe |
+        Example:
+        | `Element Should Be Selected` | JCheckBox#rememberMe |
+        | `Element Should Be Selected` | JRadioButton#optionA |
         """
         selected = self._lib.get_element_property(locator, "selected")
         if not selected:
             raise AssertionError(f"Element '{locator}' should be selected but was not")
 
     def element_should_not_be_selected(self, locator: str) -> None:
-        """
-        Verify that an element is not selected (unchecked).
+        """Verify that an element is not selected (unchecked).
+
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
         Works with checkboxes, radio buttons, list items, etc.
+        Fails if the element is selected.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-
-        Raises:
-            AssertionError: If element is selected.
-
-        Examples:
-            | Element Should Not Be Selected | JRadioButton#optionB |
+        Example:
+        | `Element Should Not Be Selected` | JRadioButton#optionB |
+        | `Element Should Not Be Selected` | JCheckBox#newsletter |
         """
         selected = self._lib.get_element_property(locator, "selected")
         if selected:
             raise AssertionError(f"Element '{locator}' should not be selected but was")
 
     def element_should_exist(self, locator: str) -> None:
-        """
-        Verify that an element exists.
+        """Verify that an element exists in the UI tree.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Raises:
-            AssertionError: If element does not exist.
+        Fails if the element does not exist.
 
-        Examples:
-            | Element Should Exist | JButton#submit |
+        Example:
+        | `Element Should Exist` | JButton#submit |
+        | `Element Should Exist` | #loginForm |
         """
         try:
             elements = self._lib.find_elements(locator)
@@ -993,17 +1053,16 @@ class SwingLibrary:
             raise AssertionError(f"Element '{locator}' should exist but was not found: {e}")
 
     def element_should_not_exist(self, locator: str) -> None:
-        """
-        Verify that an element does not exist.
+        """Verify that an element does not exist in the UI tree.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Raises:
-            AssertionError: If element exists.
+        Fails if the element exists.
 
-        Examples:
-            | Element Should Not Exist | JDialog#error |
+        Example:
+        | `Element Should Not Exist` | JDialog#error |
+        | `Element Should Not Exist` | #loadingSpinner |
         """
         try:
             elements = self._lib.find_elements(locator)
@@ -1024,7 +1083,7 @@ class SwingLibrary:
         locator: str,
         timeout: Optional[float] = None,
     ) -> None:
-        """Alias for wait_until_element_is_visible."""
+        """Alias for `Wait Until Element Is Visible`."""
         self.wait_until_element_is_visible(locator, timeout)
 
     def wait_until_element_enabled(
@@ -1032,7 +1091,7 @@ class SwingLibrary:
         locator: str,
         timeout: Optional[float] = None,
     ) -> None:
-        """Alias for wait_until_element_is_enabled."""
+        """Alias for `Wait Until Element Is Enabled`."""
         self.wait_until_element_is_enabled(locator, timeout)
 
     def wait_for_element(
@@ -1040,18 +1099,18 @@ class SwingLibrary:
         locator: str,
         timeout: Optional[float] = None,
     ) -> "_SwingElement":
-        """
-        Wait for an element to exist and return it.
+        """Wait for an element to exist and return it.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            timeout: Maximum wait time in seconds.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
 
-        Returns:
-            The found element.
+        Returns the found ``SwingElement`` after it exists.
+        Raises ``TimeoutError`` if element does not exist within timeout.
 
-        Examples:
-            | ${elem}= | Wait For Element | JButton#submit | timeout=10 |
+        Example:
+        | ${elem}= | `Wait For Element` | JButton#submit | |
+        | ${elem}= | `Wait For Element` | JButton#submit | timeout=10 |
         """
         timeout_val = timeout if timeout is not None else self._timeout
         self._lib.wait_until_element_exists(locator, timeout_val)
@@ -1063,16 +1122,19 @@ class SwingLibrary:
         text: str,
         timeout: Optional[float] = None,
     ) -> None:
-        """
-        Wait until element text contains the expected substring.
+        """Wait until element text contains the expected substring.
 
-        Args:
-            locator: CSS or XPath-like locator string.
-            text: Text to wait for.
-            timeout: Maximum wait time in seconds.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``text`` | Text substring to wait for. |
+        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
 
-        Examples:
-            | Wait Until Element Contains | JLabel#status | complete | timeout=10 |
+        Raises ``TimeoutError`` if element text does not contain the expected
+        substring within timeout.
+
+        Example:
+        | `Wait Until Element Contains` | JLabel#status | complete | |
+        | `Wait Until Element Contains` | JLabel#status | complete | timeout=10 |
         """
         import time
 
@@ -1097,20 +1159,19 @@ class SwingLibrary:
         format: str = "text",
         max_depth: Optional[int] = None,
     ) -> str:
-        """
-        Get the component tree in various formats.
+        """Get the component tree in various formats.
 
-        Args:
-            locator: Optional locator to start from.
-            format: Output format - 'text', 'json', or 'yaml'.
-            max_depth: Maximum depth to traverse.
+        | =Argument= | =Description= |
+        | ``locator`` | Optional locator to start from. Uses root if not specified. |
+        | ``format`` | Output format: ``text``, ``json``, or ``yaml``. Default ``text``. |
+        | ``max_depth`` | Maximum depth to traverse. ``None`` for unlimited. |
 
-        Returns:
-            Component tree as string.
+        Returns the component tree as a string in the specified format.
 
-        Examples:
-            | ${tree}= | Get Component Tree | format=json |
-            | ${tree}= | Get Component Tree | format=text | max_depth=2 |
+        Example:
+        | ${tree}= | `Get Component Tree` | | |
+        | ${json}= | `Get Component Tree` | format=json | |
+        | ${tree}= | `Get Component Tree` | format=text | max_depth=2 |
         """
         tree_str = self._lib.get_ui_tree(locator)
         # The Rust library returns text format by default
@@ -1118,17 +1179,20 @@ class SwingLibrary:
         return tree_str
 
     def log_component_tree(self, locator: Optional[str] = None) -> None:
-        """Alias for log_ui_tree."""
+        """Alias for `Log UI Tree`."""
         self._lib.log_ui_tree(locator)
 
     def list_applications(self) -> List[str]:
-        """
-        List available Java applications to connect to.
+        """List available Java applications to connect to.
 
-        Note: This is a placeholder - actual discovery requires JVM enumeration.
+        Returns a list of available application identifiers that can be
+        used with `Connect To Application`.
 
-        Returns:
-            List of available application identifiers.
+        *Note:* This is a placeholder - actual discovery requires JVM enumeration.
+
+        Example:
+        | ${apps}= | `List Applications` |
+        | Log Many | @{apps} |
         """
         # Placeholder - actual implementation would use JVM discovery
         return []
@@ -1138,86 +1202,104 @@ class SwingLibrary:
     # ==========================================================================
 
     def get_list_items(self, locator: str) -> List[str]:
+        """Get all items from a JList component.
+
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JList``. See `Locator Syntax`. |
+
+        Returns a list of all item texts in the list.
+
+        Example:
+        | ${items}= | `Get List Items` | JList[name='itemList'] |
+        | Length Should Be | ${items} | 5 |
         """
-        Get all items from a JList component.
-
-        Args:
-            locator: CSS or XPath-like locator string for JList.
-
-        Returns:
-            List of item texts.
-
-        Examples:
-            | ${items}= | Get List Items | JList#itemList |
-        """
-        # Use get_element_property to get list items
-        items = self._lib.get_element_property(locator, "items")
-        return items if items else []
+        # Delegate to Rust library's get_list_items which uses getListItems RPC
+        return self._lib.get_list_items(locator)
 
     def select_from_list(self, locator: str, value: str) -> None:
-        """
-        Select an item from a JList component.
+        """Select an item from a JList component by text.
 
-        Args:
-            locator: CSS or XPath-like locator string for JList.
-            value: Item text to select.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JList``. See `Locator Syntax`. |
+        | ``value`` | Item text to select. |
 
-        Examples:
-            | Select From List | JList#itemList | Item 1 |
+        Selects the item matching the specified text.
+
+        Example:
+        | `Select From List` | JList[name='itemList'] | Item 1 |
+        | `Select From List` | #fileList | document.txt |
         """
-        # Use click with a compound locator to select the item
-        self._lib.click_element(f"{locator}[text='{value}']", click_count=1)
+        # Delegate to Rust library's select_from_list which uses selectItem RPC
+        self._lib.select_from_list(locator, value)
 
     def select_list_item_by_index(self, locator: str, index: int) -> None:
-        """
-        Select an item from a JList by index.
+        """Select an item from a JList by index.
 
-        Args:
-            locator: CSS or XPath-like locator string for JList.
-            index: Index of the item to select (0-based).
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JList``. See `Locator Syntax`. |
+        | ``index`` | Index of the item to select (0-based). |
 
-        Examples:
-            | Select List Item By Index | JList#itemList | 0 |
+        Selects the item at the specified index.
+
+        Example:
+        | `Select List Item By Index` | JList[name='itemList'] | 0 |
+        | `Select List Item By Index` | #fileList | 2 |
         """
-        self._lib.click_element(f"{locator}[index={index}]", click_count=1)
+        # Delegate to Rust library's select_list_item_by_index which uses selectItem RPC
+        self._lib.select_list_item_by_index(locator, index)
 
     # ==========================================================================
     # Tree Operations
     # ==========================================================================
 
     def get_tree_nodes(self, locator: str) -> List[str]:
+        """Get all node paths from a JTree component.
+
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTree``. See `Locator Syntax`. |
+
+        Returns a list of all node paths in the tree.
+
+        Example:
+        | ${nodes}= | `Get Tree Nodes` | JTree#fileTree |
+        | Should Contain | ${nodes} | Root/Documents |
         """
-        Get all node paths from a JTree component.
+        # Get tree structure via RPC and extract node paths
+        tree_data = self._lib.get_tree_data(locator)
+        if not tree_data:
+            return []
+        # tree_data is a dict with text and children - flatten to paths
+        return self._flatten_tree_paths(tree_data, "")
 
-        Args:
-            locator: CSS or XPath-like locator string for JTree.
+    def _flatten_tree_paths(self, node: dict, prefix: str) -> List[str]:
+        """Helper to flatten tree structure into list of paths."""
+        paths = []
+        text = node.get("text", "")
+        current_path = f"{prefix}/{text}" if prefix else text
+        paths.append(current_path)
 
-        Returns:
-            List of node paths.
+        children = node.get("children", [])
+        for child in children:
+            paths.extend(self._flatten_tree_paths(child, current_path))
 
-        Examples:
-            | ${nodes}= | Get Tree Nodes | JTree#fileTree |
-        """
-        # Use get_element_property to get tree nodes
-        nodes = self._lib.get_element_property(locator, "nodes")
-        return nodes if nodes else []
+        return paths
 
     # ==========================================================================
     # Additional Table and Property Keywords
     # ==========================================================================
 
     def get_table_data(self, locator: str) -> List[List[str]]:
-        """
-        Get all data from a table as a 2D list.
+        """Get all data from a table as a 2D list.
 
-        Args:
-            locator: CSS or XPath-like locator string for JTable.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator for the ``JTable``. See `Locator Syntax`. |
 
-        Returns:
-            2D list of cell values (rows x columns).
+        Returns a 2D list of cell values (rows x columns).
 
-        Examples:
-            | ${data}= | Get Table Data | JTable#dataTable |
+        Example:
+        | ${data}= | `Get Table Data` | JTable#dataTable |
+        | ${first_row}= | Set Variable | ${data}[0] |
+        | ${cell}= | Set Variable | ${data}[0][1] |
         """
         row_count = self._lib.get_table_row_count(locator)
         col_count = self._lib.get_table_column_count(locator)
@@ -1232,17 +1314,18 @@ class SwingLibrary:
         return data
 
     def get_element_properties(self, locator: str) -> Dict[str, Any]:
-        """
-        Get all common properties from an element.
+        """Get all common properties from an element.
 
-        Args:
-            locator: CSS or XPath-like locator string.
+        | =Argument= | =Description= |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
 
-        Returns:
-            Dictionary of property names and values.
+        Returns a dictionary containing common properties: ``name``, ``text``,
+        ``enabled``, ``visible``, and ``selected``.
 
-        Examples:
-            | ${props}= | Get Element Properties | JButton#submit |
+        Example:
+        | ${props}= | `Get Element Properties` | JButton#submit |
+        | Should Be True | ${props}[enabled] |
+        | Log | Button text: ${props}[text] |
         """
         properties = {}
         for prop in ["name", "text", "enabled", "visible", "selected"]:

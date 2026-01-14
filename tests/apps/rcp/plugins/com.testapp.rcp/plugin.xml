@@ -1,0 +1,598 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+   <!-- Application Definition -->
+   <extension
+         id="application"
+         point="org.eclipse.core.runtime.applications">
+      <application>
+         <run class="com.testapp.rcp.Application"/>
+      </application>
+   </extension>
+
+   <!-- Product Definition -->
+   <extension
+         id="product"
+         point="org.eclipse.core.runtime.products">
+      <product
+            application="com.testapp.rcp.application"
+            name="RCP Test Application">
+         <property
+               name="appName"
+               value="RcpTestApp"/>
+         <property
+               name="windowImages"
+               value="icons/sample.png"/>
+         <property
+               name="aboutText"
+               value="RCP Test Application for Robot Framework testing."/>
+      </product>
+   </extension>
+
+   <!-- Perspectives -->
+   <extension
+         point="org.eclipse.ui.perspectives">
+      <perspective
+            class="com.testapp.rcp.Perspective"
+            id="com.testapp.rcp.perspective.main"
+            name="Test Perspective"
+            icon="icons/perspective.png">
+      </perspective>
+      <perspective
+            class="com.testapp.rcp.DebugPerspective"
+            id="com.testapp.rcp.perspective.debug"
+            name="Debug Perspective"
+            icon="icons/debug.png">
+      </perspective>
+      <perspective
+            class="com.testapp.rcp.DataPerspective"
+            id="com.testapp.rcp.perspective.data"
+            name="Data Perspective"
+            icon="icons/data.png">
+      </perspective>
+   </extension>
+
+   <!-- Views -->
+   <extension
+         point="org.eclipse.ui.views">
+      <category
+            id="com.testapp.rcp.views.category"
+            name="Test Views">
+      </category>
+      <view
+            class="com.testapp.rcp.views.NavigatorView"
+            id="com.testapp.rcp.views.navigator"
+            name="Navigator"
+            icon="icons/navigator.png"
+            category="com.testapp.rcp.views.category"
+            allowMultiple="false">
+      </view>
+      <view
+            class="com.testapp.rcp.views.PropertiesView"
+            id="com.testapp.rcp.views.properties"
+            name="Properties"
+            icon="icons/properties.png"
+            category="com.testapp.rcp.views.category"
+            allowMultiple="true">
+      </view>
+      <view
+            class="com.testapp.rcp.views.ConsoleView"
+            id="com.testapp.rcp.views.console"
+            name="Console"
+            icon="icons/console.png"
+            category="com.testapp.rcp.views.category"
+            allowMultiple="false">
+      </view>
+      <view
+            class="com.testapp.rcp.views.OutlineView"
+            id="com.testapp.rcp.views.outline"
+            name="Outline"
+            icon="icons/outline.png"
+            category="com.testapp.rcp.views.category"
+            allowMultiple="false">
+      </view>
+      <view
+            class="com.testapp.rcp.views.TasksView"
+            id="com.testapp.rcp.views.tasks"
+            name="Tasks"
+            icon="icons/tasks.png"
+            category="com.testapp.rcp.views.category"
+            allowMultiple="false">
+      </view>
+   </extension>
+
+   <!-- Editors -->
+   <extension
+         point="org.eclipse.ui.editors">
+      <editor
+            class="com.testapp.rcp.editors.SimpleTextEditor"
+            contributorClass="org.eclipse.ui.texteditor.BasicTextEditorActionContributor"
+            default="true"
+            extensions="txt,log,cfg"
+            icon="icons/text.png"
+            id="com.testapp.rcp.editors.text"
+            name="Simple Text Editor">
+      </editor>
+      <editor
+            class="com.testapp.rcp.editors.FormEditor"
+            default="false"
+            extensions="form"
+            icon="icons/form.png"
+            id="com.testapp.rcp.editors.form"
+            name="Form Editor">
+      </editor>
+      <editor
+            class="com.testapp.rcp.editors.XmlEditor"
+            contributorClass="org.eclipse.ui.texteditor.BasicTextEditorActionContributor"
+            default="true"
+            extensions="xml"
+            icon="icons/xml.png"
+            id="com.testapp.rcp.editors.xml"
+            name="XML Editor">
+      </editor>
+   </extension>
+
+   <!-- Commands -->
+   <extension
+         point="org.eclipse.ui.commands">
+      <category
+            id="com.testapp.rcp.commands.category"
+            name="Test Commands"
+            description="Commands for testing RCP functionality">
+      </category>
+      <command
+            id="com.testapp.rcp.commands.test"
+            name="Test Command"
+            description="A test command for verification"
+            categoryId="com.testapp.rcp.commands.category">
+      </command>
+      <command
+            id="com.testapp.rcp.commands.refresh"
+            name="Refresh"
+            description="Refresh the current view"
+            categoryId="com.testapp.rcp.commands.category">
+      </command>
+      <command
+            id="com.testapp.rcp.commands.showMessage"
+            name="Show Message"
+            description="Display a test message"
+            categoryId="com.testapp.rcp.commands.category">
+      </command>
+      <command
+            id="com.testapp.rcp.commands.newProject"
+            name="New Test Project"
+            description="Create a new test project"
+            categoryId="com.testapp.rcp.commands.category">
+      </command>
+      <command
+            id="com.testapp.rcp.commands.openDialog"
+            name="Open Test Dialog"
+            description="Open a test dialog"
+            categoryId="com.testapp.rcp.commands.category">
+      </command>
+      <command
+            id="com.testapp.rcp.commands.toggleView"
+            name="Toggle Console View"
+            description="Show or hide the console view"
+            categoryId="com.testapp.rcp.commands.category">
+      </command>
+   </extension>
+
+   <!-- Handlers -->
+   <extension
+         point="org.eclipse.ui.handlers">
+      <handler
+            class="com.testapp.rcp.handlers.TestCommandHandler"
+            commandId="com.testapp.rcp.commands.test">
+      </handler>
+      <handler
+            class="com.testapp.rcp.handlers.RefreshHandler"
+            commandId="com.testapp.rcp.commands.refresh">
+      </handler>
+      <handler
+            class="com.testapp.rcp.handlers.ShowMessageHandler"
+            commandId="com.testapp.rcp.commands.showMessage">
+      </handler>
+      <handler
+            class="com.testapp.rcp.handlers.NewProjectHandler"
+            commandId="com.testapp.rcp.commands.newProject">
+      </handler>
+      <handler
+            class="com.testapp.rcp.handlers.OpenDialogHandler"
+            commandId="com.testapp.rcp.commands.openDialog">
+      </handler>
+      <handler
+            class="com.testapp.rcp.handlers.ToggleViewHandler"
+            commandId="com.testapp.rcp.commands.toggleView">
+      </handler>
+   </extension>
+
+   <!-- Menus -->
+   <extension
+         point="org.eclipse.ui.menus">
+      <!-- Main Menu -->
+      <menuContribution
+            allPopups="false"
+            locationURI="menu:org.eclipse.ui.main.menu">
+         <menu
+               id="com.testapp.rcp.menus.file"
+               label="&amp;File"
+               mnemonic="F">
+            <command
+                  commandId="com.testapp.rcp.commands.newProject"
+                  label="New &amp;Project..."
+                  mnemonic="P"
+                  icon="icons/project.png"
+                  style="push">
+            </command>
+            <separator
+                  name="com.testapp.rcp.separator1"
+                  visible="true">
+            </separator>
+            <command
+                  commandId="org.eclipse.ui.file.save"
+                  label="&amp;Save"
+                  mnemonic="S"
+                  style="push">
+            </command>
+            <command
+                  commandId="org.eclipse.ui.file.saveAll"
+                  label="Save &amp;All"
+                  mnemonic="A"
+                  style="push">
+            </command>
+            <separator
+                  name="com.testapp.rcp.separator2"
+                  visible="true">
+            </separator>
+            <command
+                  commandId="org.eclipse.ui.file.exit"
+                  label="E&amp;xit"
+                  mnemonic="x"
+                  style="push">
+            </command>
+         </menu>
+         <menu
+               id="com.testapp.rcp.menus.edit"
+               label="&amp;Edit"
+               mnemonic="E">
+            <command
+                  commandId="org.eclipse.ui.edit.undo"
+                  label="&amp;Undo"
+                  mnemonic="U"
+                  style="push">
+            </command>
+            <command
+                  commandId="org.eclipse.ui.edit.redo"
+                  label="&amp;Redo"
+                  mnemonic="R"
+                  style="push">
+            </command>
+            <separator
+                  name="com.testapp.rcp.separator3"
+                  visible="true">
+            </separator>
+            <command
+                  commandId="org.eclipse.ui.edit.cut"
+                  label="Cu&amp;t"
+                  mnemonic="t"
+                  style="push">
+            </command>
+            <command
+                  commandId="org.eclipse.ui.edit.copy"
+                  label="&amp;Copy"
+                  mnemonic="C"
+                  style="push">
+            </command>
+            <command
+                  commandId="org.eclipse.ui.edit.paste"
+                  label="&amp;Paste"
+                  mnemonic="P"
+                  style="push">
+            </command>
+         </menu>
+         <menu
+               id="com.testapp.rcp.menus.view"
+               label="&amp;View"
+               mnemonic="V">
+            <command
+                  commandId="com.testapp.rcp.commands.toggleView"
+                  label="Toggle &amp;Console"
+                  mnemonic="C"
+                  style="push">
+            </command>
+            <separator
+                  name="com.testapp.rcp.separator4"
+                  visible="true">
+            </separator>
+            <command
+                  commandId="com.testapp.rcp.commands.refresh"
+                  label="&amp;Refresh"
+                  mnemonic="R"
+                  icon="icons/refresh.png"
+                  style="push">
+            </command>
+         </menu>
+         <menu
+               id="com.testapp.rcp.menus.test"
+               label="&amp;Test"
+               mnemonic="T">
+            <command
+                  commandId="com.testapp.rcp.commands.test"
+                  label="Run &amp;Test Command"
+                  mnemonic="T"
+                  style="push">
+            </command>
+            <command
+                  commandId="com.testapp.rcp.commands.showMessage"
+                  label="Show &amp;Message"
+                  mnemonic="M"
+                  style="push">
+            </command>
+            <command
+                  commandId="com.testapp.rcp.commands.openDialog"
+                  label="Open &amp;Dialog..."
+                  mnemonic="D"
+                  style="push">
+            </command>
+         </menu>
+         <menu
+               id="com.testapp.rcp.menus.window"
+               label="&amp;Window"
+               mnemonic="W">
+            <command
+                  commandId="org.eclipse.ui.window.preferences"
+                  label="&amp;Preferences..."
+                  mnemonic="P"
+                  style="push">
+            </command>
+         </menu>
+         <menu
+               id="com.testapp.rcp.menus.help"
+               label="&amp;Help"
+               mnemonic="H">
+            <command
+                  commandId="org.eclipse.ui.help.aboutAction"
+                  label="&amp;About"
+                  mnemonic="A"
+                  style="push">
+            </command>
+         </menu>
+      </menuContribution>
+
+      <!-- Toolbar -->
+      <menuContribution
+            allPopups="false"
+            locationURI="toolbar:org.eclipse.ui.main.toolbar">
+         <toolbar
+               id="com.testapp.rcp.toolbars.main">
+            <command
+                  commandId="com.testapp.rcp.commands.newProject"
+                  icon="icons/project.png"
+                  tooltip="New Project"
+                  style="push">
+            </command>
+            <separator
+                  name="com.testapp.rcp.separator5"
+                  visible="true">
+            </separator>
+            <command
+                  commandId="org.eclipse.ui.file.save"
+                  icon="icons/save.png"
+                  tooltip="Save"
+                  style="push">
+            </command>
+            <command
+                  commandId="org.eclipse.ui.file.saveAll"
+                  icon="icons/saveall.png"
+                  tooltip="Save All"
+                  style="push">
+            </command>
+            <separator
+                  name="com.testapp.rcp.separator6"
+                  visible="true">
+            </separator>
+            <command
+                  commandId="com.testapp.rcp.commands.refresh"
+                  icon="icons/refresh.png"
+                  tooltip="Refresh"
+                  style="push">
+            </command>
+            <command
+                  commandId="com.testapp.rcp.commands.test"
+                  icon="icons/test.png"
+                  tooltip="Run Test"
+                  style="push">
+            </command>
+         </toolbar>
+      </menuContribution>
+
+      <!-- View Toolbar for Navigator -->
+      <menuContribution
+            allPopups="false"
+            locationURI="toolbar:com.testapp.rcp.views.navigator">
+         <command
+               commandId="com.testapp.rcp.commands.refresh"
+               icon="icons/refresh.png"
+               tooltip="Refresh Navigator"
+               style="push">
+         </command>
+         <command
+               commandId="com.testapp.rcp.commands.newProject"
+               icon="icons/project.png"
+               tooltip="New Project"
+               style="push">
+         </command>
+      </menuContribution>
+
+      <!-- Context Menu for Navigator Tree -->
+      <menuContribution
+            allPopups="false"
+            locationURI="popup:com.testapp.rcp.views.navigator.popup">
+         <command
+               commandId="com.testapp.rcp.commands.newProject"
+               label="New Project..."
+               icon="icons/project.png"
+               style="push">
+         </command>
+         <separator
+               name="com.testapp.rcp.separator7"
+               visible="true">
+         </separator>
+         <command
+               commandId="com.testapp.rcp.commands.refresh"
+               label="Refresh"
+               icon="icons/refresh.png"
+               style="push">
+         </command>
+         <command
+               commandId="org.eclipse.ui.edit.delete"
+               label="Delete"
+               style="push">
+         </command>
+         <separator
+               name="com.testapp.rcp.separator8"
+               visible="true">
+         </separator>
+         <menu
+               id="com.testapp.rcp.popup.openWith"
+               label="Open With">
+            <command
+                  commandId="com.testapp.rcp.commands.openDialog"
+                  label="Text Editor"
+                  style="push">
+            </command>
+            <command
+                  commandId="com.testapp.rcp.commands.openDialog"
+                  label="Form Editor"
+                  style="push">
+            </command>
+         </menu>
+      </menuContribution>
+   </extension>
+
+   <!-- Key Bindings -->
+   <extension
+         point="org.eclipse.ui.bindings">
+      <key
+            commandId="com.testapp.rcp.commands.refresh"
+            contextId="org.eclipse.ui.contexts.window"
+            schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
+            sequence="F5">
+      </key>
+      <key
+            commandId="com.testapp.rcp.commands.test"
+            contextId="org.eclipse.ui.contexts.window"
+            schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
+            sequence="Ctrl+T">
+      </key>
+      <key
+            commandId="com.testapp.rcp.commands.showMessage"
+            contextId="org.eclipse.ui.contexts.window"
+            schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"
+            sequence="Ctrl+Shift+M">
+      </key>
+   </extension>
+
+   <!-- Preference Pages -->
+   <extension
+         point="org.eclipse.ui.preferencePages">
+      <page
+            class="com.testapp.rcp.preferences.TestPreferencePage"
+            id="com.testapp.rcp.preferences.main"
+            name="Test Application">
+      </page>
+      <page
+            category="com.testapp.rcp.preferences.main"
+            class="com.testapp.rcp.preferences.GeneralPreferencePage"
+            id="com.testapp.rcp.preferences.general"
+            name="General">
+      </page>
+      <page
+            category="com.testapp.rcp.preferences.main"
+            class="com.testapp.rcp.preferences.EditorPreferencePage"
+            id="com.testapp.rcp.preferences.editor"
+            name="Editor Settings">
+      </page>
+      <page
+            category="com.testapp.rcp.preferences.main"
+            class="com.testapp.rcp.preferences.AdvancedPreferencePage"
+            id="com.testapp.rcp.preferences.advanced"
+            name="Advanced">
+      </page>
+   </extension>
+
+   <!-- Wizards -->
+   <extension
+         point="org.eclipse.ui.newWizards">
+      <category
+            id="com.testapp.rcp.wizards.category"
+            name="Test Wizards">
+      </category>
+      <wizard
+            category="com.testapp.rcp.wizards.category"
+            class="com.testapp.rcp.wizards.NewProjectWizard"
+            id="com.testapp.rcp.wizards.newProject"
+            name="Test Project"
+            icon="icons/project.png">
+         <description>
+            Creates a new test project
+         </description>
+      </wizard>
+      <wizard
+            category="com.testapp.rcp.wizards.category"
+            class="com.testapp.rcp.wizards.NewFileWizard"
+            id="com.testapp.rcp.wizards.newFile"
+            name="Test File"
+            icon="icons/text.png">
+         <description>
+            Creates a new test file
+         </description>
+      </wizard>
+   </extension>
+
+   <!-- Perspective Extensions -->
+   <extension
+         point="org.eclipse.ui.perspectiveExtensions">
+      <perspectiveExtension
+            targetID="com.testapp.rcp.perspective.main">
+         <view
+               id="com.testapp.rcp.views.navigator"
+               minimized="false"
+               ratio="0.25"
+               relationship="left"
+               relative="org.eclipse.ui.editorss">
+         </view>
+         <view
+               id="com.testapp.rcp.views.outline"
+               minimized="false"
+               ratio="0.5"
+               relationship="bottom"
+               relative="com.testapp.rcp.views.navigator">
+         </view>
+         <view
+               id="com.testapp.rcp.views.properties"
+               minimized="false"
+               ratio="0.75"
+               relationship="right"
+               relative="org.eclipse.ui.editorss">
+         </view>
+         <view
+               id="com.testapp.rcp.views.console"
+               minimized="false"
+               ratio="0.75"
+               relationship="bottom"
+               relative="org.eclipse.ui.editorss">
+         </view>
+         <view
+               id="com.testapp.rcp.views.tasks"
+               minimized="false"
+               ratio="0.5"
+               relationship="stack"
+               relative="com.testapp.rcp.views.console">
+         </view>
+      </perspectiveExtension>
+   </extension>
+
+</plugin>

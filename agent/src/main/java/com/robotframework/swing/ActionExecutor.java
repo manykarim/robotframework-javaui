@@ -40,15 +40,19 @@ public class ActionExecutor {
      * Uses runOnEdtLater to avoid blocking on modal dialogs.
      */
     public static void click(int componentId) {
-        // Get and validate component synchronously
-        Component component = EdtHelper.runOnEdtAndReturn(() -> {
-            Component c = getComponent(componentId);
-            ensureVisible(c);
-            return c;
-        });
+        // Get component from cache (non-EDT operation)
+        Component component = ComponentInspector.getComponentById(componentId);
+        if (component == null) {
+            throw new IllegalArgumentException("Component not found: " + componentId);
+        }
 
-        // Perform click asynchronously to avoid blocking on modal dialogs
+        // Perform entire click operation asynchronously to avoid blocking on modal dialogs
         EdtHelper.runOnEdtLater(() -> {
+            // Verify component is showing before clicking
+            if (!component.isShowing()) {
+                System.err.println("[SwingAgent] Component not visible for click: " + componentId);
+                return;
+            }
             if (component instanceof AbstractButton) {
                 ((AbstractButton) component).doClick();
             } else {
@@ -57,7 +61,7 @@ public class ActionExecutor {
         });
 
         // Give the click a moment to process
-        EdtHelper.sleep(100);
+        EdtHelper.sleep(150);
     }
 
     /**
@@ -133,6 +137,26 @@ public class ActionExecutor {
                 if (combo.isEditable()) {
                     combo.setSelectedItem(text);
                 }
+            } else if (component instanceof JSpinner) {
+                JSpinner spinner = (JSpinner) component;
+                JComponent editor = spinner.getEditor();
+                if (editor instanceof JSpinner.DefaultEditor) {
+                    JTextField textField = ((JSpinner.DefaultEditor) editor).getTextField();
+                    textField.requestFocusInWindow();
+                    EdtHelper.waitForEdt(500);
+                    // Set the text value directly
+                    int caretPos = textField.getCaretPosition();
+                    String currentText = textField.getText();
+                    String newText = currentText.substring(0, caretPos) + text + currentText.substring(caretPos);
+                    textField.setText(newText);
+                    textField.setCaretPosition(caretPos + text.length());
+                    // Try to commit the value
+                    try {
+                        spinner.commitEdit();
+                    } catch (java.text.ParseException e) {
+                        // Ignore parse exceptions - the text is in the field
+                    }
+                }
             } else {
                 throw new IllegalArgumentException("Component does not support text input");
             }
@@ -152,6 +176,13 @@ public class ActionExecutor {
                 JComboBox<?> combo = (JComboBox<?>) component;
                 if (combo.isEditable()) {
                     combo.setSelectedItem("");
+                }
+            } else if (component instanceof JSpinner) {
+                JSpinner spinner = (JSpinner) component;
+                JComponent editor = spinner.getEditor();
+                if (editor instanceof JSpinner.DefaultEditor) {
+                    JTextField textField = ((JSpinner.DefaultEditor) editor).getTextField();
+                    textField.setText("");
                 }
             } else {
                 throw new IllegalArgumentException("Component does not support text clearing");
@@ -212,6 +243,98 @@ public class ActionExecutor {
                 throw new IllegalArgumentException("Component does not support item selection");
             }
         });
+    }
+
+    /**
+     * Select a menu item by path.
+     * Path format: "File|New" or "Edit|Find|Find Next"
+     *
+     * @param path Menu path separated by | (pipe)
+     */
+    public static void selectMenu(String path) {
+        String[] parts = path.split("\\|");
+        if (parts.length == 0) {
+            throw new IllegalArgumentException("Empty menu path");
+        }
+
+        // Find the menu bar from any visible frame
+        JMenuBar menuBar = EdtHelper.runOnEdtAndReturn(() -> {
+            for (Window window : Window.getWindows()) {
+                if (window instanceof JFrame && window.isVisible()) {
+                    JMenuBar bar = ((JFrame) window).getJMenuBar();
+                    if (bar != null) {
+                        return bar;
+                    }
+                }
+            }
+            throw new IllegalArgumentException("No menu bar found");
+        });
+
+        // Navigate the menu path
+        EdtHelper.runOnEdtLater(() -> {
+            try {
+                JMenu currentMenu = null;
+
+                // Find the top-level menu
+                for (int i = 0; i < menuBar.getMenuCount(); i++) {
+                    JMenu menu = menuBar.getMenu(i);
+                    if (menu != null && parts[0].equals(menu.getText())) {
+                        currentMenu = menu;
+                        break;
+                    }
+                }
+
+                if (currentMenu == null) {
+                    throw new IllegalArgumentException("Menu not found: " + parts[0]);
+                }
+
+                // Click to open the menu
+                currentMenu.doClick();
+                EdtHelper.waitForEdt(100);
+
+                // Navigate through submenus
+                for (int i = 1; i < parts.length; i++) {
+                    String itemName = parts[i];
+                    JMenuItem foundItem = null;
+
+                    for (int j = 0; j < currentMenu.getItemCount(); j++) {
+                        JMenuItem item = currentMenu.getItem(j);
+                        if (item != null && itemName.equals(item.getText())) {
+                            foundItem = item;
+                            break;
+                        }
+                    }
+
+                    if (foundItem == null) {
+                        // Close the menu and throw
+                        MenuSelectionManager.defaultManager().clearSelectedPath();
+                        throw new IllegalArgumentException("Menu item not found: " + itemName + " in path " + path);
+                    }
+
+                    // If this is a submenu, navigate into it
+                    if (foundItem instanceof JMenu && i < parts.length - 1) {
+                        currentMenu = (JMenu) foundItem;
+                        // Hover to open submenu
+                        Point loc = foundItem.getLocationOnScreen();
+                        if (robot != null) {
+                            robot.mouseMove(loc.x + foundItem.getWidth() / 2, loc.y + foundItem.getHeight() / 2);
+                        }
+                        EdtHelper.waitForEdt(150);
+                    } else {
+                        // Click the menu item
+                        foundItem.doClick();
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                // Ensure menu is closed on error
+                MenuSelectionManager.defaultManager().clearSelectedPath();
+                throw e;
+            }
+        });
+
+        // Wait for menu action to complete
+        EdtHelper.sleep(100);
     }
 
     /**
@@ -439,6 +562,35 @@ public class ActionExecutor {
     }
 
     /**
+     * Get selected tree path as an array containing the path string.
+     */
+    public static JsonArray getSelectedTreePath(int componentId) {
+        return EdtHelper.runOnEdtAndReturn(() -> {
+            Component component = getComponent(componentId);
+            if (!(component instanceof JTree)) {
+                throw new IllegalArgumentException("Component is not a JTree");
+            }
+
+            JTree tree = (JTree) component;
+            TreePath selPath = tree.getSelectionPath();
+            JsonArray result = new JsonArray();
+
+            if (selPath != null) {
+                // Build path string from path components
+                StringBuilder pathStr = new StringBuilder();
+                Object[] pathNodes = selPath.getPath();
+                for (int i = 0; i < pathNodes.length; i++) {
+                    if (i > 0) pathStr.append("/");
+                    pathStr.append(pathNodes[i].toString());
+                }
+                result.add(pathStr.toString());
+            }
+
+            return result;
+        });
+    }
+
+    /**
      * Get tree nodes.
      */
     public static JsonObject getTreeNodes(int componentId) {
@@ -612,6 +764,21 @@ public class ActionExecutor {
         }
         if (component instanceof Dialog) {
             return ((Dialog) component).getTitle();
+        }
+        if (component instanceof JList) {
+            JList<?> list = (JList<?>) component;
+            Object selected = list.getSelectedValue();
+            return selected != null ? selected.toString() : "";
+        }
+        if (component instanceof JComboBox) {
+            JComboBox<?> combo = (JComboBox<?>) component;
+            Object selected = combo.getSelectedItem();
+            return selected != null ? selected.toString() : "";
+        }
+        if (component instanceof JSpinner) {
+            JSpinner spinner = (JSpinner) component;
+            Object value = spinner.getValue();
+            return value != null ? value.toString() : "";
         }
         return null;
     }

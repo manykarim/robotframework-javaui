@@ -637,6 +637,7 @@ fn parse_string_arg(pair: pest::iterators::Pair<Rule>) -> Result<String, ParseEr
 fn parse_combinator(pair: pest::iterators::Pair<Rule>) -> Result<Combinator, ParseError> {
     for inner in pair.into_inner() {
         return match inner.as_rule() {
+            Rule::cascaded_combinator => Ok(Combinator::Cascaded),
             Rule::child_combinator => Ok(Combinator::Child),
             Rule::adjacent_sibling => Ok(Combinator::AdjacentSibling),
             Rule::general_sibling => Ok(Combinator::GeneralSibling),

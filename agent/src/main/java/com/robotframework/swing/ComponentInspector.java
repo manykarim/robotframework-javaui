@@ -1,7 +1,10 @@
 package com.robotframework.swing;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
@@ -27,8 +30,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ComponentInspector {
 
     private static final AtomicInteger componentIdCounter = new AtomicInteger(0);
-    private static final Map<Integer, Component> componentCache = Collections.synchronizedMap(new WeakHashMap<>());
-    private static final Map<Component, Integer> reverseCache = Collections.synchronizedMap(new WeakHashMap<>());
+    // Use HashMap instead of WeakHashMap to prevent component IDs from being garbage collected
+    // This is important for modal dialogs where component references might not be held during GC
+    private static final Map<Integer, Component> componentCache = Collections.synchronizedMap(new java.util.HashMap<>());
+    private static final Map<Component, Integer> reverseCache = Collections.synchronizedMap(new java.util.HashMap<>());
 
     /**
      * Get all visible frames/windows in the application.
@@ -200,7 +205,9 @@ public class ComponentInspector {
             JComboBox<?> combo = (JComboBox<?>) component;
             node.addProperty("selectedIndex", combo.getSelectedIndex());
             Object selected = combo.getSelectedItem();
-            node.addProperty("selectedItem", selected != null ? selected.toString() : null);
+            String selectedText = selected != null ? selected.toString() : "";
+            node.addProperty("selectedItem", selectedText);
+            node.addProperty("text", selectedText);  // Also set text for get_element_text
             node.addProperty("itemCount", combo.getItemCount());
             node.addProperty("editable", combo.isEditable());
 
@@ -223,6 +230,9 @@ public class ComponentInspector {
             }
             node.add("selectedIndices", selectedIndices);
             node.addProperty("visibleRowCount", list.getVisibleRowCount());
+            // Add text property for selected value
+            Object selectedValue = list.getSelectedValue();
+            node.addProperty("text", selectedValue != null ? selectedValue.toString() : "");
         }
 
         // Table
@@ -270,13 +280,16 @@ public class ComponentInspector {
             node.addProperty("value", slider.getValue());
             node.addProperty("minimum", slider.getMinimum());
             node.addProperty("maximum", slider.getMaximum());
+            node.addProperty("text", String.valueOf(slider.getValue()));  // text for get_element_text
         }
 
         // Spinner
         if (component instanceof JSpinner) {
             JSpinner spinner = (JSpinner) component;
             Object value = spinner.getValue();
-            node.addProperty("value", value != null ? value.toString() : null);
+            String valueStr = value != null ? value.toString() : "";
+            node.addProperty("value", valueStr);
+            node.addProperty("text", valueStr);  // text for get_element_text
         }
 
         // ProgressBar
@@ -622,6 +635,21 @@ public class ComponentInspector {
         if (component instanceof Dialog) {
             return ((Dialog) component).getTitle();
         }
+        if (component instanceof JList) {
+            JList<?> list = (JList<?>) component;
+            Object selected = list.getSelectedValue();
+            return selected != null ? selected.toString() : "";
+        }
+        if (component instanceof JComboBox) {
+            JComboBox<?> combo = (JComboBox<?>) component;
+            Object selected = combo.getSelectedItem();
+            return selected != null ? selected.toString() : "";
+        }
+        if (component instanceof JSpinner) {
+            JSpinner spinner = (JSpinner) component;
+            Object value = spinner.getValue();
+            return value != null ? value.toString() : "";
+        }
         return null;
     }
 
@@ -719,5 +747,160 @@ public class ComponentInspector {
     public static void clearCache() {
         componentCache.clear();
         reverseCache.clear();
+    }
+
+    /**
+     * Get a specific property value from a component.
+     *
+     * @param componentId Component ID
+     * @param propertyName Property name (e.g., "value", "text", "selectedIndex")
+     * @return Property value as JsonElement
+     */
+    public static JsonElement getProperty(int componentId, String propertyName) {
+        return EdtHelper.runOnEdtAndReturn(() -> {
+            Component component = componentCache.get(componentId);
+            if (component == null) {
+                throw new IllegalArgumentException("Component not found: " + componentId);
+            }
+
+            String propLower = propertyName.toLowerCase();
+
+            // Handle common properties
+            switch (propLower) {
+                case "value":
+                    if (component instanceof JProgressBar) {
+                        return new JsonPrimitive(((JProgressBar) component).getValue());
+                    }
+                    if (component instanceof JSlider) {
+                        return new JsonPrimitive(((JSlider) component).getValue());
+                    }
+                    if (component instanceof JSpinner) {
+                        Object value = ((JSpinner) component).getValue();
+                        return new JsonPrimitive(value != null ? value.toString() : "");
+                    }
+                    break;
+
+                case "percentcomplete":
+                    if (component instanceof JProgressBar) {
+                        return new JsonPrimitive(((JProgressBar) component).getPercentComplete());
+                    }
+                    break;
+
+                case "minimum":
+                    if (component instanceof JProgressBar) {
+                        return new JsonPrimitive(((JProgressBar) component).getMinimum());
+                    }
+                    if (component instanceof JSlider) {
+                        return new JsonPrimitive(((JSlider) component).getMinimum());
+                    }
+                    break;
+
+                case "maximum":
+                    if (component instanceof JProgressBar) {
+                        return new JsonPrimitive(((JProgressBar) component).getMaximum());
+                    }
+                    if (component instanceof JSlider) {
+                        return new JsonPrimitive(((JSlider) component).getMaximum());
+                    }
+                    break;
+
+                case "selectedindex":
+                    if (component instanceof JTabbedPane) {
+                        return new JsonPrimitive(((JTabbedPane) component).getSelectedIndex());
+                    }
+                    if (component instanceof JComboBox) {
+                        return new JsonPrimitive(((JComboBox<?>) component).getSelectedIndex());
+                    }
+                    if (component instanceof JList) {
+                        return new JsonPrimitive(((JList<?>) component).getSelectedIndex());
+                    }
+                    break;
+
+                case "tabcount":
+                    if (component instanceof JTabbedPane) {
+                        return new JsonPrimitive(((JTabbedPane) component).getTabCount());
+                    }
+                    break;
+
+                case "text":
+                    String text = getComponentText(component);
+                    return new JsonPrimitive(text != null ? text : "");
+
+                case "enabled":
+                    return new JsonPrimitive(component.isEnabled());
+
+                case "visible":
+                    return new JsonPrimitive(component.isVisible());
+
+                case "showing":
+                    return new JsonPrimitive(component.isShowing());
+
+                case "selected":
+                    if (component instanceof AbstractButton) {
+                        return new JsonPrimitive(((AbstractButton) component).isSelected());
+                    }
+                    break;
+
+                case "editable":
+                    if (component instanceof JTextComponent) {
+                        return new JsonPrimitive(((JTextComponent) component).isEditable());
+                    }
+                    if (component instanceof JComboBox) {
+                        return new JsonPrimitive(((JComboBox<?>) component).isEditable());
+                    }
+                    break;
+
+                case "indeterminate":
+                    if (component instanceof JProgressBar) {
+                        return new JsonPrimitive(((JProgressBar) component).isIndeterminate());
+                    }
+                    break;
+
+                case "rowcount":
+                    if (component instanceof JTable) {
+                        return new JsonPrimitive(((JTable) component).getRowCount());
+                    }
+                    if (component instanceof JTree) {
+                        return new JsonPrimitive(((JTree) component).getRowCount());
+                    }
+                    break;
+
+                case "columncount":
+                    if (component instanceof JTable) {
+                        return new JsonPrimitive(((JTable) component).getColumnCount());
+                    }
+                    break;
+
+                case "itemcount":
+                    if (component instanceof JList) {
+                        return new JsonPrimitive(((JList<?>) component).getModel().getSize());
+                    }
+                    if (component instanceof JComboBox) {
+                        return new JsonPrimitive(((JComboBox<?>) component).getItemCount());
+                    }
+                    break;
+            }
+
+            // Try reflection as fallback
+            try {
+                String getterName = "get" + propertyName.substring(0, 1).toUpperCase() + propertyName.substring(1);
+                java.lang.reflect.Method getter = component.getClass().getMethod(getterName);
+                Object value = getter.invoke(component);
+                if (value != null) {
+                    if (value instanceof Number) {
+                        return new JsonPrimitive((Number) value);
+                    } else if (value instanceof Boolean) {
+                        return new JsonPrimitive((Boolean) value);
+                    } else {
+                        return new JsonPrimitive(value.toString());
+                    }
+                }
+            } catch (NoSuchMethodException | IllegalAccessException | java.lang.reflect.InvocationTargetException e) {
+                // Ignore reflection errors
+            }
+
+            // Return null if property not found
+            return JsonNull.INSTANCE;
+        });
     }
 }

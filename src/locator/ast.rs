@@ -93,6 +93,8 @@ pub enum Combinator {
     AdjacentSibling,
     /// ~ - general sibling
     GeneralSibling,
+    /// >> - cascaded (Browser Library style: find within parent context)
+    Cascaded,
 }
 
 impl fmt::Display for Combinator {
@@ -102,6 +104,7 @@ impl fmt::Display for Combinator {
             Combinator::Child => write!(f, " > "),
             Combinator::AdjacentSibling => write!(f, " + "),
             Combinator::GeneralSibling => write!(f, " ~ "),
+            Combinator::Cascaded => write!(f, " >> "),
         }
     }
 }

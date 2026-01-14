@@ -131,3 +131,4 @@ hive-mind-prompt-*.txt
 *.temp
 *.bak
 *.log
+node_modules

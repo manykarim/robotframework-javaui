@@ -4,6 +4,7 @@ pub mod ast;
 pub mod expression;
 pub mod matcher;
 pub mod parser;
+pub mod swt_matcher;
 
 // Explicit exports from ast (avoid PseudoSelector conflict)
 pub use ast::{
@@ -21,3 +22,10 @@ pub use expression::{
 
 pub use matcher::{Evaluator, MatchContext, MatchResult, find_matching_components};
 pub use parser::{parse_locator, ParseError};
+
+// SWT-specific locator exports
+pub use swt_matcher::{
+    SwtLocator, SwtMatcher, SwtPseudoClass, WidgetSelector, TextMatchMode,
+    ViewSelector, EditorSelector, PerspectiveSelector, MenuSelector, MenuType,
+    LocatorError, LocatorErrorKind, parse_swt_locator, infer_widget_type_from_class,
+};
