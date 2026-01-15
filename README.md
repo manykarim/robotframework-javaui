@@ -1,20 +1,23 @@
-# Robot Framework Swing Library
+# Robot Framework JavaGUI Library
 
-A high-performance Robot Framework library for automating Java Swing applications. Built with Rust and PyO3 for optimal performance, this library provides comprehensive support for testing Swing-based desktop applications.
+A high-performance Robot Framework library for automating Java GUI applications including **Swing**, **SWT**, and **Eclipse RCP**. Built with Rust and PyO3 for optimal performance, this library provides comprehensive support for testing Java desktop applications.
 
 ## Features
 
+- **Multi-Toolkit Support**: Automate Swing, SWT, and Eclipse RCP applications
 - **High Performance**: Core library written in Rust with PyO3 bindings for Python
 - **CSS-like Selectors**: Intuitive element locators similar to web testing
 - **XPath Support**: Full XPath-style locator syntax for complex queries
 - **Comprehensive Component Support**: Buttons, text fields, tables, trees, lists, menus, and more
-- **Java Agent**: Non-invasive instrumentation via Java agent
+- **Eclipse RCP Support**: Perspectives, views, editors, commands, and workbench operations
+- **Bundled Java Agent**: Agent JAR included in the package - no separate installation needed
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 
 ## Table of Contents
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Libraries](#libraries)
 - [Locator Syntax](#locator-syntax)
 - [Keywords Reference](#keywords-reference)
 - [Examples](#examples)
@@ -24,59 +27,62 @@ A high-performance Robot Framework library for automating Java Swing application
 
 ## Installation
 
+### From PyPI
+
+```bash
+pip install robotframework-javagui
+```
+
 ### Prerequisites
 
 - Python 3.8 or higher
-- Java 11 or higher (for running Swing applications)
-- Rust toolchain (for building from source)
+- Java 11 or higher (for running Java applications)
 
 ### Install from Source
 
 ```bash
 # Clone the repository
-git clone https://github.com/manykarim/robotframework-javaui.git
-cd robotframework-javaui
+git clone https://github.com/robotframework/robotframework-javagui.git
+cd robotframework-javagui
 
-# Install with uv (recommended)
-uv pip install -e .
-
-# Or install with pip
+# Install with pip
 pip install -e .
-```
 
-### Build the Java Agent
-
-The Java agent is required for instrumenting Swing applications:
-
-```bash
-cd agent
-mvn package
-```
-
-This creates `agent/target/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar`.
-
-### Build the Demo Application (Optional)
-
-A demo Swing application is included for testing:
-
-```bash
-cd demo
-mvn package
+# Or build with invoke
+pip install invoke
+invoke build
 ```
 
 ## Quick Start
 
-### 1. Start Your Swing Application with the Agent
+### 1. Start Your Java Application with the Agent
+
+The Java agent is bundled with the package. You can get its path programmatically:
+
+```python
+from JavaGui import get_agent_jar_path
+
+agent_jar = get_agent_jar_path()
+# Use: java -javaagent:{agent_jar}=port=5678 -jar your-app.jar
+```
+
+Or start your application manually:
 
 ```bash
-java -javaagent:path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar=port=5678 -jar your-app.jar
+# Get the agent path
+python -c "from JavaGui import get_agent_jar_path; print(get_agent_jar_path())"
+
+# Start your application
+java -javaagent:/path/to/javagui-agent.jar=port=5678 -jar your-app.jar
 ```
 
 ### 2. Create a Robot Framework Test
 
+#### For Swing Applications
+
 ```robotframework
 *** Settings ***
-Library    swing_library.SwingLibrary
+Library    JavaGui.Swing
 
 *** Test Cases ***
 Example Login Test
@@ -88,17 +94,75 @@ Example Login Test
     [Teardown]    Disconnect
 ```
 
+#### For SWT Applications
+
+```robotframework
+*** Settings ***
+Library    JavaGui.Swt
+
+*** Test Cases ***
+Example SWT Test
+    Connect To Swt Application    myapp    host=localhost    port=5678
+    Click Widget    text:OK
+    Input Text    class:Text    Hello World
+    [Teardown]    Disconnect
+```
+
+#### For Eclipse RCP Applications
+
+```robotframework
+*** Settings ***
+Library    JavaGui.Swt    WITH NAME    SWT
+Library    JavaGui.Rcp    WITH NAME    RCP
+
+*** Test Cases ***
+Example RCP Test
+    SWT.Connect To Swt Application    eclipse    host=localhost    port=5678
+    RCP.Show View    org.eclipse.ui.views.ProblemView
+    RCP.Select Main Menu    File|New|Project...
+    [Teardown]    SWT.Disconnect
+```
+
 ### 3. Run the Test
 
 ```bash
 robot my_test.robot
 ```
 
+## Libraries
+
+JavaGUI provides three specialized libraries:
+
+| Library | Import | Use Case |
+|---------|--------|----------|
+| **Swing** | `Library JavaGui.Swing` | Java Swing applications |
+| **Swt** | `Library JavaGui.Swt` | Eclipse SWT applications |
+| **Rcp** | `Library JavaGui.Rcp` | Eclipse RCP applications (DBeaver, Eclipse IDE, etc.) |
+
+### Python Usage
+
+```python
+from JavaGui import Swing, Swt, Rcp
+
+# Get bundled agent JAR path
+from JavaGui import get_agent_jar_path, AGENT_JAR_PATH
+```
+
+### Legacy Compatibility
+
+For backwards compatibility, the following aliases are available:
+
+```python
+from JavaGui import SwingLibrary  # Alias for Swing
+from JavaGui import SwtLibrary    # Alias for Swt
+from JavaGui import RcpLibrary    # Alias for Rcp
+```
+
 ## Locator Syntax
 
 The library supports multiple locator strategies for finding UI elements.
 
-### CSS-like Selectors
+### CSS-like Selectors (Swing)
 
 | Selector | Description | Example |
 |----------|-------------|---------|
@@ -115,6 +179,23 @@ The library supports multiple locator strategies for finding UI elements.
 | `:first-child` | First child | `JButton:first-child` |
 | `:nth-child(n)` | Nth child | `JButton:nth-child(2)` |
 
+### SWT Widget Selectors
+
+| Selector | Description | Example |
+|----------|-------------|---------|
+| `class:ClassName` | Match by SWT class | `class:Button` |
+| `text:Text` | Match by text content | `text:OK` |
+| `#id` | Match by widget data/name | `#submitBtn` |
+| `[attr=value]` | Match by property | `[text='Save']` |
+
+### Eclipse RCP Selectors
+
+| Selector | Description | Example |
+|----------|-------------|---------|
+| `view:ViewId` | Eclipse view | `view:org.eclipse.ui.views.ProblemView` |
+| `editor:EditorId` | Eclipse editor | `editor:*` |
+| `perspective:PerspId` | Eclipse perspective | `perspective:org.eclipse.jdt.ui.JavaPerspective` |
+
 ### XPath-style Selectors
 
 | Selector | Description | Example |
@@ -123,155 +204,122 @@ The library supports multiple locator strategies for finding UI elements.
 | `//Type[@attr='value']` | With attribute | `//JButton[@name='ok']` |
 | `//Type[n]` | By index (1-based) | `//JButton[1]` |
 
-### Combined Selectors
-
-```robotframework
-# Multiple attributes
-JButton[name='submit'][text='OK']:enabled
-
-# Nested with pseudo-selectors
-JPanel[name='form'] JTextField:visible
-
-# XPath with multiple predicates
-//JTable[@name='data']//JButton[@text='Edit']
-```
-
 ## Keywords Reference
 
 ### Connection Keywords
 
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Connect To Application` | `main_class=`, `title=`, `host=`, `port=`, `timeout=` | Connect to a running Swing application |
-| `Disconnect` | | Disconnect from the application |
-| `Is Connected` | | Returns connection status |
+| Keyword | Library | Description |
+|---------|---------|-------------|
+| `Connect To Application` | Swing | Connect to a Swing application |
+| `Connect To Swt Application` | Swt | Connect to an SWT application |
+| `Disconnect` | All | Disconnect from the application |
+| `Is Connected` | All | Returns connection status |
 
 ### Element Finding
 
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Find Element` | `locator` | Find single element |
-| `Find Elements` | `locator` | Find all matching elements |
-| `Element Should Exist` | `locator` | Assert element exists |
-| `Element Should Not Exist` | `locator` | Assert element doesn't exist |
+| Keyword | Description |
+|---------|-------------|
+| `Find Element` | Find single element |
+| `Find Elements` | Find all matching elements |
+| `Find Widget` | Find SWT widget (Swt library) |
+| `Find Widgets` | Find all matching SWT widgets |
+| `Element Should Exist` | Assert element exists |
+| `Wait Until Element Exists` | Wait for element |
+| `Wait Until Widget Exists` | Wait for SWT widget |
 
 ### Mouse Actions
 
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Click` | `locator` | Single click |
-| `Double Click` | `locator` | Double click |
-| `Right Click` | `locator` | Context menu click |
-| `Click Button` | `locator` | Click a button |
+| Keyword | Description |
+|---------|-------------|
+| `Click` | Single click |
+| `Click Widget` | Click SWT widget |
+| `Double Click` | Double click |
+| `Right Click` | Context menu click |
+| `Click Button` | Click a button |
 
 ### Text Input
 
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Input Text` | `locator`, `text`, `clear=True` | Enter text (optionally clear first) |
-| `Type Text` | `locator`, `text` | Type text character by character |
-| `Clear Text` | `locator` | Clear text field |
-| `Get Element Text` | `locator` | Get element's text content |
+| Keyword | Description |
+|---------|-------------|
+| `Input Text` | Enter text |
+| `Clear Text` | Clear text field |
+| `Get Element Text` | Get element's text content |
 
 ### Table Operations
 
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Get Table Row Count` | `locator` | Get number of rows |
-| `Get Table Column Count` | `locator` | Get number of columns |
-| `Get Table Cell Value` | `locator`, `row`, `column` | Get cell value |
-| `Get Table Data` | `locator` | Get all table data as list |
-| `Select Table Cell` | `locator`, `row`, `column` | Select a cell |
-| `Select Table Row` | `locator`, `row` | Select a row |
+| Keyword | Description |
+|---------|-------------|
+| `Get Table Row Count` | Get number of rows |
+| `Get Table Cell Value` | Get cell value |
+| `Select Table Row` | Select a row |
+| `Select Table Cell` | Select a cell |
 
 ### Tree Operations
 
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Expand Tree Node` | `locator`, `path` | Expand a tree node |
-| `Collapse Tree Node` | `locator`, `path` | Collapse a tree node |
-| `Select Tree Node` | `locator`, `path` | Select a tree node |
-| `Get Tree Nodes` | `locator` | Get all tree nodes |
+| Keyword | Description |
+|---------|-------------|
+| `Expand Tree Node` / `Expand Tree Item` | Expand a tree node |
+| `Collapse Tree Node` / `Collapse Tree Item` | Collapse a tree node |
+| `Select Tree Node` / `Select Tree Item` | Select a tree node |
 
-### List Operations
+### Eclipse RCP Keywords (Rcp Library)
 
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Get List Items` | `locator` | Get all list items |
-| `Select From List` | `locator`, `value` | Select item by value |
-| `Select List Item By Index` | `locator`, `index` | Select item by index |
+| Keyword | Description |
+|---------|-------------|
+| `Show View` | Show an Eclipse view |
+| `Close View` | Close an Eclipse view |
+| `Activate View` | Bring view to front |
+| `Get Open Views` | List open views |
+| `Open Editor` | Open an editor |
+| `Close Editor` | Close an editor |
+| `Close All Editors` | Close all editors |
+| `Get Active Editor` | Get current editor |
+| `Switch Perspective` | Change perspective |
+| `Get Active Perspective` | Get current perspective |
+| `Get Available Perspectives` | List all perspectives |
+| `Reset Perspective` | Reset to default layout |
+| `Select Main Menu` | Select menu item |
+| `Execute Command` | Run Eclipse command |
 
-### Form Controls
+### SWT Shell Keywords (Swt Library)
 
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Select From Combobox` | `locator`, `value` | Select dropdown value |
-| `Check Checkbox` | `locator` | Check a checkbox |
-| `Uncheck Checkbox` | `locator` | Uncheck a checkbox |
-| `Select Radio Button` | `locator` | Select radio button |
-| `Select Tab` | `locator`, `tab_name` | Select tab in tabbed pane |
+| Keyword | Description |
+|---------|-------------|
+| `Get Shells` | Get all open shells |
+| `Activate Shell` | Bring shell to front |
+| `Close Shell` | Close a shell |
 
-### Verification
+### Verification Keywords
 
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Element Should Be Visible` | `locator` | Assert element is visible |
-| `Element Should Be Enabled` | `locator` | Assert element is enabled |
-| `Element Should Be Selected` | `locator` | Assert element is selected |
-| `Element Text Should Be` | `locator`, `expected` | Assert exact text match |
-| `Element Text Should Contain` | `locator`, `expected` | Assert text contains |
-
-### Wait Operations
-
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Wait For Element` | `locator`, `timeout=` | Wait for element to exist |
-| `Wait Until Element Visible` | `locator`, `timeout=` | Wait for visibility |
-| `Wait Until Element Enabled` | `locator`, `timeout=` | Wait for enabled state |
-| `Wait Until Element Contains` | `locator`, `text`, `timeout=` | Wait for text content |
-
-### UI Tree Inspection
-
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Get Ui Tree` | `format=text` | Get component hierarchy |
-| `Log Ui Tree` | | Log UI tree to console |
-| `Refresh Ui Tree` | | Refresh cached UI tree |
-
-### Screenshots
-
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Capture Screenshot` | `filename=` | Capture window screenshot |
-| `Set Screenshot Directory` | `directory` | Set output directory |
-
-### Properties
-
-| Keyword | Arguments | Description |
-|---------|-----------|-------------|
-| `Get Element Property` | `locator`, `property` | Get specific property |
-| `Get Element Properties` | `locator` | Get all properties |
+| Keyword | Description |
+|---------|-------------|
+| `Element Should Be Visible` | Assert element is visible |
+| `Widget Should Be Visible` | Assert SWT widget is visible |
+| `Element Should Be Enabled` | Assert element is enabled |
+| `Widget Should Be Enabled` | Assert SWT widget is enabled |
+| `Element Text Should Be` | Assert exact text match |
 
 ## Examples
 
-### Complete Login Test Suite
+### Swing Application Test
 
 ```robotframework
 *** Settings ***
 Documentation     Login functionality test suite
-Library           swing_library.SwingLibrary
+Library           JavaGui.Swing
 Library           Process
+
 Suite Setup       Start Application
 Suite Teardown    Stop Application
 
 *** Variables ***
 ${APP_JAR}        path/to/myapp.jar
-${AGENT_JAR}      path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar
 ${PORT}           5678
 
 *** Keywords ***
 Start Application
-    ${cmd}=    Set Variable    java -javaagent:${AGENT_JAR}=port=${PORT} -jar ${APP_JAR}
+    ${agent}=    Evaluate    __import__('JavaGui').get_agent_jar_path()
+    ${cmd}=    Set Variable    java -javaagent:${agent}=port=${PORT} -jar ${APP_JAR}
     Start Process    ${cmd}    shell=True    alias=app
     Sleep    3s
     Connect To Application    main_class=com.example.MyApp    port=${PORT}
@@ -282,143 +330,68 @@ Stop Application
 
 *** Test Cases ***
 Valid Login Should Succeed
-    [Documentation]    Test successful login with valid credentials
     Clear Text    JTextField[name='username']
-    Clear Text    JPasswordField[name='password']
     Input Text    JTextField[name='username']    admin
     Input Text    JPasswordField[name='password']    password123
     Click    JButton[text='Login']
-    Wait Until Element Visible    JLabel[text*='Welcome']    timeout=5
-
-Invalid Login Should Show Error
-    [Documentation]    Test error message with invalid credentials
-    Clear Text    [name='username']
-    Clear Text    [name='password']
-    Input Text    [name='username']    invalid
-    Input Text    [name='password']    wrong
-    Click    JButton[text='Login']
-    Wait Until Element Contains    JLabel[name='status']    Invalid    timeout=5
-
-Empty Fields Should Be Rejected
-    [Documentation]    Test validation for empty fields
-    Clear Text    [name='username']
-    Clear Text    [name='password']
-    Click    JButton[text='Login']
-    Element Should Exist    JLabel[text*='required']
+    Wait Until Element Exists    JLabel[text*='Welcome']    timeout=5
 ```
 
-### Table Data Verification
+### SWT Application Test
 
 ```robotframework
+*** Settings ***
+Documentation     SWT Application Tests
+Library           JavaGui.Swt
+
 *** Test Cases ***
-Verify Table Contains Expected Data
-    [Documentation]    Verify table displays correct data
-    ${row_count}=    Get Table Row Count    JTable[name='dataTable']
-    Should Be True    ${row_count} >= 5
+Verify Button Controls
+    Connect To Swt Application    myapp    port=5678
+    Widget Should Be Visible    class:Button
+    Click Widget    text:OK
+    Widget Should Be Enabled    text:Next
+    [Teardown]    Disconnect
 
-    # Verify first row
-    ${name}=    Get Table Cell Value    JTable[name='dataTable']    0    1
-    Should Be Equal    ${name}    John Doe
-
-    ${email}=    Get Table Cell Value    JTable[name='dataTable']    0    2
-    Should Be Equal    ${email}    john@example.com
-
-Iterate Through Table Rows
-    [Documentation]    Process all table rows
-    ${data}=    Get Table Data    JTable[name='dataTable']
-    FOR    ${row}    IN    @{data}
-        Log    Processing: ${row}
-    END
-
-Navigate Table With Loops
-    [Documentation]    Navigate through table cells
-    FOR    ${row}    IN RANGE    0    3
-        FOR    ${col}    IN RANGE    0    5
-            ${value}=    Get Table Cell Value    [name='dataTable']    ${row}    ${col}
-            Log    Cell [${row}][${col}] = ${value}
-        END
-    END
+Work With Text Fields
+    Connect To Swt Application    myapp    port=5678
+    Input Text    class:Text    Hello World
+    ${text}=    Get Element Text    class:Text
+    Should Be Equal    ${text}    Hello World
+    Clear Text    class:Text
+    [Teardown]    Disconnect
 ```
 
-### Tree Navigation
+### Eclipse RCP Application Test (DBeaver Example)
 
 ```robotframework
+*** Settings ***
+Documentation     DBeaver RCP Application Tests
+Library           JavaGui.Swt    WITH NAME    SWT
+Library           JavaGui.Rcp    WITH NAME    RCP
+
+Suite Setup       Connect To DBeaver
+Suite Teardown    SWT.Disconnect
+
+*** Keywords ***
+Connect To DBeaver
+    SWT.Connect To Swt Application    dbeaver    port=18081    timeout=30
+
 *** Test Cases ***
-Navigate File Tree
-    [Documentation]    Navigate through tree structure
-    Element Should Exist    JTree[name='fileTree']
+Verify Database Navigator View
+    ${views}=    RCP.Get Open Views
+    Should Not Be Empty    ${views}
+    RCP.Activate View    org.jkiss.dbeaver.ui.navigator.database
 
-    # Expand nodes
-    Expand Tree Node    JTree[name='fileTree']    Root
-    Expand Tree Node    JTree[name='fileTree']    Root/Documents
+Work With Perspectives
+    ${perspective}=    RCP.Get Active Perspective
+    Log    Current perspective: ${perspective}
+    ${available}=    RCP.Get Available Perspectives
+    Should Not Be Empty    ${available}
 
-    # Select a node
-    Select Tree Node    JTree[name='fileTree']    Root/Documents/Reports
-
-    # Verify selection
-    ${nodes}=    Get Tree Nodes    JTree[name='fileTree']
-    Should Not Be Empty    ${nodes}
-```
-
-### Menu Operations
-
-```robotframework
-*** Test Cases ***
-Navigate Application Menu
-    [Documentation]    Test menu navigation
-    Element Should Exist    JMenu[text='File']
-    Element Should Exist    JMenu[text='Edit']
-    Element Should Exist    JMenu[text='Help']
-
-    # Click menu
-    Click    JMenu[text='File']
-    Sleep    0.3s
-    Element Should Be Visible    JMenuItem[name='menuNew']
-```
-
-### Form Control Interactions
-
-```robotframework
-*** Test Cases ***
-Fill Complete Form
-    [Documentation]    Test various form controls
-    # Text fields
-    Input Text    JTextField[name='firstName']    John
-    Input Text    JTextField[name='lastName']    Doe
-
-    # Combo box (dropdown)
-    Select From Combobox    JComboBox[name='country']    United States
-
-    # Checkbox
-    Check Checkbox    JCheckBox[name='subscribe']
-
-    # Radio buttons
-    Select Radio Button    JRadioButton[name='optionA']
-
-    # Text area
-    Input Text    JTextArea[name='comments']    This is a comment.
-
-    # Submit
-    Click    JButton[text='Submit']
-```
-
-### Wait and Synchronization
-
-```robotframework
-*** Test Cases ***
-Wait For Dynamic Content
-    [Documentation]    Handle asynchronous updates
-    Click    JButton[name='loadData']
-
-    # Wait for loading indicator to disappear
-    Wait Until Element Not Visible    JLabel[name='loading']    timeout=10
-
-    # Wait for data to appear
-    Wait Until Element Visible    JTable[name='results']    timeout=10
-
-    # Verify data loaded
-    ${count}=    Get Table Row Count    JTable[name='results']
-    Should Be True    ${count} > 0
+Navigate Main Menu
+    RCP.Select Main Menu    File|New|Database Connection
+    SWT.Wait Until Widget Exists    text:Create new connection
+    SWT.Close Shell    text:Create new connection
 ```
 
 ### UI Tree Debugging
@@ -426,16 +399,10 @@ Wait For Dynamic Content
 ```robotframework
 *** Test Cases ***
 Debug UI Structure
-    [Documentation]    Inspect application UI structure
-    # Log full UI tree
     Log Ui Tree
-
-    # Get tree as text
     ${tree}=    Get Ui Tree    format=text
     Should Contain    ${tree}    JButton
-    Should Contain    ${tree}    JTextField
 
-    # Find all buttons
     ${buttons}=    Find Elements    JButton
     ${count}=    Get Length    ${buttons}
     Log    Found ${count} buttons
@@ -444,20 +411,22 @@ Debug UI Structure
 ## Architecture
 
 ```
-robotframework-javaui/
+robotframework-javagui/
 ├── python/                 # Python package
-│   └── swing_library/      # Robot Framework library
-│       └── __init__.py     # SwingLibrary class
+│   └── JavaGui/            # Robot Framework library
+│       ├── __init__.py     # Swing, Swt, Rcp classes
+│       └── jars/           # Bundled Java agent
+│           └── javagui-agent.jar
 ├── src/                    # Rust source code
 │   ├── lib.rs              # PyO3 bindings
 │   ├── locator/            # Locator parsing (pest grammar)
-│   ├── connection/         # RPC client
-│   └── element/            # Element operations
-├── agent/                  # Java agent
-│   └── src/                # Agent source
-├── demo/                   # Demo Swing application
-└── tests/                  # Test suites
-    └── robot/              # Robot Framework tests
+│   ├── protocol/           # RPC client
+│   └── python/             # Python bindings
+├── agent/                  # Java agent source
+│   └── src/main/java/      # Agent implementation
+├── tests/                  # Test suites
+│   └── robot/              # Robot Framework tests
+└── tasks.py                # Build and release tasks
 ```
 
 ### How It Works
@@ -467,49 +436,64 @@ robotframework-javaui/
 3. **Python Bindings**: PyO3-based interface exposing Robot Framework keywords
 4. **Robot Framework**: Test execution and reporting
 
+### Supported GUI Toolkits
+
+| Toolkit | Library | Description |
+|---------|---------|-------------|
+| **Swing** | `JavaGui.Swing` | Standard Java desktop toolkit |
+| **SWT** | `JavaGui.Swt` | Eclipse Standard Widget Toolkit |
+| **RCP** | `JavaGui.Rcp` | Eclipse Rich Client Platform |
+
 ## Development
 
 ### Building from Source
 
 ```bash
-# Install development dependencies
-uv pip install -e ".[dev]"
+# Install invoke for task automation
+pip install invoke
 
-# Build Rust extension
-maturin develop
+# Full build (Java agent + Rust + wheel)
+invoke build
 
-# Build Java agent
-cd agent && mvn package
+# Development build (no wheel)
+invoke build-dev
 
-# Build demo app
-cd demo && mvn package
+# Verify installation
+invoke verify
+
+# Run tests (dry-run)
+invoke test-dryrun
+```
+
+### Available Tasks
+
+```bash
+invoke --list              # List all tasks
+invoke build               # Full build
+invoke build-java          # Build Java agent only
+invoke build-rust          # Build Rust extension only
+invoke build-wheel         # Build Python wheel
+invoke release-test        # Release to Test PyPI
+invoke release-prod        # Release to Production PyPI
+invoke release-check       # Check release readiness
+invoke verify              # Verify installation
+invoke test-dryrun         # Run tests in dry-run mode
+invoke clean               # Clean build artifacts
+invoke version             # Show/set version
 ```
 
 ### Running Tests
 
 ```bash
-# Run Robot Framework tests
-uv run robot tests/robot/
-
-# Run Python unit tests
-uv run pytest tests/python/
+# Run all Robot Framework tests (dry-run)
+invoke test-dryrun
 
 # Run specific test suite
-uv run robot tests/robot/02_locators.robot
+robot tests/robot/dbeaver/
+
+# Run with specific log level
+robot --loglevel DEBUG tests/robot/
 ```
-
-### Project Structure
-
-| Directory | Description |
-|-----------|-------------|
-| `python/` | Python Robot Framework library |
-| `src/` | Rust core library |
-| `agent/` | Java instrumentation agent |
-| `demo/` | Demo Swing application |
-| `tests/robot/` | Robot Framework test suites |
-| `tests/python/` | Python unit tests |
-| `docs/` | Documentation |
-| `schemas/` | JSON/YAML schemas |
 
 ## Configuration
 
@@ -518,7 +502,7 @@ uv run robot tests/robot/02_locators.robot
 The Java agent accepts these JVM arguments:
 
 ```bash
-java -javaagent:swing-agent.jar=port=5678,debug=true -jar app.jar
+java -javaagent:javagui-agent.jar=port=5678,debug=true -jar app.jar
 ```
 
 | Option | Default | Description |
@@ -530,13 +514,16 @@ java -javaagent:swing-agent.jar=port=5678,debug=true -jar app.jar
 
 ```robotframework
 *** Settings ***
-Library    swing_library.SwingLibrary    timeout=30    screenshot_dir=screenshots
+Library    JavaGui.Swing    timeout=30    screenshot_directory=screenshots
+Library    JavaGui.Swt      timeout=30
+Library    JavaGui.Rcp      timeout=30
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `timeout` | 10 | Default wait timeout (seconds) |
-| `screenshot_dir` | . | Screenshot output directory |
+| `poll_interval` | 0.5 | Polling interval for waits |
+| `screenshot_directory` | . | Screenshot output directory |
 
 ## Troubleshooting
 
@@ -560,15 +547,15 @@ ElementNotFoundError: Element not found: JButton[name='xyz']
 - Verify element names and attributes
 - Check if element is visible/enabled
 
-### EDT Threading Errors
+### SWT Widget Not Found
 
 ```
-SwingConnectionError: EDT callable failed
+ElementNotFoundError: Widget not found
 ```
 
-- Some operations require visible components
-- Use wait keywords before interacting
-- Ensure proper tab/window focus
+- Use `Get Shells` to list available windows
+- Try different locator strategies (class:, text:, #id)
+- Ensure the widget is in the active shell
 
 ## Contributing
 
@@ -583,3 +570,4 @@ Apache License 2.0. See [LICENSE](LICENSE) for details.
 - [Robot Framework](https://robotframework.org/) - Test automation framework
 - [PyO3](https://pyo3.rs/) - Rust bindings for Python
 - [pest](https://pest.rs/) - Parser library for Rust
+- [Eclipse SWT](https://www.eclipse.org/swt/) - Standard Widget Toolkit
