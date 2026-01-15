@@ -388,8 +388,9 @@ impl SwingLibrary {
         let poll_duration = Duration::from_secs_f64(poll_secs);
 
         loop {
-            // Clear cache to get fresh UI state
+            // Clear both caches to get fresh UI state
             self.clear_element_cache()?;
+            self.clear_tree_cache()?;
 
             match self.find_elements_internal(locator) {
                 Ok(elements) if !elements.is_empty() => {
@@ -711,6 +712,125 @@ impl SwingLibrary {
     }
 
     // ========================
+    // Tab Keywords
+    // ========================
+
+    /// Select a tab in a JTabbedPane by title or index
+    ///
+    /// Args:
+    ///     locator: TabbedPane locator
+    ///     tab_identifier: Tab title (string) or index (integer as string)
+    ///
+    /// Example:
+    ///     | Select Tab | JTabbedPane[name='mainTabbedPane'] | Form Input |
+    ///     | Select Tab | #mainTabs | 0 |
+    ///     | Select Tab | JTabbedPane | Settings |
+    #[pyo3(signature = (locator, tab_identifier))]
+    pub fn select_tab(&self, locator: &str, tab_identifier: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        let component_id = self.get_component_id(locator)?;
+
+        // Try to parse as index first
+        if let Ok(index) = tab_identifier.parse::<i32>() {
+            // Select by index
+            self.send_rpc_request("selectItem", serde_json::json!({
+                "componentId": component_id,
+                "index": index
+            }))?;
+        } else {
+            // Select by tab title
+            self.send_rpc_request("selectItem", serde_json::json!({
+                "componentId": component_id,
+                "value": tab_identifier
+            }))?;
+        }
+
+        // Clear cache so new tab contents are visible
+        self.clear_tree_cache()?;
+
+        Ok(())
+    }
+
+    // ========================
+    // List Keywords
+    // ========================
+
+    /// Select an item from a list
+    ///
+    /// Args:
+    ///     locator: List locator
+    ///     item: Item text to select
+    ///
+    /// Example:
+    ///     | Select From List | JList[name='itemList'] | Option A |
+    #[pyo3(signature = (locator, item))]
+    pub fn select_from_list(&self, locator: &str, item: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        let component_id = self.get_component_id(locator)?;
+
+        self.send_rpc_request("selectItem", serde_json::json!({
+            "componentId": component_id,
+            "value": item
+        }))?;
+
+        Ok(())
+    }
+
+    /// Select a list item by index
+    ///
+    /// Args:
+    ///     locator: List locator
+    ///     index: Index of item to select (0-based)
+    ///
+    /// Example:
+    ///     | Select List Item By Index | JList[name='itemList'] | 2 |
+    #[pyo3(signature = (locator, index))]
+    pub fn select_list_item_by_index(&self, locator: &str, index: i32) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        let component_id = self.get_component_id(locator)?;
+
+        self.send_rpc_request("selectItem", serde_json::json!({
+            "componentId": component_id,
+            "index": index
+        }))?;
+
+        Ok(())
+    }
+
+    /// Get all items from a list
+    ///
+    /// Args:
+    ///     locator: List locator
+    ///
+    /// Returns:
+    ///     List of item strings
+    ///
+    /// Example:
+    ///     | @{items}= | Get List Items | JList[name='itemList'] |
+    #[pyo3(signature = (locator))]
+    pub fn get_list_items(&self, locator: &str) -> PyResult<Vec<String>> {
+        self.ensure_connected()?;
+
+        let component_id = self.get_component_id(locator)?;
+
+        let result = self.send_rpc_request("getListItems", serde_json::json!({
+            "componentId": component_id
+        }))?;
+
+        // Parse the JSON array of items
+        let items: Vec<String> = result.as_array()
+            .map(|arr| arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect())
+            .unwrap_or_default();
+
+        Ok(items)
+    }
+
+    // ========================
     // Table Keywords
     // ========================
 
@@ -942,6 +1062,36 @@ impl SwingLibrary {
         Ok(None)
     }
 
+    /// Get tree data structure
+    ///
+    /// Returns the tree structure with nodes and children.
+    ///
+    /// Args:
+    ///     locator: Tree locator
+    ///
+    /// Returns:
+    ///     Dictionary with tree structure (text, children)
+    ///
+    /// Example:
+    ///     | ${data}= | Get Tree Data | name:fileTree |
+    #[pyo3(signature = (locator))]
+    pub fn get_tree_data(&self, py: Python<'_>, locator: &str) -> PyResult<PyObject> {
+        self.ensure_connected()?;
+
+        let component_id = self.get_component_id(locator)?;
+
+        let result = self.send_rpc_request("getTreeNodes", serde_json::json!({
+            "componentId": component_id
+        }))?;
+
+        if result.is_null() {
+            return Ok(py.None());
+        }
+
+        // Convert serde_json::Value to Python object
+        Self::json_to_pyobject(py, result)
+    }
+
     // ========================
     // Menu Keywords
     // ========================
@@ -964,10 +1114,9 @@ impl SwingLibrary {
             return Err(SwingError::action_failed("select menu", "Empty menu path").into());
         }
 
-        // Use RPC to select menu - click through menu path
-        self.send_rpc_request("selectItem", serde_json::json!({
-            "locator": format!("menu:{}", path),
-            "value": path
+        // Use dedicated selectMenu RPC method
+        self.send_rpc_request("selectMenu", serde_json::json!({
+            "path": path
         }))?;
 
         Ok(())
@@ -1011,6 +1160,9 @@ impl SwingLibrary {
     pub fn get_element_text(&self, locator: &str) -> PyResult<String> {
         self.ensure_connected()?;
 
+        // Clear cache to get fresh UI state
+        self.clear_tree_cache()?;
+
         // Find the element and return its text property
         let elements = self.find_elements_internal(locator)?;
         if elements.is_empty() {
@@ -1044,6 +1196,42 @@ impl SwingLibrary {
     ) -> PyResult<PyObject> {
         self.ensure_connected()?;
 
+        // Clear cache to get fresh UI state for dynamic properties
+        self.clear_tree_cache()?;
+
+        let component_id = self.get_component_id(locator)?;
+
+        // For dynamic properties, use RPC getProperty call
+        // This handles value, selectedIndex, and other runtime properties
+        let dynamic_props = ["value", "selectedindex", "minimum", "maximum",
+                            "percentcomplete", "tabcount", "rowcount", "columncount",
+                            "itemcount", "indeterminate"];
+
+        if dynamic_props.contains(&property_name.to_lowercase().as_str()) {
+            let result = self.send_rpc_request("getProperty", serde_json::json!({
+                "componentId": component_id,
+                "property": property_name
+            }))?;
+
+            // Convert JSON result to Python object
+            return match result {
+                serde_json::Value::Null => Ok(py.None()),
+                serde_json::Value::Bool(b) => Ok(b.into_py(py)),
+                serde_json::Value::Number(n) => {
+                    if let Some(i) = n.as_i64() {
+                        Ok(i.into_py(py))
+                    } else if let Some(f) = n.as_f64() {
+                        Ok(f.into_py(py))
+                    } else {
+                        Ok(py.None())
+                    }
+                }
+                serde_json::Value::String(s) => Ok(s.into_py(py)),
+                _ => Ok(py.None()),
+            };
+        }
+
+        // For standard properties, use cached element
         let element = self.find_element(locator)?;
         element.get_property(py, property_name)
     }
@@ -1415,6 +1603,38 @@ impl SwingLibrary {
         Ok(())
     }
 
+    /// Convert serde_json::Value to Python object
+    fn json_to_pyobject(py: Python<'_>, value: serde_json::Value) -> PyResult<PyObject> {
+        match value {
+            serde_json::Value::Null => Ok(py.None()),
+            serde_json::Value::Bool(b) => Ok(b.to_object(py)),
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    Ok(i.to_object(py))
+                } else if let Some(f) = n.as_f64() {
+                    Ok(f.to_object(py))
+                } else {
+                    Ok(py.None())
+                }
+            }
+            serde_json::Value::String(s) => Ok(s.to_object(py)),
+            serde_json::Value::Array(arr) => {
+                let list = PyList::empty(py);
+                for item in arr {
+                    list.append(Self::json_to_pyobject(py, item)?)?;
+                }
+                Ok(list.to_object(py))
+            }
+            serde_json::Value::Object(obj) => {
+                let dict = PyDict::new(py);
+                for (k, v) in obj {
+                    dict.set_item(k, Self::json_to_pyobject(py, v)?)?;
+                }
+                Ok(dict.to_object(py))
+            }
+        }
+    }
+
     /// Send a JSON-RPC request to the Java agent
     fn send_rpc_request(&self, method: &str, params: serde_json::Value) -> PyResult<serde_json::Value> {
         let mut conn = self.connection.write().map_err(|_| {
@@ -1748,16 +1968,8 @@ impl SwingLibrary {
 
     /// Convert UIComponent to SwingElement
     fn component_to_swing_element(&self, component: &UIComponent) -> SwingElement {
-        SwingElement::new(
-            component.id.hash_code,
-            component.id.tree_path.clone(),
-            component.component_type.class_name.clone(),
-            Some(component.component_type.simple_name.clone()),
-            component.identity.name.clone(),
-            component.identity.text.clone(),
-            component.state.enabled,
-            component.state.visible,
-        )
+        // Use from_component to properly transfer all properties including selected, editable, etc.
+        SwingElement::from_component(component)
     }
 
     /// Get the component ID (hash_code) for a locator
@@ -2171,6 +2383,7 @@ impl SwingLibrary {
         let class_name = json.get("class").and_then(|v| v.as_str())
             .or_else(|| json.get("className").and_then(|v| v.as_str()))
             .unwrap_or("Unknown");
+
         // Java agent provides "simpleClass" directly
         let simple_name = json.get("simpleClass").and_then(|v| v.as_str())
             .map(String::from)
@@ -2244,6 +2457,7 @@ impl SwingLibrary {
             parent_id: None,
             metadata: TraversalMetadata::default(),
         };
+
         Some(component)
     }
 

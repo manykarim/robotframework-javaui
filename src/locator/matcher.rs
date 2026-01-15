@@ -308,6 +308,21 @@ impl Evaluator {
                         }
                     }
                 }
+                Combinator::Cascaded => {
+                    // Cascaded >> is like descendant but semantically means "find within"
+                    // Any ancestor must match - iterate through all ancestors
+                    let mut found = false;
+                    for ancestor in &current_context.ancestors {
+                        let ancestor_ctx = MatchContext::new(ancestor);
+                        if self.evaluate_compound_selector(compound, ancestor, &ancestor_ctx).matches {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        return MatchResult::not_matched();
+                    }
+                }
             }
         }
 

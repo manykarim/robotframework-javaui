@@ -155,6 +155,12 @@ public class RpcServer implements Runnable {
             case "getElementText":
                 return ActionExecutor.getElementText(paramsObj.get("componentId").getAsInt());
 
+            case "getProperty":
+                return ComponentInspector.getProperty(
+                    paramsObj.get("componentId").getAsInt(),
+                    paramsObj.get("property").getAsString()
+                );
+
             // Actions
             case "click":
                 ActionExecutor.click(paramsObj.get("componentId").getAsInt());
@@ -185,6 +191,10 @@ public class RpcServer implements Runnable {
                     paramsObj.has("index") ? paramsObj.get("index").getAsInt() : -1,
                     paramsObj.has("value") ? paramsObj.get("value").getAsString() : null
                 );
+                return JsonNull.INSTANCE;
+
+            case "selectMenu":
+                ActionExecutor.selectMenu(paramsObj.get("path").getAsString());
                 return JsonNull.INSTANCE;
 
             case "focus":
@@ -248,6 +258,10 @@ public class RpcServer implements Runnable {
                 return JsonNull.INSTANCE;
 
             case "getTreeNodes":
+                boolean selectedOnly = paramsObj.has("selectedOnly") && paramsObj.get("selectedOnly").getAsBoolean();
+                if (selectedOnly) {
+                    return ActionExecutor.getSelectedTreePath(paramsObj.get("componentId").getAsInt());
+                }
                 return ActionExecutor.getTreeNodes(paramsObj.get("componentId").getAsInt());
 
             // List operations

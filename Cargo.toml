@@ -1,12 +1,12 @@
 [package]
 name = "robotframework-swing"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "High-performance Robot Framework library for Java Swing automation"
+description = "High-performance Robot Framework library for Java Swing, Eclipse SWT, and RCP automation"
 authors = ["robotframework-swing contributors"]
 repository = "https://github.com/robotframework/robotframework-swing"
-keywords = ["robotframework", "swing", "java", "automation", "testing"]
+keywords = ["robotframework", "swing", "swt", "rcp", "java", "automation", "testing"]
 categories = ["development-tools::testing", "api-bindings"]
 
 [lib]
@@ -52,3 +52,8 @@ opt-level = 3
 [features]
 default = []
 jni-embed = []
+# Toolkit-specific features
+swing = []           # Enable Swing UI toolkit support (default behavior)
+swt = []             # Enable Eclipse SWT widget toolkit support
+rcp = ["swt"]        # Enable Eclipse RCP support (requires SWT)
+all-toolkits = ["swing", "swt", "rcp"]  # Enable all UI toolkits

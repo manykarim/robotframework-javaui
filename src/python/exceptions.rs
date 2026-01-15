@@ -73,10 +73,28 @@ pub enum SwingErrorKind {
 }
 
 impl SwingError {
+    /// Create a new SwingError with the given kind and message
+    pub fn new(kind: SwingErrorKind, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            message: message.into(),
+            details: None,
+        }
+    }
+
     pub fn connection(message: impl Into<String>) -> Self {
         Self {
             kind: SwingErrorKind::Connection,
             message: message.into(),
+            details: None,
+        }
+    }
+
+    /// Create a validation error
+    pub fn validation(message: impl Into<String>) -> Self {
+        Self {
+            kind: SwingErrorKind::ActionFailed,
+            message: format!("Validation error: {}", message.into()),
             details: None,
         }
     }
@@ -113,6 +131,14 @@ impl SwingError {
         Self {
             kind: SwingErrorKind::ActionFailed,
             message: format!("Action '{}' failed: {}", action.into(), reason.into()),
+            details: None,
+        }
+    }
+
+    pub fn rcp_error(message: impl Into<String>) -> Self {
+        Self {
+            kind: SwingErrorKind::ActionFailed,
+            message: format!("RcpError: {}", message.into()),
             details: None,
         }
     }

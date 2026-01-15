@@ -1,0 +1,23 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: RCP Test Application
+Bundle-SymbolicName: com.testapp.rcp;singleton:=true
+Bundle-Version: 1.0.0.qualifier
+Bundle-Activator: com.testapp.rcp.Activator
+Bundle-Vendor: RobotFramework Test
+Require-Bundle: org.eclipse.ui,
+ org.eclipse.core.runtime,
+ org.eclipse.core.resources,
+ org.eclipse.ui.editors,
+ org.eclipse.ui.ide,
+ org.eclipse.jface.text,
+ org.eclipse.ui.forms
+Bundle-RequiredExecutionEnvironment: JavaSE-11
+Bundle-ActivationPolicy: lazy
+Export-Package: com.testapp.rcp,
+ com.testapp.rcp.commands,
+ com.testapp.rcp.editors,
+ com.testapp.rcp.preferences,
+ com.testapp.rcp.views,
+ com.testapp.rcp.wizards,
+ com.testapp.rcp.handlers

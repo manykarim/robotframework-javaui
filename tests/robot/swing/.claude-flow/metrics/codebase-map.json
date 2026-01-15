@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-01-14T07:30:31.310Z",
+  "projectRoot": "/mnt/c/workspace/robotframework-swing/tests/robot/swing",
+  "structure": {
+    "hasPackageJson": false,
+    "hasTsConfig": false,
+    "hasClaudeConfig": false,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1768375831311
+}

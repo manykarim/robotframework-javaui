@@ -169,14 +169,19 @@ unquoted_arg = @{ (!(")" | explicit_ws) ~ ANY)+ }
 /// Combinators connect compound selectors
 /// Note: The order matters - explicit combinators must be tried before descendant
 combinator = {
+    cascaded_combinator |
     child_combinator |
     adjacent_sibling |
     general_sibling |
     descendant_combinator
 }
 
+/// Cascaded combinator: >> (Browser Library style - find within parent context)
+/// Used for nested element selection like: JTable >> cell[row=0]
+cascaded_combinator = { explicit_ws* ~ ">>" ~ explicit_ws* }
+
 /// Child combinator: > (with optional surrounding whitespace)
-child_combinator = { explicit_ws* ~ ">" ~ explicit_ws* }
+child_combinator = { explicit_ws* ~ ">" ~ !">" ~ explicit_ws* }
 
 /// Adjacent sibling: + (with optional surrounding whitespace)
 adjacent_sibling = { explicit_ws* ~ "+" ~ explicit_ws* }
