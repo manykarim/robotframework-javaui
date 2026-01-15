@@ -136,7 +136,6 @@ memory/
 *.bak
 *.log
 runswttests.txt
-tasks.py
 hive-mind-prompt-*.txt
 claude-flow
 
