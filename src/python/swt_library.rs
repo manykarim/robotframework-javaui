@@ -1381,7 +1381,8 @@ impl SwtLibrary {
     }
 
     /// Send a JSON-RPC request to the SWT agent
-    fn send_rpc_request(&self, method: &str, params: serde_json::Value) -> PyResult<serde_json::Value> {
+    /// Made public to allow RcpLibrary and other extensions to use the same connection.
+    pub fn send_rpc_request(&self, method: &str, params: serde_json::Value) -> PyResult<serde_json::Value> {
         let mut conn = self.connection.write().map_err(|_| {
             SwingError::connection("Failed to acquire connection lock")
         })?;

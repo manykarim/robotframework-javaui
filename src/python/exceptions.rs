@@ -135,6 +135,14 @@ impl SwingError {
         }
     }
 
+    pub fn rcp_error(message: impl Into<String>) -> Self {
+        Self {
+            kind: SwingErrorKind::ActionFailed,
+            message: format!("RcpError: {}", message.into()),
+            details: None,
+        }
+    }
+
     pub fn timeout(operation: impl Into<String>, timeout_secs: f64) -> Self {
         Self {
             kind: SwingErrorKind::Timeout,

@@ -89,6 +89,30 @@ impl RcpLibrary {
         self.swt_lib.connect_to_swt_application(py, app, host, port, timeout)
     }
 
+    /// Connect to an RCP application (alias for connect_to_swt_application).
+    ///
+    /// Establishes connection to a running Eclipse RCP application.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``app`` | Application identifier (name or process ID). |
+    /// | ``host`` | Remote host for network connections. Default ``localhost``. |
+    /// | ``port`` | Port number for remote connections. Default ``5679``. |
+    /// | ``timeout`` | Connection timeout in seconds. Default ``30``. |
+    ///
+    /// Example:
+    /// | `Connect To Application` | eclipse | | | timeout=60 |
+    #[pyo3(signature = (app, host="localhost", port=5679, timeout=None))]
+    pub fn connect_to_application(
+        &mut self,
+        py: Python<'_>,
+        app: &str,
+        host: &str,
+        port: u16,
+        timeout: Option<PyObject>,
+    ) -> PyResult<()> {
+        self.swt_lib.connect_to_swt_application(py, app, host, port, timeout)
+    }
+
     /// Disconnect from the current RCP/SWT application.
     ///
     /// Closes the connection to the RCP application and cleans up resources.
@@ -527,7 +551,14 @@ impl RcpLibrary {
 
         let result = self.send_rpc_request("rcp.getActivePerspective", serde_json::json!({}))?;
 
-        Ok(result.as_str().unwrap_or("").to_string())
+        // Result is a JSON object with "id" field
+        if let Some(id) = result.get("id").and_then(|v| v.as_str()) {
+            Ok(id.to_string())
+        } else if let Some(s) = result.as_str() {
+            Ok(s.to_string())
+        } else {
+            Ok(String::new())
+        }
     }
 
     /// Open (switch to) a perspective by ID.
@@ -548,9 +579,19 @@ impl RcpLibrary {
             return Err(SwingError::validation("Perspective ID cannot be empty").into());
         }
 
-        self.send_rpc_request("rcp.openPerspective", serde_json::json!({
+        let result = self.send_rpc_request("rcp.openPerspective", serde_json::json!({
             "perspectiveId": perspective_id
         }))?;
+
+        if let Some(obj) = result.as_object() {
+            if let Some(success) = obj.get("success").and_then(|v| v.as_bool()) {
+                if !success {
+                    let error_msg = obj.get("error").and_then(|v| v.as_str())
+                        .unwrap_or("Failed to open perspective");
+                    return Err(SwingError::rcp_error(error_msg).into());
+                }
+            }
+        }
 
         Ok(())
     }
@@ -630,7 +671,17 @@ impl RcpLibrary {
             params["secondaryId"] = serde_json::Value::String(sid.to_string());
         }
 
-        self.send_rpc_request("rcp.showView", params)?;
+        let result = self.send_rpc_request("rcp.showView", params)?;
+
+        if let Some(obj) = result.as_object() {
+            if let Some(success) = obj.get("success").and_then(|v| v.as_bool()) {
+                if !success {
+                    let error_msg = obj.get("error").and_then(|v| v.as_str())
+                        .unwrap_or("Failed to show view");
+                    return Err(SwingError::rcp_error(error_msg).into());
+                }
+            }
+        }
 
         Ok(())
     }
@@ -776,6 +827,14 @@ impl RcpLibrary {
             "locator": locator
         }))?;
 
+        // Check for error response
+        if result.get("error").is_some() {
+            return Err(SwingError::element_not_found(format!(
+                "Widget '{}' not found in view '{}'",
+                locator, view_id
+            )).into());
+        }
+
         self.json_to_swt_element(&result)
             .ok_or_else(|| SwingError::element_not_found(format!(
                 "Widget '{}' not found in view '{}'",
@@ -859,7 +918,7 @@ impl RcpLibrary {
         }
 
         self.send_rpc_request("rcp.closeEditor", serde_json::json!({
-            "title": title,
+            "filePath": title,
             "save": save
         }))?;
 
@@ -886,6 +945,12 @@ impl RcpLibrary {
             "save": save
         }))?;
 
+        // Server returns {"success": true/false}
+        if let Some(obj) = result.as_object() {
+            if let Some(success) = obj.get("success") {
+                return Ok(success.as_bool().unwrap_or(false));
+            }
+        }
         Ok(result.as_bool().unwrap_or(false))
     }
 
@@ -904,7 +969,7 @@ impl RcpLibrary {
         self.ensure_connected()?;
 
         let params = match title {
-            Some(t) => serde_json::json!({ "title": t }),
+            Some(t) => serde_json::json!({ "filePath": t }),
             None => serde_json::json!({}),
         };
 
@@ -946,7 +1011,7 @@ impl RcpLibrary {
         }
 
         self.send_rpc_request("rcp.activateEditor", serde_json::json!({
-            "title": title
+            "filePath": title
         }))?;
 
         Ok(())
@@ -963,20 +1028,20 @@ impl RcpLibrary {
     ///
     /// Example:
     /// | `Input Text` | editor:Main.java | new code |
-    /// | `Editor Should Be Dirty` | Main.java |
-    #[pyo3(signature = (title))]
-    pub fn editor_should_be_dirty(&self, title: &str) -> PyResult<()> {
+    /// | `Editor Should Be Dirty` | /project/src/Main.java |
+    #[pyo3(signature = (file_path))]
+    pub fn editor_should_be_dirty(&self, file_path: &str) -> PyResult<()> {
         self.ensure_connected()?;
 
         let result = self.send_rpc_request("rcp.isEditorDirty", serde_json::json!({
-            "title": title
+            "filePath": file_path
         }))?;
 
         let is_dirty = result.as_bool().unwrap_or(false);
         if !is_dirty {
             return Err(pyo3::exceptions::PyAssertionError::new_err(format!(
                 "Editor '{}' is not dirty (has no unsaved changes)",
-                title
+                file_path
             )));
         }
         Ok(())
@@ -992,21 +1057,21 @@ impl RcpLibrary {
     /// Raises ``AssertionError`` if the editor is dirty.
     ///
     /// Example:
-    /// | `Save Editor` | Main.java |
-    /// | `Editor Should Not Be Dirty` | Main.java |
-    #[pyo3(signature = (title))]
-    pub fn editor_should_not_be_dirty(&self, title: &str) -> PyResult<()> {
+    /// | `Save Editor` | /project/src/Main.java |
+    /// | `Editor Should Not Be Dirty` | /project/src/Main.java |
+    #[pyo3(signature = (file_path))]
+    pub fn editor_should_not_be_dirty(&self, file_path: &str) -> PyResult<()> {
         self.ensure_connected()?;
 
         let result = self.send_rpc_request("rcp.isEditorDirty", serde_json::json!({
-            "title": title
+            "filePath": file_path
         }))?;
 
         let is_dirty = result.as_bool().unwrap_or(false);
         if is_dirty {
             return Err(pyo3::exceptions::PyAssertionError::new_err(format!(
                 "Editor '{}' is dirty (has unsaved changes)",
-                title
+                file_path
             )));
         }
         Ok(())
@@ -1065,6 +1130,14 @@ impl RcpLibrary {
             "title": title,
             "locator": locator
         }))?;
+
+        // Check for error response
+        if result.get("error").is_some() {
+            return Err(SwingError::element_not_found(format!(
+                "Widget '{}' not found in editor '{}'",
+                locator, title
+            )).into());
+        }
 
         self.json_to_swt_element(&result)
             .ok_or_else(|| SwingError::element_not_found(format!(
@@ -1273,6 +1346,642 @@ impl RcpLibrary {
 
         Ok(())
     }
+
+    // ========================
+    // Additional Workbench Keywords
+    // ========================
+
+    /// Get the active workbench window.
+    ///
+    /// Returns information about the currently active workbench window.
+    ///
+    /// Example:
+    /// | ${window}= | `Get Active Workbench Window` |
+    /// | Log | Window title: ${window}[title] |
+    pub fn get_active_workbench_window(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.getActiveWorkbenchWindow", serde_json::json!({}))?;
+
+        let dict = PyDict::new(py);
+        if let Some(obj) = result.as_object() {
+            for (key, value) in obj {
+                dict.set_item(key, self.json_to_py(py, value)?)?;
+            }
+        }
+        Ok(dict.into())
+    }
+
+    /// Get the number of open workbench windows.
+    ///
+    /// Returns the count of open workbench windows.
+    ///
+    /// Example:
+    /// | ${count}= | `Get Workbench Window Count` |
+    /// | Should Be True | ${count} >= 1 |
+    pub fn get_workbench_window_count(&self) -> PyResult<i32> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.getWorkbenchWindowCount", serde_json::json!({}))?;
+        Ok(result.as_i64().unwrap_or(0) as i32)
+    }
+
+    /// Get the title of the workbench window.
+    ///
+    /// Returns the title of the active workbench window.
+    ///
+    /// Example:
+    /// | ${title}= | `Get Workbench Title` |
+    /// | Should Contain | ${title} | Eclipse |
+    pub fn get_workbench_title(&self) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.getWorkbenchTitle", serde_json::json!({}))?;
+        if let Some(obj) = result.as_object() {
+            if let Some(title) = obj.get("title").and_then(|v| v.as_str()) {
+                return Ok(title.to_string());
+            }
+        }
+        Ok(String::new())
+    }
+
+    /// Get the current workbench state.
+    ///
+    /// Returns the complete state of the workbench including running status,
+    /// window count, perspective, and editor/view counts.
+    ///
+    /// Example:
+    /// | ${state}= | `Get Workbench State` |
+    /// | Log | Running: ${state}[running] |
+    pub fn get_workbench_state(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.getWorkbenchState", serde_json::json!({}))?;
+
+        let dict = PyDict::new(py);
+        if let Some(obj) = result.as_object() {
+            for (key, value) in obj {
+                dict.set_item(key, self.json_to_py(py, value)?)?;
+            }
+        }
+        Ok(dict.into())
+    }
+
+    /// Wait for the workbench to become ready.
+    ///
+    /// Waits until the workbench is fully initialized and responsive.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``timeout`` | Maximum time to wait in seconds. Default ``30``. |
+    ///
+    /// Example:
+    /// | `Wait For Workbench` | |
+    /// | `Wait For Workbench` | timeout=60 |
+    #[pyo3(signature = (timeout=None))]
+    pub fn wait_for_workbench(&self, timeout: Option<f64>) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        let timeout_ms = (timeout.unwrap_or(30.0) * 1000.0) as i64;
+        let result = self.send_rpc_request("rcp.waitForWorkbench", serde_json::json!({
+            "timeout": timeout_ms
+        }))?;
+
+        if let Some(obj) = result.as_object() {
+            if let Some(success) = obj.get("success").and_then(|v| v.as_bool()) {
+                if !success {
+                    let error_msg = obj.get("error").and_then(|v| v.as_str())
+                        .unwrap_or("Workbench did not become ready");
+                    return Err(SwingError::timeout(error_msg, timeout.unwrap_or(30.0)).into());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    // ========================
+    // Additional Perspective Keywords
+    // ========================
+
+    /// Open a perspective by its display name.
+    ///
+    /// Searches for and opens a perspective matching the given name.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``name`` | The display name of the perspective. |
+    ///
+    /// Example:
+    /// | `Open Perspective By Name` | Java |
+    /// | `Open Perspective By Name` | Debug |
+    #[pyo3(signature = (name))]
+    pub fn open_perspective_by_name(&self, name: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        if name.is_empty() {
+            return Err(SwingError::validation("Perspective name cannot be empty").into());
+        }
+
+        let result = self.send_rpc_request("rcp.openPerspectiveByName", serde_json::json!({
+            "name": name
+        }))?;
+
+        if let Some(obj) = result.as_object() {
+            if let Some(success) = obj.get("success").and_then(|v| v.as_bool()) {
+                if !success {
+                    let error_msg = obj.get("error").and_then(|v| v.as_str())
+                        .unwrap_or("Failed to open perspective");
+                    return Err(SwingError::element_not_found(error_msg).into());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Close the active perspective.
+    ///
+    /// Closes the currently active perspective.
+    ///
+    /// Example:
+    /// | `Close Active Perspective` |
+    pub fn close_active_perspective(&self) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        self.send_rpc_request("rcp.closePerspective", serde_json::json!({}))?;
+        Ok(())
+    }
+
+    /// Close all perspectives.
+    ///
+    /// Closes all open perspectives in the workbench.
+    ///
+    /// Example:
+    /// | `Close All Perspectives` |
+    pub fn close_all_perspectives(&self) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        self.send_rpc_request("rcp.closeAllPerspectives", serde_json::json!({}))?;
+        Ok(())
+    }
+
+    /// Get a list of currently open perspectives.
+    ///
+    /// Returns a list of perspective objects with ``id`` and ``label``.
+    ///
+    /// Example:
+    /// | ${perspectives}= | `Get Open Perspectives` |
+    /// | ${count}= | Get Length | ${perspectives} |
+    pub fn get_open_perspectives(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.getOpenPerspectives", serde_json::json!({}))?;
+
+        let list = PyList::empty(py);
+        if let Some(perspectives) = result.as_array() {
+            for perspective in perspectives {
+                let dict = PyDict::new(py);
+                if let Some(obj) = perspective.as_object() {
+                    for (key, value) in obj {
+                        dict.set_item(key, self.json_to_py(py, value)?)?;
+                    }
+                }
+                list.append(dict)?;
+            }
+        }
+        Ok(list.into())
+    }
+
+    /// Save the current perspective with a new name.
+    ///
+    /// Saves the current perspective layout under a new name.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``name`` | Name for the saved perspective. |
+    ///
+    /// Example:
+    /// | `Save Perspective As` | MyCustomPerspective |
+    #[pyo3(signature = (name))]
+    pub fn save_perspective_as(&self, name: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        if name.is_empty() {
+            return Err(SwingError::validation("Perspective name cannot be empty").into());
+        }
+
+        self.send_rpc_request("rcp.savePerspectiveAs", serde_json::json!({
+            "name": name
+        }))?;
+        Ok(())
+    }
+
+    // ========================
+    // Additional View Keywords
+    // ========================
+
+    /// Show a view by its display name.
+    ///
+    /// Searches for and shows a view matching the given name.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``name`` | The display name of the view. |
+    ///
+    /// Example:
+    /// | `Show View By Name` | Problems |
+    /// | `Show View By Name` | Package Explorer |
+    #[pyo3(signature = (name))]
+    pub fn show_view_by_name(&self, name: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        if name.is_empty() {
+            return Err(SwingError::validation("View name cannot be empty").into());
+        }
+
+        let result = self.send_rpc_request("rcp.showViewByName", serde_json::json!({
+            "name": name
+        }))?;
+
+        if let Some(obj) = result.as_object() {
+            if let Some(success) = obj.get("success").and_then(|v| v.as_bool()) {
+                if !success {
+                    let error_msg = obj.get("error").and_then(|v| v.as_str())
+                        .unwrap_or("Failed to show view");
+                    return Err(SwingError::element_not_found(error_msg).into());
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Check if a view is visible.
+    ///
+    /// Returns ``True`` if the view is currently visible.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``view_id`` | The view ID to check. |
+    ///
+    /// Example:
+    /// | ${visible}= | `Is View Visible` | org.eclipse.jdt.ui.PackageExplorer |
+    /// | Should Be True | ${visible} |
+    #[pyo3(signature = (view_id))]
+    pub fn is_view_visible(&self, view_id: &str) -> PyResult<bool> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.isViewVisible", serde_json::json!({
+            "viewId": view_id
+        }))?;
+
+        Ok(result.as_bool().unwrap_or(false))
+    }
+
+    /// Get the currently active view.
+    ///
+    /// Returns the ID of the currently active view, or empty string if no view is active.
+    ///
+    /// Example:
+    /// | ${view}= | `Get Active View` |
+    pub fn get_active_view(&self) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.getActiveView", serde_json::json!({}))?;
+
+        if let Some(obj) = result.as_object() {
+            if obj.get("isView").and_then(|v| v.as_bool()).unwrap_or(false) {
+                if let Some(id) = obj.get("id").and_then(|v| v.as_str()) {
+                    return Ok(id.to_string());
+                }
+            }
+        }
+        Ok(String::new())
+    }
+
+    /// Minimize a view.
+    ///
+    /// Minimizes the specified view.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``view_id`` | The view ID to minimize. |
+    ///
+    /// Example:
+    /// | `Minimize View` | org.eclipse.ui.views.ContentOutline |
+    #[pyo3(signature = (view_id))]
+    pub fn minimize_view(&self, view_id: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        if view_id.is_empty() {
+            return Err(SwingError::validation("View ID cannot be empty").into());
+        }
+
+        self.send_rpc_request("rcp.minimizeView", serde_json::json!({
+            "viewId": view_id
+        }))?;
+        Ok(())
+    }
+
+    /// Maximize a view.
+    ///
+    /// Maximizes the specified view to full workbench size.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``view_id`` | The view ID to maximize. |
+    ///
+    /// Example:
+    /// | `Maximize View` | org.eclipse.jdt.ui.PackageExplorer |
+    #[pyo3(signature = (view_id))]
+    pub fn maximize_view(&self, view_id: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        if view_id.is_empty() {
+            return Err(SwingError::validation("View ID cannot be empty").into());
+        }
+
+        self.send_rpc_request("rcp.maximizeView", serde_json::json!({
+            "viewId": view_id
+        }))?;
+        Ok(())
+    }
+
+    /// Restore a view to normal state.
+    ///
+    /// Restores a minimized or maximized view to its normal state.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``view_id`` | The view ID to restore. |
+    ///
+    /// Example:
+    /// | `Restore View` | org.eclipse.jdt.ui.PackageExplorer |
+    #[pyo3(signature = (view_id))]
+    pub fn restore_view(&self, view_id: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        if view_id.is_empty() {
+            return Err(SwingError::validation("View ID cannot be empty").into());
+        }
+
+        self.send_rpc_request("rcp.restoreView", serde_json::json!({
+            "viewId": view_id
+        }))?;
+        Ok(())
+    }
+
+    /// Check if a view is minimized.
+    ///
+    /// Returns ``True`` if the view is currently minimized.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``view_id`` | The view ID to check. |
+    ///
+    /// Example:
+    /// | ${minimized}= | `Is View Minimized` | org.eclipse.ui.views.ContentOutline |
+    #[pyo3(signature = (view_id))]
+    pub fn is_view_minimized(&self, view_id: &str) -> PyResult<bool> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.isViewMinimized", serde_json::json!({
+            "viewId": view_id
+        }))?;
+
+        Ok(result.as_bool().unwrap_or(false))
+    }
+
+    /// Check if a view is maximized.
+    ///
+    /// Returns ``True`` if the view is currently maximized.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``view_id`` | The view ID to check. |
+    ///
+    /// Example:
+    /// | ${maximized}= | `Is View Maximized` | org.eclipse.jdt.ui.PackageExplorer |
+    #[pyo3(signature = (view_id))]
+    pub fn is_view_maximized(&self, view_id: &str) -> PyResult<bool> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.isViewMaximized", serde_json::json!({
+            "viewId": view_id
+        }))?;
+
+        Ok(result.as_bool().unwrap_or(false))
+    }
+
+    /// Get the title of a view.
+    ///
+    /// Returns the display title of the specified view.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``view_id`` | The view ID. |
+    ///
+    /// Example:
+    /// | ${title}= | `Get View Title` | org.eclipse.jdt.ui.PackageExplorer |
+    #[pyo3(signature = (view_id))]
+    pub fn get_view_title(&self, view_id: &str) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.getViewTitle", serde_json::json!({
+            "viewId": view_id
+        }))?;
+
+        if let Some(obj) = result.as_object() {
+            if let Some(title) = obj.get("title").and_then(|v| v.as_str()) {
+                return Ok(title.to_string());
+            }
+        }
+        Ok(String::new())
+    }
+
+    // ========================
+    // Additional Editor Keywords
+    // ========================
+
+    /// Check if an editor is open.
+    ///
+    /// Returns ``True`` if an editor is open for the specified file.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``file_path`` | Path to the file. |
+    ///
+    /// Example:
+    /// | ${open}= | `Is Editor Open` | /project/src/Main.java |
+    #[pyo3(signature = (file_path))]
+    pub fn is_editor_open(&self, file_path: &str) -> PyResult<bool> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.isEditorOpen", serde_json::json!({
+            "filePath": file_path
+        }))?;
+
+        Ok(result.as_bool().unwrap_or(false))
+    }
+
+    /// Check if an editor has unsaved changes.
+    ///
+    /// Returns ``True`` if the editor has unsaved changes.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``file_path`` | Path to the file. |
+    ///
+    /// Example:
+    /// | ${dirty}= | `Is Editor Dirty` | /project/src/Main.java |
+    #[pyo3(signature = (file_path))]
+    pub fn is_editor_dirty(&self, file_path: &str) -> PyResult<bool> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.isEditorDirty", serde_json::json!({
+            "filePath": file_path
+        }))?;
+
+        Ok(result.as_bool().unwrap_or(false))
+    }
+
+    /// Get the content of an editor.
+    ///
+    /// Returns the text content of the specified editor.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``file_path`` | Path to the file. |
+    ///
+    /// Example:
+    /// | ${content}= | `Get Editor Content` | /project/src/Main.java |
+    #[pyo3(signature = (file_path))]
+    pub fn get_editor_content(&self, file_path: &str) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.getEditorContent", serde_json::json!({
+            "filePath": file_path
+        }))?;
+
+        if let Some(obj) = result.as_object() {
+            if let Some(content) = obj.get("content").and_then(|v| v.as_str()) {
+                return Ok(content.to_string());
+            }
+        }
+        Ok(String::new())
+    }
+
+    /// Get the count of editors with unsaved changes.
+    ///
+    /// Returns the number of dirty editors.
+    ///
+    /// Example:
+    /// | ${count}= | `Get Dirty Editor Count` |
+    pub fn get_dirty_editor_count(&self) -> PyResult<i32> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.getDirtyEditorCount", serde_json::json!({}))?;
+        Ok(result.as_i64().unwrap_or(0) as i32)
+    }
+
+    /// Enter text in the active editor.
+    ///
+    /// Inserts text at the current cursor position in the active editor.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``text`` | Text to insert. |
+    ///
+    /// Example:
+    /// | `Enter Text In Editor` | // New comment |
+    #[pyo3(signature = (text))]
+    pub fn enter_text_in_editor(&self, text: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        self.send_rpc_request("rcp.enterTextInEditor", serde_json::json!({
+            "text": text
+        }))?;
+        Ok(())
+    }
+
+    // ========================
+    // Additional Dialog Keywords
+    // ========================
+
+    /// Get a list of open dialogs.
+    ///
+    /// Returns a list of dialog objects with ``title``, ``visible``, and ``modal`` properties.
+    ///
+    /// Example:
+    /// | ${dialogs}= | `Get Open Dialogs` |
+    pub fn get_open_dialogs(&self, py: Python<'_>) -> PyResult<PyObject> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("rcp.getOpenDialogs", serde_json::json!({}))?;
+
+        let list = PyList::empty(py);
+        if let Some(dialogs) = result.as_array() {
+            for dialog in dialogs {
+                let dict = PyDict::new(py);
+                if let Some(obj) = dialog.as_object() {
+                    for (key, value) in obj {
+                        dict.set_item(key, self.json_to_py(py, value)?)?;
+                    }
+                }
+                list.append(dict)?;
+            }
+        }
+        Ok(list.into())
+    }
+
+    /// Execute a menu command.
+    ///
+    /// Executes a menu path (e.g., ``File|Refresh``).
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``menu_path`` | Menu path with ``|`` separator. |
+    ///
+    /// Example:
+    /// | `Execute Menu` | File|Refresh |
+    #[pyo3(signature = (menu_path))]
+    pub fn execute_menu(&self, menu_path: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        if menu_path.is_empty() {
+            return Err(SwingError::validation("Menu path cannot be empty").into());
+        }
+
+        self.send_rpc_request("rcp.executeMenu", serde_json::json!({
+            "menuPath": menu_path
+        }))?;
+        Ok(())
+    }
+
+    // ========================
+    // Button Keywords
+    // ========================
+
+    /// Press a button by its text label.
+    ///
+    /// Clicks a button widget identified by its label text.
+    /// Commonly used for dialog buttons like OK, Cancel, Apply, etc.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``label`` | The text label of the button to press. |
+    ///
+    /// Example:
+    /// | `Press Button` | OK |
+    /// | `Press Button` | Cancel |
+    /// | `Press Button` | Apply |
+    #[pyo3(signature = (label))]
+    pub fn press_button(&self, label: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        if label.is_empty() {
+            return Err(SwingError::validation("Button label cannot be empty").into());
+        }
+
+        self.send_rpc_request("rcp.pressButton", serde_json::json!({
+            "label": label
+        }))?;
+        Ok(())
+    }
+
+    /// Close the currently active dialog.
+    ///
+    /// Closes the topmost dialog window if one is open.
+    ///
+    /// Example:
+    /// | `Close Active Dialog` |
+    #[pyo3(signature = ())]
+    pub fn close_active_dialog(&self) -> PyResult<()> {
+        self.ensure_connected()?;
+        self.send_rpc_request("rcp.closeActiveDialog", serde_json::json!({}))?;
+        Ok(())
+    }
 }
 
 // Private implementation methods
@@ -1285,49 +1994,10 @@ impl RcpLibrary {
         Ok(())
     }
 
-    /// Send a JSON-RPC request (delegated to SwtLibrary internals)
+    /// Send a JSON-RPC request (delegated to SwtLibrary's public method)
     fn send_rpc_request(&self, method: &str, params: serde_json::Value) -> PyResult<serde_json::Value> {
-        // Access SwtLibrary's connection through its public interface
-        // We need to use a workaround since send_rpc_request is private
-        // This delegates to the underlying SwtLibrary's connection
-
-        use std::io::{BufRead, BufReader, Read, Write};
-        use std::net::TcpStream;
-        use std::time::Duration;
-
-        // Get connection info from the swt_lib (we need to access its internal state)
-        // For now, we'll store the connection separately or make SwtLibrary's method public
-        // This is a simplified implementation that relies on the connection being established
-
-        // Access the connection through reflection-like mechanism
-        // In practice, we would either:
-        // 1. Make send_rpc_request public in SwtLibrary
-        // 2. Store a separate connection reference
-        // 3. Use a trait to share the implementation
-
-        // For this implementation, we'll assume SwtLibrary exposes a way to send RPC
-        // In the actual implementation, this would need architectural changes
-
-        // Placeholder that delegates to internal mechanism
-        self.send_rpc_internal(method, params)
-    }
-
-    /// Internal RPC sending - this would need to access SwtLibrary's connection
-    fn send_rpc_internal(&self, method: &str, params: serde_json::Value) -> PyResult<serde_json::Value> {
-        // This implementation assumes we have access to the TCP stream
-        // In production, SwtLibrary would need to expose this functionality
-
-        // For now, return a placeholder that indicates RCP operations need the Java agent
-        // The actual implementation requires the Java RCP agent to be running
-
-        Err(SwingError::new(
-            SwingErrorKind::Connection,
-            format!(
-                "RCP method '{}' requires the Eclipse RCP Java agent. \
-                Ensure the agent JAR is loaded into the target Eclipse application.",
-                method
-            ),
-        ).into())
+        // Delegate to the underlying SwtLibrary's public send_rpc_request method
+        self.swt_lib.send_rpc_request(method, params)
     }
 
     /// Get widget ID by locator (delegated)
