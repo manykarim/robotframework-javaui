@@ -65,6 +65,35 @@ except ImportError as e:
 
 
 __version__ = "0.1.0"
+
+# Path to bundled Java agent JAR
+_PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
+AGENT_JAR_PATH = os.path.join(_PACKAGE_DIR, "jars", "javagui-agent.jar")
+
+
+def get_agent_jar_path() -> str:
+    """
+    Get the path to the bundled Java agent JAR file.
+
+    This JAR should be used as a -javaagent when starting Java applications
+    to enable GUI automation.
+
+    Returns:
+        Absolute path to the javagui-agent.jar file.
+
+    Example:
+        >>> from JavaGui import get_agent_jar_path
+        >>> jar_path = get_agent_jar_path()
+        >>> # Use in command: java -javaagent:{jar_path}=port=5678 -jar myapp.jar
+    """
+    if not os.path.exists(AGENT_JAR_PATH):
+        raise FileNotFoundError(
+            f"Agent JAR not found at {AGENT_JAR_PATH}. "
+            "This may indicate an incomplete installation."
+        )
+    return AGENT_JAR_PATH
+
+
 __all__ = [
     # Main library classes
     "Swing",
@@ -76,6 +105,9 @@ __all__ = [
     "RcpLibrary",
     # Element class
     "SwingElement",
+    # Agent helper
+    "get_agent_jar_path",
+    "AGENT_JAR_PATH",
     # Exceptions
     "SwingError",
     "SwingConnectionError",

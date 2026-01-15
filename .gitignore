@@ -139,3 +139,6 @@ runswttests.txt
 tasks.py
 hive-mind-prompt-*.txt
 claude-flow
+
+# Bundled JARs (copied from agent/target during build)
+python/JavaGui/jars/
