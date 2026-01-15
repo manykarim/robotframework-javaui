@@ -1,6 +1,6 @@
 *** Settings ***
 Documentation     Common resources for Swing Library tests
-Library           swing_library.SwingLibrary
+Library           JavaGui.Swing
 Library           OperatingSystem
 Library           Process
 

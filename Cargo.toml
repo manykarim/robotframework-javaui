@@ -1,16 +1,16 @@
 [package]
-name = "robotframework-swing"
+name = "robotframework-javagui"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "High-performance Robot Framework library for Java Swing automation"
-authors = ["robotframework-swing contributors"]
-repository = "https://github.com/robotframework/robotframework-swing"
-keywords = ["robotframework", "swing", "java", "automation", "testing"]
+description = "High-performance Robot Framework library for Java GUI automation (Swing, SWT, Eclipse RCP)"
+authors = ["robotframework-javagui contributors"]
+repository = "https://github.com/robotframework/robotframework-javagui"
+keywords = ["robotframework", "swing", "swt", "rcp", "eclipse", "java", "automation", "testing", "gui"]
 categories = ["development-tools::testing", "api-bindings"]
 
 [lib]
-name = "swing_library"
+name = "javagui"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
