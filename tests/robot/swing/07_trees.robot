@@ -20,7 +20,7 @@ Force Tags        trees    regression
 Expand Root Tree Node
     [Documentation]    Expand the root node of a tree.
     [Tags]    smoke    positive
-    Expand Tree Node    JTree[name='fileTree']    Root
+    Expand Tree Node    JTree[name='fileTree']    Project Root
     # Verify child nodes are now visible (tree expanded)
     ${nodes}=    Get Tree Nodes    JTree[name='fileTree']
     Should Not Be Empty    ${nodes}    Tree should have visible nodes after expansion
@@ -28,40 +28,40 @@ Expand Root Tree Node
 Expand Tree Node By Path
     [Documentation]    Expand a tree node using path notation.
     [Tags]    positive
-    Expand Tree Node    JTree[name='fileTree']    Root/Documents
+    Expand Tree Node    JTree[name='fileTree']    Project Root/Sources
     Element Should Exist    JTree[name='fileTree']
 
 Expand Nested Tree Node
     [Documentation]    Expand a deeply nested tree node.
     [Tags]    positive
-    Expand Tree Node    JTree[name='fileTree']    Root/Documents/Projects
+    Expand Tree Node    JTree[name='fileTree']    Project Root/Sources/com.example.main
     Element Should Exist    JTree[name='fileTree']
 
 Expand Tree Node Using ID Selector
     [Documentation]    Expand tree node using ID-style selector.
     [Tags]    positive
-    Expand Tree Node    \#fileTree    Root
+    Expand Tree Node    \#fileTree    Project Root
     Element Should Exist    \#fileTree
 
 Expand Tree Node Using XPath
     [Documentation]    Expand tree node using XPath selector.
     [Tags]    positive    xpath-locator
-    Expand Tree Node    //JTree[@name='fileTree']    Root
+    Expand Tree Node    //JTree[@name='fileTree']    Project Root
     Element Should Exist    //JTree[@name='fileTree']
 
 Expand Already Expanded Node
     [Documentation]    Verify expanding already expanded node is safe.
     [Tags]    positive    edge-case
-    Expand Tree Node    [name='fileTree']    Root
-    Expand Tree Node    [name='fileTree']    Root
+    Expand Tree Node    [name='fileTree']    Project Root
+    Expand Tree Node    [name='fileTree']    Project Root
     Element Should Exist    [name='fileTree']
 
 Expand Multiple Nodes
     [Documentation]    Expand multiple nodes sequentially.
     [Tags]    positive
-    Expand Tree Node    [name='fileTree']    Root
-    Expand Tree Node    [name='fileTree']    Root/Documents
-    Expand Tree Node    [name='fileTree']    Root/Downloads
+    Expand Tree Node    [name='fileTree']    Project Root
+    Expand Tree Node    [name='fileTree']    Project Root/Sources
+    Expand Tree Node    [name='fileTree']    Project Root/Resources
     Element Should Exist    [name='fileTree']
 
 # =============================================================================
@@ -71,43 +71,43 @@ Expand Multiple Nodes
 Collapse Root Tree Node
     [Documentation]    Collapse the root node of a tree.
     [Tags]    smoke    positive
-    Expand Tree Node    JTree[name='fileTree']    Root
-    Collapse Tree Node    JTree[name='fileTree']    Root
+    Expand Tree Node    JTree[name='fileTree']    Project Root
+    Collapse Tree Node    JTree[name='fileTree']    Project Root
     Element Should Exist    JTree[name='fileTree']
 
 Collapse Tree Node By Path
     [Documentation]    Collapse a tree node using path notation.
     [Tags]    positive
-    Expand Tree Node    [name='fileTree']    Root/Documents
-    Collapse Tree Node    [name='fileTree']    Root/Documents
+    Expand Tree Node    [name='fileTree']    Project Root/Sources
+    Collapse Tree Node    [name='fileTree']    Project Root/Sources
     Element Should Exist    [name='fileTree']
 
 Collapse Nested Tree Node
     [Documentation]    Collapse a deeply nested tree node.
     [Tags]    positive
-    Expand Tree Node    [name='fileTree']    Root/Documents/Projects
-    Collapse Tree Node    [name='fileTree']    Root/Documents/Projects
+    Expand Tree Node    [name='fileTree']    Project Root/Sources/com.example.main
+    Collapse Tree Node    [name='fileTree']    Project Root/Sources/com.example.main
     Element Should Exist    [name='fileTree']
 
 Collapse Tree Node Using ID Selector
     [Documentation]    Collapse tree node using ID-style selector.
     [Tags]    positive
-    Expand Tree Node    \#fileTree    Root
-    Collapse Tree Node    \#fileTree    Root
+    Expand Tree Node    \#fileTree    Project Root
+    Collapse Tree Node    \#fileTree    Project Root
     Element Should Exist    \#fileTree
 
 Collapse Tree Node Using XPath
     [Documentation]    Collapse tree node using XPath selector.
     [Tags]    positive    xpath-locator
-    Expand Tree Node    //JTree[@name='fileTree']    Root
-    Collapse Tree Node    //JTree[@name='fileTree']    Root
+    Expand Tree Node    //JTree[@name='fileTree']    Project Root
+    Collapse Tree Node    //JTree[@name='fileTree']    Project Root
     Element Should Exist    //JTree[@name='fileTree']
 
 Collapse Already Collapsed Node
     [Documentation]    Verify collapsing already collapsed node is safe.
     [Tags]    positive    edge-case
-    Collapse Tree Node    [name='fileTree']    Root
-    Collapse Tree Node    [name='fileTree']    Root
+    Collapse Tree Node    [name='fileTree']    Project Root
+    Collapse Tree Node    [name='fileTree']    Project Root
     Element Should Exist    [name='fileTree']
 
 # =============================================================================
@@ -117,50 +117,50 @@ Collapse Already Collapsed Node
 Select Root Tree Node
     [Documentation]    Select the root node of a tree.
     [Tags]    smoke    positive
-    Select Tree Node    JTree[name='fileTree']    Root
+    Select Tree Node    JTree[name='fileTree']    Project Root
     Element Should Exist    JTree[name='fileTree']
 
 Select Tree Node By Path
     [Documentation]    Select a tree node using path notation.
     [Tags]    positive
-    Expand Tree Node    [name='fileTree']    Root
-    Select Tree Node    JTree[name='fileTree']    Root/Documents
+    Expand Tree Node    [name='fileTree']    Project Root
+    Select Tree Node    JTree[name='fileTree']    Project Root/Sources
     Element Should Exist    JTree[name='fileTree']
 
 Select Nested Tree Node
     [Documentation]    Select a deeply nested tree node.
     [Tags]    positive
-    Expand Tree Node    [name='fileTree']    Root/Documents
-    Select Tree Node    JTree[name='fileTree']    Root/Documents/Projects
+    Expand Tree Node    [name='fileTree']    Project Root/Sources
+    Select Tree Node    JTree[name='fileTree']    Project Root/Sources/com.example.main
     Element Should Exist    JTree[name='fileTree']
 
 Select Tree Node Using ID Selector
     [Documentation]    Select tree node using ID-style selector.
     [Tags]    positive
-    Select Tree Node    \#fileTree    Root
+    Select Tree Node    \#fileTree    Project Root
     Element Should Exist    \#fileTree
 
 Select Tree Node Using XPath
     [Documentation]    Select tree node using XPath selector.
     [Tags]    positive    xpath-locator
-    Select Tree Node    //JTree[@name='fileTree']    Root
+    Select Tree Node    //JTree[@name='fileTree']    Project Root
     Element Should Exist    //JTree[@name='fileTree']
 
 Select Same Node Multiple Times
     [Documentation]    Verify selecting same node multiple times is safe.
     [Tags]    positive    edge-case
-    Select Tree Node    [name='fileTree']    Root
-    Select Tree Node    [name='fileTree']    Root
-    Select Tree Node    [name='fileTree']    Root
+    Select Tree Node    [name='fileTree']    Project Root
+    Select Tree Node    [name='fileTree']    Project Root
+    Select Tree Node    [name='fileTree']    Project Root
     Element Should Exist    [name='fileTree']
 
 Select Different Nodes Sequentially
     [Documentation]    Select different nodes one after another.
     [Tags]    positive
-    Expand Tree Node    [name='fileTree']    Root
-    Select Tree Node    [name='fileTree']    Root/Documents
-    Select Tree Node    [name='fileTree']    Root/Downloads
-    Select Tree Node    [name='fileTree']    Root/Pictures
+    Expand Tree Node    [name='fileTree']    Project Root
+    Select Tree Node    [name='fileTree']    Project Root/Sources
+    Select Tree Node    [name='fileTree']    Project Root/Resources
+    Select Tree Node    [name='fileTree']    Project Root/Tests
     Element Should Exist    [name='fileTree']
 
 # =============================================================================
@@ -170,7 +170,7 @@ Select Different Nodes Sequentially
 Get Selected Tree Node After Selection
     [Documentation]    Get the currently selected tree node.
     [Tags]    smoke    positive
-    Select Tree Node    JTree[name='fileTree']    Root
+    Select Tree Node    JTree[name='fileTree']    Project Root
     ${selected}=    Get Selected Tree Node    JTree[name='fileTree']
     Should Not Be Empty    ${selected}
     Log    Selected node: ${selected}
@@ -178,22 +178,22 @@ Get Selected Tree Node After Selection
 Get Selected Tree Node Using ID Selector
     [Documentation]    Get selected node using ID-style selector.
     [Tags]    positive
-    Select Tree Node    \#fileTree    Root
+    Select Tree Node    \#fileTree    Project Root
     ${selected}=    Get Selected Tree Node    \#fileTree
     Log    Selected: ${selected}
 
 Get Selected Tree Node Using XPath
     [Documentation]    Get selected node using XPath selector.
     [Tags]    positive    xpath-locator
-    Select Tree Node    //JTree[@name='fileTree']    Root
+    Select Tree Node    //JTree[@name='fileTree']    Project Root
     ${selected}=    Get Selected Tree Node    //JTree[@name='fileTree']
     Log    Selected: ${selected}
 
 Get Selected Node After Path Selection
     [Documentation]    Verify selected node after selecting nested path.
     [Tags]    positive
-    Expand Tree Node    [name='fileTree']    Root
-    Select Tree Node    [name='fileTree']    Root/Documents
+    Expand Tree Node    [name='fileTree']    Project Root
+    Select Tree Node    [name='fileTree']    Project Root/Sources
     ${selected}=    Get Selected Tree Node    [name='fileTree']
     Log    Selected after path: ${selected}
 
@@ -224,7 +224,7 @@ Verify Tree Contains Expected Nodes
     [Documentation]    Verify the tree contains expected nodes.
     [Tags]    positive
     ${nodes}=    Get Tree Nodes    [name='fileTree']
-    Should Contain    ${nodes}    Root
+    Should Contain    ${nodes}    Project Root
     Log    Nodes found: ${nodes}
 
 # =============================================================================
@@ -235,11 +235,11 @@ Navigate Tree Hierarchy Workflow
     [Documentation]    Navigate through tree hierarchy.
     [Tags]    workflow    smoke
     # Expand root
-    Expand Tree Node    [name='fileTree']    Root
+    Expand Tree Node    [name='fileTree']    Project Root
     # Navigate to Documents
-    Expand Tree Node    [name='fileTree']    Root/Documents
+    Expand Tree Node    [name='fileTree']    Project Root/Sources
     # Select a document
-    Select Tree Node    [name='fileTree']    Root/Documents/Projects
+    Select Tree Node    [name='fileTree']    Project Root/Sources/com.example.main
     # Verify selection
     ${selected}=    Get Selected Tree Node    [name='fileTree']
     Log    Final selection: ${selected}
@@ -248,25 +248,25 @@ Expand Collapse Cycle Workflow
     [Documentation]    Test expand/collapse cycle.
     [Tags]    workflow
     # Expand all
-    Expand Tree Node    [name='fileTree']    Root
-    Expand Tree Node    [name='fileTree']    Root/Documents
+    Expand Tree Node    [name='fileTree']    Project Root
+    Expand Tree Node    [name='fileTree']    Project Root/Sources
     # Collapse in reverse
-    Collapse Tree Node    [name='fileTree']    Root/Documents
-    Collapse Tree Node    [name='fileTree']    Root
+    Collapse Tree Node    [name='fileTree']    Project Root/Sources
+    Collapse Tree Node    [name='fileTree']    Project Root
     # Expand again
-    Expand Tree Node    [name='fileTree']    Root
+    Expand Tree Node    [name='fileTree']    Project Root
     Element Should Exist    [name='fileTree']
 
 Browse File Tree Workflow
     [Documentation]    Simulate browsing a file tree.
     [Tags]    workflow
     # Start at root
-    Select Tree Node    [name='fileTree']    Root
+    Select Tree Node    [name='fileTree']    Project Root
     # Browse to different folders
-    Expand Tree Node    [name='fileTree']    Root
-    Select Tree Node    [name='fileTree']    Root/Documents
-    Expand Tree Node    [name='fileTree']    Root/Documents
-    Select Tree Node    [name='fileTree']    Root/Downloads
+    Expand Tree Node    [name='fileTree']    Project Root
+    Select Tree Node    [name='fileTree']    Project Root/Sources
+    Expand Tree Node    [name='fileTree']    Project Root/Sources
+    Select Tree Node    [name='fileTree']    Project Root/Resources
     ${selected}=    Get Selected Tree Node    [name='fileTree']
     Log    Browsed to: ${selected}
 
@@ -319,21 +319,21 @@ Expand Node In Nonexistent Tree Fails
     [Documentation]    Expand node in non-existent tree throws error.
     [Tags]    negative    error-handling
     ${status}=    Run Keyword And Return Status
-    ...    Expand Tree Node    JTree[name='nonexistent']    Root
+    ...    Expand Tree Node    JTree[name='nonexistent']    Project Root
     Should Be Equal    ${status}    ${FALSE}
 
 Collapse Node In Nonexistent Tree Fails
     [Documentation]    Collapse node in non-existent tree throws error.
     [Tags]    negative    error-handling
     ${status}=    Run Keyword And Return Status
-    ...    Collapse Tree Node    JTree[name='nonexistent']    Root
+    ...    Collapse Tree Node    JTree[name='nonexistent']    Project Root
     Should Be Equal    ${status}    ${FALSE}
 
 Select Node In Nonexistent Tree Fails
     [Documentation]    Select node in non-existent tree throws error.
     [Tags]    negative    error-handling
     ${status}=    Run Keyword And Return Status
-    ...    Select Tree Node    JTree[name='nonexistent']    Root
+    ...    Select Tree Node    JTree[name='nonexistent']    Project Root
     Should Be Equal    ${status}    ${FALSE}
 
 Get Selected Node From Nonexistent Tree Fails
@@ -371,13 +371,13 @@ Select Nonexistent Path Fails
 Expand Root Only
     [Documentation]    Expand only the root node.
     [Tags]    edge-case
-    Expand Tree Node    [name='fileTree']    Root
+    Expand Tree Node    [name='fileTree']    Project Root
     Element Should Exist    [name='fileTree']
 
 Select Root Only
     [Documentation]    Select only the root node.
     [Tags]    edge-case
-    Select Tree Node    [name='fileTree']    Root
+    Select Tree Node    [name='fileTree']    Project Root
     ${selected}=    Get Selected Tree Node    [name='fileTree']
     Log    Root selected: ${selected}
 
@@ -385,19 +385,19 @@ Rapid Tree Navigation
     [Documentation]    Test rapid tree navigation.
     [Tags]    edge-case    stress
     FOR    ${i}    IN RANGE    5
-        Expand Tree Node    [name='fileTree']    Root
-        Select Tree Node    [name='fileTree']    Root
-        Collapse Tree Node    [name='fileTree']    Root
+        Expand Tree Node    [name='fileTree']    Project Root
+        Select Tree Node    [name='fileTree']    Project Root
+        Collapse Tree Node    [name='fileTree']    Project Root
     END
     Element Should Exist    [name='fileTree']
 
 Rapid Node Selection
     [Documentation]    Test rapid node selection.
     [Tags]    edge-case    stress
-    Expand Tree Node    [name='fileTree']    Root
+    Expand Tree Node    [name='fileTree']    Project Root
     FOR    ${i}    IN RANGE    5
-        Select Tree Node    [name='fileTree']    Root/Documents
-        Select Tree Node    [name='fileTree']    Root/Downloads
+        Select Tree Node    [name='fileTree']    Project Root/Sources
+        Select Tree Node    [name='fileTree']    Project Root/Resources
     END
     Element Should Exist    [name='fileTree']
 

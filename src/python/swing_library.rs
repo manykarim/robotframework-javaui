@@ -528,6 +528,32 @@ impl SwingLibrary {
         Ok(())
     }
 
+    /// Right-click on an element (context click)
+    ///
+    /// Performs a right-click to open context/popup menus.
+    /// Use `select_from_popup_menu` after this to select menu items.
+    ///
+    /// Args:
+    ///     locator: Element locator
+    ///
+    /// Example:
+    ///     | Right Click Element | JTree#fileTree |
+    ///     | Select From Popup Menu | Delete |
+    #[pyo3(signature = (locator))]
+    pub fn right_click_element(&self, locator: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        // Find the element and get its component ID
+        let component_id = self.get_component_id(locator)?;
+
+        // Use RPC to right-click element with component ID
+        self.send_rpc_request("rightClick", serde_json::json!({
+            "componentId": component_id
+        }))?;
+
+        Ok(())
+    }
+
     /// Click a button by text or locator
     ///
     /// A convenience keyword for clicking buttons.
@@ -543,7 +569,8 @@ impl SwingLibrary {
         self.ensure_connected()?;
 
         // Try to find by text first, then by locator
-        let locator = if identifier.contains(':') || identifier.contains('[') {
+        // Check for common locator patterns: ':' (prefix:value), '[' (attributes), '#' (ID selector), '//' (XPath)
+        let locator = if identifier.contains(':') || identifier.contains('[') || identifier.starts_with('#') || identifier.starts_with("//") {
             identifier.to_string()
         } else {
             format!("JButton[text=\"{}\"]", identifier)
@@ -1134,9 +1161,8 @@ impl SwingLibrary {
     pub fn select_from_popup_menu(&self, path: &str) -> PyResult<()> {
         self.ensure_connected()?;
 
-        self.send_rpc_request("selectItem", serde_json::json!({
-            "locator": format!("popup:{}", path),
-            "value": path
+        self.send_rpc_request("selectFromPopupMenu", serde_json::json!({
+            "path": path
         }))?;
 
         Ok(())
@@ -2143,62 +2169,164 @@ impl SwingLibrary {
         tree: &UITree,
         xpath: &XPathExpression,
     ) -> Vec<SwingElement> {
-        // Simplified XPath matching implementation
+        use crate::locator::XPathAxis;
+
         let mut results = Vec::new();
 
         if xpath.steps.is_empty() {
             return results;
         }
 
-        let first_step = &xpath.steps[0];
+        // For multi-step XPath like //JPanel//JButton, we traverse the tree
+        // tracking the path (ancestors) for each component, then verify
+        // that the ancestor chain contains matches for all XPath steps.
 
-        for component in tree.iter() {
-            let type_matches = first_step.node_test.is_empty()
-                || first_step.node_test == "*"
-                || component.component_type.simple_name == first_step.node_test
-                || component
-                    .component_type
-                    .simple_name
-                    .eq_ignore_ascii_case(&first_step.node_test);
+        // Collect all components with their ancestors
+        let mut components_with_ancestors: Vec<(UIComponent, Vec<UIComponent>)> = Vec::new();
 
-            let predicates_match = first_step.predicates.iter().all(|pred| {
-                use crate::locator::XPathPredicate;
-                match pred {
-                    XPathPredicate::AttributeExists(attr) => {
-                        self.component_has_attribute(component, attr)
-                    }
-                    XPathPredicate::AttributeEquals(attr, value) => self.check_attribute_match(
-                        component,
-                        attr,
-                        &Some(AttributeOperator::Equals),
-                        &Some(value.clone()),
-                    ),
-                    XPathPredicate::Contains(attr, value) => self.check_attribute_match(
-                        component,
-                        attr,
-                        &Some(AttributeOperator::Contains),
-                        &Some(value.clone()),
-                    ),
-                    XPathPredicate::StartsWith(attr, value) => self.check_attribute_match(
-                        component,
-                        attr,
-                        &Some(AttributeOperator::StartsWith),
-                        &Some(value.clone()),
-                    ),
-                    XPathPredicate::Index(idx) => {
-                        // Index predicates are complex, simplified here
-                        component.metadata.sibling_index == (*idx as u32 - 1)
-                    }
-                    XPathPredicate::Expression(_) => true, // Complex expressions not fully implemented
+        // Traverse tree and collect components with their ancestor paths
+        fn collect_with_ancestors(
+            component: &UIComponent,
+            ancestors: Vec<UIComponent>,
+            result: &mut Vec<(UIComponent, Vec<UIComponent>)>,
+        ) {
+            // Store this component with its ancestors
+            result.push((component.clone(), ancestors.clone()));
+
+            // Process children with updated ancestors
+            if let Some(ref children) = component.children {
+                let mut new_ancestors = ancestors;
+                new_ancestors.push(component.clone());
+                for child in children {
+                    collect_with_ancestors(child, new_ancestors.clone(), result);
                 }
-            });
+            }
+        }
 
-            if type_matches && predicates_match {
+        for root in &tree.roots {
+            collect_with_ancestors(root, Vec::new(), &mut components_with_ancestors);
+        }
+
+        // For single step XPath, just match directly
+        if xpath.steps.len() == 1 {
+            let step = &xpath.steps[0];
+            for (component, _) in &components_with_ancestors {
+                if self.xpath_step_matches(component, step) {
+                    results.push(SwingElement::from_component(component));
+                }
+            }
+            return results;
+        }
+
+        // For multi-step XPath (e.g., //JPanel//JButton):
+        // The final step matches the component, previous steps match ancestors
+        let final_step = &xpath.steps[xpath.steps.len() - 1];
+
+        for (component, ancestors) in &components_with_ancestors {
+            // Check if component matches final step
+            if !self.xpath_step_matches(component, final_step) {
+                continue;
+            }
+
+            // Verify ancestor chain matches previous steps
+            // For //JPanel//JButton:
+            // - step 0: JPanel (axis=Descendant, meaning search descendants from root)
+            // - step 1: JButton (axis=Descendant, meaning search descendants from JPanel)
+            // So we need to find JPanel among ancestors
+
+            let mut valid = true;
+            let mut ancestor_idx = ancestors.len(); // Start from immediate parent
+
+            // Work backwards through steps (skip final step already matched)
+            for step_idx in (0..xpath.steps.len() - 1).rev() {
+                let step = &xpath.steps[step_idx];
+
+                // The axis of the NEXT step tells us how the NEXT step relates to this step
+                // If next step has Descendant axis, we can skip ancestors
+                // If next step has Child axis, must be immediate parent
+                let next_step_axis = xpath.steps[step_idx + 1].axis;
+                let is_descendant = matches!(next_step_axis, XPathAxis::Descendant | XPathAxis::DescendantOrSelf);
+
+                // Find matching ancestor
+                let mut found = false;
+
+                if is_descendant {
+                    // Can be any ancestor - search upward
+                    while ancestor_idx > 0 {
+                        ancestor_idx -= 1;
+                        if self.xpath_step_matches(&ancestors[ancestor_idx], step) {
+                            found = true;
+                            break;
+                        }
+                    }
+                } else {
+                    // Must be immediate parent
+                    if ancestor_idx > 0 {
+                        ancestor_idx -= 1;
+                        if self.xpath_step_matches(&ancestors[ancestor_idx], step) {
+                            found = true;
+                        }
+                    }
+                }
+
+                if !found {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if valid {
                 results.push(SwingElement::from_component(component));
             }
         }
 
         results
+    }
+
+    /// Check if a component matches an XPath step
+    fn xpath_step_matches(&self, component: &UIComponent, step: &crate::locator::XPathStep) -> bool {
+        use crate::locator::XPathPredicate;
+
+        // Check node test (type name)
+        let type_matches = step.node_test.is_empty()
+            || step.node_test == "*"
+            || component.component_type.simple_name == step.node_test
+            || component.component_type.simple_name.eq_ignore_ascii_case(&step.node_test);
+
+        if !type_matches {
+            return false;
+        }
+
+        // Check predicates
+        step.predicates.iter().all(|pred| {
+            match pred {
+                XPathPredicate::AttributeExists(attr) => {
+                    self.component_has_attribute(component, attr)
+                }
+                XPathPredicate::AttributeEquals(attr, value) => self.check_attribute_match(
+                    component,
+                    attr,
+                    &Some(AttributeOperator::Equals),
+                    &Some(value.clone()),
+                ),
+                XPathPredicate::Contains(attr, value) => self.check_attribute_match(
+                    component,
+                    attr,
+                    &Some(AttributeOperator::Contains),
+                    &Some(value.clone()),
+                ),
+                XPathPredicate::StartsWith(attr, value) => self.check_attribute_match(
+                    component,
+                    attr,
+                    &Some(AttributeOperator::StartsWith),
+                    &Some(value.clone()),
+                ),
+                XPathPredicate::Index(idx) => {
+                    component.metadata.sibling_index == (*idx as u32 - 1)
+                }
+                XPathPredicate::Expression(_) => true,
+            }
+        })
     }
 
     /// Check if a component has an attribute

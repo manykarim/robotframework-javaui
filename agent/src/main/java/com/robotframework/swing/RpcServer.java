@@ -197,6 +197,10 @@ public class RpcServer implements Runnable {
                 ActionExecutor.selectMenu(paramsObj.get("path").getAsString());
                 return JsonNull.INSTANCE;
 
+            case "selectFromPopupMenu":
+                ActionExecutor.selectFromPopupMenu(paramsObj.get("path").getAsString());
+                return JsonNull.INSTANCE;
+
             case "focus":
                 ActionExecutor.focus(paramsObj.get("componentId").getAsInt());
                 return JsonNull.INSTANCE;
@@ -214,7 +218,7 @@ public class RpcServer implements Runnable {
                 return ActionExecutor.getTableCellValue(
                     paramsObj.get("componentId").getAsInt(),
                     paramsObj.get("row").getAsInt(),
-                    paramsObj.get("column").getAsInt()
+                    parseColumnIdentifier(paramsObj.get("componentId").getAsInt(), paramsObj.get("column"))
                 );
 
             case "setTableCellValue":
@@ -346,6 +350,48 @@ public class RpcServer implements Runnable {
         error.addProperty("code", code);
         error.addProperty("message", message);
         return error;
+    }
+
+    /**
+     * Parse a column identifier which can be an integer index or a column name string.
+     */
+    private int parseColumnIdentifier(int componentId, JsonElement columnElement) {
+        // If it's a number, use it directly
+        if (columnElement.isJsonPrimitive() && columnElement.getAsJsonPrimitive().isNumber()) {
+            return columnElement.getAsInt();
+        }
+
+        // If it's a string, try to parse as int first, then look up by column name
+        String columnStr = columnElement.getAsString();
+        try {
+            return Integer.parseInt(columnStr);
+        } catch (NumberFormatException e) {
+            // Not a number, look up by column name
+            return getColumnIndexByName(componentId, columnStr);
+        }
+    }
+
+    /**
+     * Get column index by column name.
+     */
+    private int getColumnIndexByName(int componentId, String columnName) {
+        return EdtHelper.runOnEdtAndReturn(() -> {
+            java.awt.Component comp = ComponentInspector.getComponentById(componentId);
+            if (!(comp instanceof javax.swing.JTable)) {
+                throw new IllegalArgumentException("Component is not a JTable");
+            }
+
+            javax.swing.JTable table = (javax.swing.JTable) comp;
+            javax.swing.table.TableModel model = table.getModel();
+
+            for (int i = 0; i < model.getColumnCount(); i++) {
+                if (columnName.equals(model.getColumnName(i))) {
+                    return i;
+                }
+            }
+
+            throw new IllegalArgumentException("Column not found: " + columnName);
+        });
     }
 
     public void stop() {

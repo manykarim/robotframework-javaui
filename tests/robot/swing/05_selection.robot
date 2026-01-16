@@ -20,30 +20,37 @@ Force Tags        selection    regression
 Select Item From ComboBox By Name
     [Documentation]    Select an item from a combo box using name selector.
     [Tags]    smoke    positive
-    Select From Combobox    JComboBox[name='countryCombo']    United States
+    Select Selections Tab
+    Select From Combobox    JComboBox[name='categoryComboBox']    Electronics
     # Verify selection was applied
-    ${text}=    Get Element Text    JComboBox[name='countryCombo']
-    Should Contain    ${text}    United States    Combo selection should be visible
+    ${text}=    Get Element Text    JComboBox[name='categoryComboBox']
+    Should Contain    ${text}    Electronics    Combo selection should be visible
 
 Select Item From ComboBox By ID
     [Documentation]    Select an item using ID-style selector.
     [Tags]    positive
-    Select From Combobox    \#countryCombo    Canada
-    Element Should Exist    \#countryCombo
+    Select Selections Tab
+    Select From Combobox    \#categoryComboBox    Clothing
+    ${text}=    Get Element Text    \#categoryComboBox
+    Should Contain    ${text}    Clothing    ID selector combo selection should work
 
 Select Multiple Items From ComboBox
     [Documentation]    Select different items sequentially.
     [Tags]    positive
-    Select From Combobox    [name='countryCombo']    Germany
-    Select From Combobox    [name='countryCombo']    France
-    Select From Combobox    [name='countryCombo']    Japan
-    Element Should Exist    [name='countryCombo']
+    Select Selections Tab
+    Select From Combobox    [name='categoryComboBox']    Books
+    Select From Combobox    [name='categoryComboBox']    Sports
+    Select From Combobox    [name='categoryComboBox']    Toys
+    ${text}=    Get Element Text    [name='categoryComboBox']
+    Should Contain    ${text}    Toys    Final selection should be Toys
 
 Select Item From ComboBox Using XPath
     [Documentation]    Select item using XPath selector.
     [Tags]    positive    xpath-locator
-    Select From Combobox    //JComboBox[@name='countryCombo']    Australia
-    Element Should Exist    //JComboBox[@name='countryCombo']
+    Select Selections Tab
+    Select From Combobox    //JComboBox[@name='categoryComboBox']    Home & Garden
+    ${text}=    Get Element Text    //JComboBox[@name='categoryComboBox']
+    Should Contain    ${text}    Home & Garden    XPath combo selection should work
 
 # =============================================================================
 # CHECKBOX OPERATIONS
@@ -52,74 +59,83 @@ Select Item From ComboBox Using XPath
 Check Checkbox By Name
     [Documentation]    Check a checkbox using name selector.
     [Tags]    smoke    positive
-    Check Checkbox    JCheckBox[name='rememberMe']
+    Select Selections Tab
+    Check Checkbox    JCheckBox[name='enabledCheckBox']
     Sleep    0.3s    Wait for UI update
     # Verify checkbox is now selected
-    ${selected}=    Get Element Property    JCheckBox[name='rememberMe']    selected
+    ${selected}=    Get Element Property    JCheckBox[name='enabledCheckBox']    selected
     Should Be True    ${selected}    Checkbox should be selected after check
 
 Check Checkbox By ID
     [Documentation]    Check a checkbox using ID-style selector.
     [Tags]    positive
-    Check Checkbox    \#rememberMe
+    Select Selections Tab
+    Check Checkbox    \#enabledCheckBox
     # Verify checkbox is now selected
-    Element Should Be Selected    \#rememberMe
+    Element Should Be Selected    \#enabledCheckBox
 
 Check Multiple Checkboxes
     [Documentation]    Check multiple checkboxes in sequence.
     [Tags]    positive
-    Check Checkbox    JCheckBox[name='rememberMe']
-    Check Checkbox    JCheckBox[name='rememberMe']
-    Check Checkbox    JCheckBox[name='rememberMe']
-    Element Should Exist    JCheckBox[name='rememberMe']
-    Element Should Exist    JCheckBox[name='rememberMe']
-    Element Should Exist    JCheckBox[name='rememberMe']
+    Select Selections Tab
+    Check Checkbox    JCheckBox[name='enabledCheckBox']
+    Check Checkbox    JCheckBox[name='notificationsCheckBox']
+    Check Checkbox    JCheckBox[name='autoSaveCheckBox']
+    Element Should Be Selected    JCheckBox[name='enabledCheckBox']
+    Element Should Be Selected    JCheckBox[name='notificationsCheckBox']
+    Element Should Be Selected    JCheckBox[name='autoSaveCheckBox']
 
 Check Checkbox Using XPath
     [Documentation]    Check a checkbox using XPath selector.
     [Tags]    positive    xpath-locator
-    Check Checkbox    //JCheckBox[@name='rememberMe']
-    Element Should Exist    //JCheckBox[@name='rememberMe']
+    Select Selections Tab
+    Check Checkbox    //JCheckBox[@name='enabledCheckBox']
+    Element Should Be Selected    //JCheckBox[@name='enabledCheckBox']
 
 Check Already Checked Checkbox
     [Documentation]    Verify checking already checked checkbox is safe.
     [Tags]    positive    edge-case
-    Check Checkbox    [name='rememberMe']
-    Check Checkbox    [name='rememberMe']
-    Element Should Exist    [name='rememberMe']
+    Select Selections Tab
+    Check Checkbox    [name='enabledCheckBox']
+    Check Checkbox    [name='enabledCheckBox']
+    Element Should Be Selected    [name='enabledCheckBox']
 
 Uncheck Checkbox By Name
     [Documentation]    Uncheck a checkbox using name selector.
     [Tags]    smoke    positive
-    Check Checkbox    JCheckBox[name='rememberMe']
-    Element Should Be Selected    JCheckBox[name='rememberMe']
-    Uncheck Checkbox    JCheckBox[name='rememberMe']
+    Select Selections Tab
+    Check Checkbox    JCheckBox[name='enabledCheckBox']
+    Element Should Be Selected    JCheckBox[name='enabledCheckBox']
+    Uncheck Checkbox    JCheckBox[name='enabledCheckBox']
     # Verify checkbox is now unchecked
-    Element Should Not Be Selected    JCheckBox[name='rememberMe']
+    Element Should Not Be Selected    JCheckBox[name='enabledCheckBox']
 
 Uncheck Checkbox By ID
     [Documentation]    Uncheck a checkbox using ID-style selector.
     [Tags]    positive
-    Check Checkbox    \#rememberMe
-    Uncheck Checkbox    \#rememberMe
-    Element Should Exist    \#rememberMe
+    Select Selections Tab
+    Check Checkbox    \#enabledCheckBox
+    Uncheck Checkbox    \#enabledCheckBox
+    Element Should Not Be Selected    \#enabledCheckBox
 
 Uncheck Multiple Checkboxes
     [Documentation]    Uncheck multiple checkboxes in sequence.
     [Tags]    positive
-    Check Checkbox    [name='rememberMe']
-    Check Checkbox    [name='rememberMe']
-    Uncheck Checkbox    [name='rememberMe']
-    Uncheck Checkbox    [name='rememberMe']
-    Element Should Exist    [name='rememberMe']
-    Element Should Exist    [name='rememberMe']
+    Select Selections Tab
+    Check Checkbox    [name='enabledCheckBox']
+    Check Checkbox    [name='notificationsCheckBox']
+    Uncheck Checkbox    [name='enabledCheckBox']
+    Uncheck Checkbox    [name='notificationsCheckBox']
+    Element Should Not Be Selected    [name='enabledCheckBox']
+    Element Should Not Be Selected    [name='notificationsCheckBox']
 
 Uncheck Already Unchecked Checkbox
     [Documentation]    Verify unchecking already unchecked checkbox is safe.
     [Tags]    positive    edge-case
-    Uncheck Checkbox    [name='rememberMe']
-    Uncheck Checkbox    [name='rememberMe']
-    Element Should Exist    [name='rememberMe']
+    Select Selections Tab
+    Uncheck Checkbox    [name='enabledCheckBox']
+    Uncheck Checkbox    [name='enabledCheckBox']
+    Element Should Not Be Selected    [name='enabledCheckBox']
 
 # =============================================================================
 # RADIO BUTTON SELECTION
@@ -128,37 +144,43 @@ Uncheck Already Unchecked Checkbox
 Select Radio Button By Name
     [Documentation]    Select a radio button using name selector.
     [Tags]    smoke    positive
-    Select Radio Button    JRadioButton[name='optionA']
+    Select Selections Tab
+    Select Radio Button    JRadioButton[name='highPriorityRadioButton']
     # Verify radio button is now selected
-    Element Should Be Selected    JRadioButton[name='optionA']
+    Element Should Be Selected    JRadioButton[name='highPriorityRadioButton']
 
 Select Radio Button By ID
     [Documentation]    Select a radio button using ID-style selector.
     [Tags]    positive
-    Select Radio Button    \#optionB
-    Element Should Exist    \#optionB
+    Select Selections Tab
+    Select Radio Button    \#normalPriorityRadioButton
+    Element Should Be Selected    \#normalPriorityRadioButton
 
 Select Different Radio Buttons In Group
     [Documentation]    Select different radio buttons in the same group.
     [Tags]    positive
-    Select Radio Button    JRadioButton[name='optionA']
-    Select Radio Button    JRadioButton[name='optionB']
-    Select Radio Button    JRadioButton[name='optionB']
-    Element Should Exist    JRadioButton[name='optionB']
+    Select Selections Tab
+    Select Radio Button    JRadioButton[name='highPriorityRadioButton']
+    Element Should Be Selected    JRadioButton[name='highPriorityRadioButton']
+    Select Radio Button    JRadioButton[name='normalPriorityRadioButton']
+    Element Should Be Selected    JRadioButton[name='normalPriorityRadioButton']
+    Element Should Not Be Selected    JRadioButton[name='highPriorityRadioButton']
 
 Select Radio Button Using XPath
     [Documentation]    Select radio button using XPath selector.
     [Tags]    positive    xpath-locator
-    Select Radio Button    //JRadioButton[@name='optionA']
-    Element Should Exist    //JRadioButton[@name='optionA']
+    Select Selections Tab
+    Select Radio Button    //JRadioButton[@name='highPriorityRadioButton']
+    Element Should Be Selected    //JRadioButton[@name='highPriorityRadioButton']
 
 Select Same Radio Button Multiple Times
     [Documentation]    Verify selecting same radio button multiple times is safe.
     [Tags]    positive    edge-case
-    Select Radio Button    [name='optionA']
-    Select Radio Button    [name='optionA']
-    Select Radio Button    [name='optionA']
-    Element Should Exist    [name='optionA']
+    Select Selections Tab
+    Select Radio Button    [name='highPriorityRadioButton']
+    Select Radio Button    [name='highPriorityRadioButton']
+    Select Radio Button    [name='highPriorityRadioButton']
+    Element Should Be Selected    [name='highPriorityRadioButton']
 
 # =============================================================================
 # LIST SELECTION
@@ -167,32 +189,37 @@ Select Same Radio Button Multiple Times
 Select From List By Name
     [Documentation]    Select an item from a list using name selector.
     [Tags]    smoke    positive
-    Select From List    JList[name='itemList']    Item 1
+    Select Selections Tab
+    Select From List    JList[name='itemList']    Item 1 - Apple
     Element Should Exist    JList[name='itemList']
 
 Select From List By ID
     [Documentation]    Select an item using ID-style selector.
     [Tags]    positive
-    Select From List    \#itemList    Item 2
+    Select Selections Tab
+    Select From List    \#itemList    Item 2 - Banana
     Element Should Exist    \#itemList
 
 Select Multiple Items From List
     [Documentation]    Select different items from the list.
     [Tags]    positive
-    Select From List    [name='itemList']    Item 1
-    Select From List    [name='itemList']    Item 3
-    Select From List    [name='itemList']    Item 5
+    Select Selections Tab
+    Select From List    [name='itemList']    Item 1 - Apple
+    Select From List    [name='itemList']    Item 3 - Cherry
+    Select From List    [name='itemList']    Item 5 - Elderberry
     Element Should Exist    [name='itemList']
 
 Select List Item By Index
     [Documentation]    Select a list item by its index.
     [Tags]    positive
+    Select Selections Tab
     Select List Item By Index    JList[name='itemList']    0
     Element Should Exist    JList[name='itemList']
 
 Select List Item By Index Different Positions
     [Documentation]    Select items at different index positions.
     [Tags]    positive
+    Select Selections Tab
     Select List Item By Index    [name='itemList']    0
     Select List Item By Index    [name='itemList']    2
     Select List Item By Index    [name='itemList']    4
@@ -201,6 +228,7 @@ Select List Item By Index Different Positions
 Get List Items
     [Documentation]    Get all items from a list.
     [Tags]    positive
+    Select Selections Tab
     ${items}=    Get List Items    JList[name='itemList']
     Should Not Be Empty    ${items}
     Log    List items: ${items}
@@ -212,33 +240,36 @@ Get List Items
 Complete Registration Form Selection Workflow
     [Documentation]    Fill in a registration form with various selections.
     [Tags]    workflow    smoke
-    # Select country
-    Select From Combobox    [name='countryCombo']    United States
+    Select Selections Tab
+    # Select category
+    Select From Combobox    [name='categoryComboBox']    Electronics
     # Select gender
-    Select Radio Button    [name='optionA']
+    Select Radio Button    [name='highPriorityRadioButton']
     # Check options
-    Check Checkbox    [name='rememberMe']
-    Check Checkbox    [name='rememberMe']
-    Element Should Exist    [name='countryCombo']
-    Element Should Exist    [name='optionA']
+    Check Checkbox    [name='enabledCheckBox']
+    Check Checkbox    [name='enabledCheckBox']
+    Element Should Exist    [name='categoryComboBox']
+    Element Should Exist    [name='highPriorityRadioButton']
 
 Toggle Checkbox Workflow
     [Documentation]    Test checkbox toggle behavior.
     [Tags]    workflow
-    Uncheck Checkbox    [name='rememberMe']
-    Check Checkbox    [name='rememberMe']
-    Uncheck Checkbox    [name='rememberMe']
-    Check Checkbox    [name='rememberMe']
-    Element Should Exist    [name='rememberMe']
+    Select Selections Tab
+    Uncheck Checkbox    [name='enabledCheckBox']
+    Check Checkbox    [name='enabledCheckBox']
+    Uncheck Checkbox    [name='enabledCheckBox']
+    Check Checkbox    [name='enabledCheckBox']
+    Element Should Exist    [name='enabledCheckBox']
 
 Radio Button Group Navigation Workflow
     [Documentation]    Navigate through radio button group.
     [Tags]    workflow
-    Select Radio Button    [name='optionA']
-    Select Radio Button    [name='optionB']
-    Select Radio Button    [name='optionB']
-    Select Radio Button    [name='optionA']
-    Element Should Exist    [name='optionA']
+    Select Selections Tab
+    Select Radio Button    [name='highPriorityRadioButton']
+    Select Radio Button    [name='normalPriorityRadioButton']
+    Select Radio Button    [name='normalPriorityRadioButton']
+    Select Radio Button    [name='highPriorityRadioButton']
+    Element Should Exist    [name='highPriorityRadioButton']
 
 # =============================================================================
 # SELECTION VERIFICATION
@@ -247,20 +278,23 @@ Radio Button Group Navigation Workflow
 Verify Checkbox Is Selected
     [Documentation]    Verify checkbox selection state.
     [Tags]    positive    verification
-    Check Checkbox    [name='rememberMe']
-    Element Should Be Selected    JCheckBox[name='rememberMe']
+    Select Selections Tab
+    Check Checkbox    [name='enabledCheckBox']
+    Element Should Be Selected    JCheckBox[name='enabledCheckBox']
 
 Verify Checkbox Is Not Selected
     [Documentation]    Verify checkbox not selected state.
     [Tags]    positive    verification
-    Uncheck Checkbox    [name='rememberMe']
-    Element Should Not Be Selected    JCheckBox[name='rememberMe']
+    Select Selections Tab
+    Uncheck Checkbox    [name='enabledCheckBox']
+    Element Should Not Be Selected    JCheckBox[name='enabledCheckBox']
 
 Verify Radio Button Is Selected
     [Documentation]    Verify radio button selection state.
     [Tags]    positive    verification
-    Select Radio Button    [name='optionA']
-    Element Should Be Selected    JRadioButton[name='optionA']
+    Select Selections Tab
+    Select Radio Button    [name='highPriorityRadioButton']
+    Element Should Be Selected    JRadioButton[name='highPriorityRadioButton']
 
 # =============================================================================
 # FINDING SELECTION ELEMENTS
@@ -332,7 +366,7 @@ Select Invalid ComboBox Item Fails
     [Documentation]    Select invalid item from combo box throws error.
     [Tags]    negative    error-handling
     ${status}=    Run Keyword And Return Status
-    ...    Select From Combobox    [name='countryCombo']    NonExistentCountry
+    ...    Select From Combobox    [name='categoryComboBox']    NonExistentCountry
     Should Be Equal    ${status}    ${FALSE}
 
 # =============================================================================
@@ -348,17 +382,19 @@ Select First ComboBox Item
 Rapid Checkbox Toggle
     [Documentation]    Test rapid checkbox toggling.
     [Tags]    edge-case    stress
+    Select Selections Tab
     FOR    ${i}    IN RANGE    5
-        Check Checkbox    [name='rememberMe']
-        Uncheck Checkbox    [name='rememberMe']
+        Check Checkbox    [name='enabledCheckBox']
+        Uncheck Checkbox    [name='enabledCheckBox']
     END
-    Element Should Exist    [name='rememberMe']
+    Element Should Exist    [name='enabledCheckBox']
 
 Rapid Radio Button Selection
     [Documentation]    Test rapid radio button selection.
     [Tags]    edge-case    stress
+    Select Selections Tab
     FOR    ${i}    IN RANGE    5
-        Select Radio Button    [name='optionA']
-        Select Radio Button    [name='optionB']
+        Select Radio Button    [name='highPriorityRadioButton']
+        Select Radio Button    [name='normalPriorityRadioButton']
     END
-    Element Should Exist    [name='optionA']
+    Element Should Exist    [name='highPriorityRadioButton']

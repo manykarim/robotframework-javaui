@@ -10,8 +10,15 @@ Resource          resources/common.resource
 
 Suite Setup       Start Test Application
 Suite Teardown    Stop Test Application
+Test Setup        Ensure Data View Tab
 
 Force Tags        tables    regression
+
+*** Keywords ***
+Ensure Data View Tab
+    [Documentation]    Navigate to Data View tab where the table is.
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Data View
+    Sleep    0.1s
 
 *** Test Cases ***
 # =============================================================================
@@ -272,11 +279,13 @@ Table Data Processing Workflow
 Verify Table Is Enabled
     [Documentation]    Verify table is enabled before interaction.
     [Tags]    positive    verification
+    Select Data View Tab
     Element Should Be Enabled    JTable[name='dataTable']
 
 Verify Table Is Visible
     [Documentation]    Verify table is visible.
     [Tags]    positive    verification
+    Select Data View Tab
     Element Should Be Visible    JTable[name='dataTable']
 
 Verify Table Exists

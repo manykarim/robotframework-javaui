@@ -53,14 +53,27 @@ demo/build/
 demo/.gradle/
 *.class
 
-# Third-party demo JARs (large binary files)
+# =============================================================================
+# Node.js
+# =============================================================================
+node_modules/
+package-lock.json
+package.json
+
+# =============================================================================
+# Demo Applications (large binary files)
+# =============================================================================
 demo/*.jar
+demo/*.tar.gz
+demo/dbeaver/
+demo/jdk-*/
 !demo/src/
 
 # =============================================================================
 # Test Output
 # =============================================================================
-/results/
+**/results/
+**/output/
 output.xml
 log.html
 report.html
@@ -92,27 +105,21 @@ htmlcov/
 Thumbs.db
 
 # =============================================================================
-# Claude Code / Flow (Runtime Data)
+# Claude Code / Flow
 # =============================================================================
-.claude/settings.local.json
-.claude-flow/metrics/
-.swarm/*.db*
-.hive-mind/*.db
-memory/claude-flow@alpha-data.json
-memory/claude-flow-data.json
+.claude/
+.claude-flow/
+.hive-mind/
+.swarm/
+.mcp.json
+CLAUDE.md
+PIPE
+agents/
+memory/
 
-# Keep directory structure
-memory/sessions/*
-!memory/sessions/README.md
-memory/agents/*
-!memory/agents/README.md
-
-# Coordination runtime
-coordination/memory_bank/*
-coordination/subtasks/*
-coordination/orchestration/*
-
+# =============================================================================
 # Database files
+# =============================================================================
 *.db
 *.db-journal
 *.db-wal
@@ -121,14 +128,16 @@ coordination/orchestration/*
 *.sqlite-journal
 *.sqlite-wal
 
-# Prompt files
-hive-mind-prompt-*.txt
-
 # =============================================================================
-# Temporary Files
+# Temporary / Generated Files
 # =============================================================================
 *.tmp
 *.temp
 *.bak
 *.log
-node_modules
+runswttests.txt
+hive-mind-prompt-*.txt
+claude-flow
+
+# Bundled JARs (copied from agent/target during build)
+python/JavaGui/jars/

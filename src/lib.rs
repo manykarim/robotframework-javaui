@@ -1,4 +1,4 @@
-//! robotframework-swing: High-performance Robot Framework library for Java Swing/SWT/RCP automation
+//! robotframework-javagui: High-performance Robot Framework library for Java GUI automation (Swing, SWT, RCP)
 //!
 //! This crate provides a high-performance Robot Framework library for automating
 //! Java Swing, Eclipse SWT, and Eclipse RCP desktop applications. It features:
@@ -33,9 +33,9 @@ pub mod python;
 
 use pyo3::prelude::*;
 
-/// Python module entry point for the Swing/SWT/RCP automation library.
+/// Python module entry point for the JavaGui automation library.
 ///
-/// This function is called when the module is imported in Python.
+/// This function is called when the module is imported in Python as JavaGui._core.
 /// It registers all Python-accessible classes and exceptions.
 #[pymodule]
 fn _core(py: Python<'_>, m: &PyModule) -> PyResult<()> {

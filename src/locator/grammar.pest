@@ -200,10 +200,13 @@ explicit_ws = { " " | "\t" }
 // =============================================================================
 
 /// XPath-style expression starting with / or //
-xpath_expr = { xpath_start ~ xpath_step ~ ("/" ~ xpath_step)* }
+xpath_expr = { xpath_start ~ xpath_step ~ (xpath_step_separator ~ xpath_step)* }
 
 /// XPath start: / or //
 xpath_start = { "//" | "/" }
+
+/// Separator between XPath steps: // (descendant) or / (child)
+xpath_step_separator = { "//" | "/" }
 
 /// Single step in XPath
 xpath_step = { xpath_axis? ~ xpath_node_test ~ xpath_predicate* }

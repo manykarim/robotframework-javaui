@@ -69,48 +69,84 @@ public class ActionExecutor {
      * Uses runOnEdtLater to avoid blocking on modal dialogs.
      */
     public static void doubleClick(int componentId) {
-        // Get and validate component synchronously
-        Component component = EdtHelper.runOnEdtAndReturn(() -> {
-            Component c = getComponent(componentId);
-            ensureVisible(c);
-            return c;
+        // Get component from cache (non-EDT operation)
+        Component component = ComponentInspector.getComponentById(componentId);
+        if (component == null) {
+            throw new IllegalArgumentException("Component not found: " + componentId);
+        }
+
+        // Perform double-click asynchronously to avoid blocking on modal dialogs
+        EdtHelper.runOnEdtLater(() -> {
+            // For JComponents inside scroll panes, scroll them into view first
+            if (component instanceof javax.swing.JComponent && component.getParent() instanceof javax.swing.JViewport) {
+                javax.swing.JComponent jcomp = (javax.swing.JComponent) component;
+                java.awt.Rectangle bounds = jcomp.getBounds();
+                jcomp.scrollRectToVisible(new java.awt.Rectangle(0, 0, bounds.width, Math.min(bounds.height, 20)));
+            }
+            performMouseClick(component, 2);
         });
 
-        // Perform double-click asynchronously
-        EdtHelper.runOnEdtLater(() -> performMouseClick(component, 2));
-
         // Give the click a moment to process
-        EdtHelper.sleep(100);
+        EdtHelper.sleep(150);
     }
 
     /**
      * Right-click on a component.
-     * Uses runOnEdtLater to avoid blocking on popup menus.
+     * Dispatches synthetic mouse events with popupTrigger=true to trigger popup menus.
+     * The test application's MouseListener checks isPopupTrigger() which returns true
+     * when the MouseEvent constructor has popupTrigger=true.
      */
     public static void rightClick(int componentId) {
-        // Get and validate component synchronously
+        // Get component on EDT - use runOnEdtAndReturn for synchronous access
         Component component = EdtHelper.runOnEdtAndReturn(() -> {
             Component c = getComponent(componentId);
             ensureVisible(c);
             return c;
         });
 
-        // Perform right-click asynchronously
+        // Dispatch synthetic mouse events asynchronously to avoid blocking
+        // Both mousePressed and mouseReleased are checked for popup trigger
+        // (Windows triggers on pressed, Linux/Mac on released)
         EdtHelper.runOnEdtLater(() -> {
             Point center = getComponentCenter(component);
-            MouseEvent event = new MouseEvent(
+            long time = System.currentTimeMillis();
+
+            // MOUSE_PRESSED with popupTrigger=true
+            MouseEvent pressEvent = new MouseEvent(
                 component,
-                MouseEvent.MOUSE_CLICKED,
-                System.currentTimeMillis(),
+                MouseEvent.MOUSE_PRESSED,
+                time,
                 InputEvent.BUTTON3_DOWN_MASK,
                 center.x, center.y,
-                1, true, MouseEvent.BUTTON3
+                1,  // clickCount
+                true,  // popupTrigger - THIS IS KEY
+                MouseEvent.BUTTON3
             );
-            component.dispatchEvent(event);
+            component.dispatchEvent(pressEvent);
         });
 
-        // Give the click a moment to process
-        EdtHelper.sleep(100);
+        EdtHelper.sleep(50);
+
+        EdtHelper.runOnEdtLater(() -> {
+            Point center = getComponentCenter(component);
+            long time = System.currentTimeMillis();
+
+            // MOUSE_RELEASED with popupTrigger=true
+            MouseEvent releaseEvent = new MouseEvent(
+                component,
+                MouseEvent.MOUSE_RELEASED,
+                time,
+                InputEvent.BUTTON3_DOWN_MASK,
+                center.x, center.y,
+                1,  // clickCount
+                true,  // popupTrigger - THIS IS KEY
+                MouseEvent.BUTTON3
+            );
+            component.dispatchEvent(releaseEvent);
+        });
+
+        // Give the popup time to appear
+        EdtHelper.sleep(200);
     }
 
     /**
@@ -246,6 +282,184 @@ public class ActionExecutor {
     }
 
     /**
+     * Select an item from a visible popup menu.
+     *
+     * @param path Menu path (e.g., "Copy" or "Edit|Paste Special")
+     */
+    public static void selectFromPopupMenu(String path) {
+        String[] parts = path.split("\\|");
+        if (parts.length == 0 || parts[0].isEmpty()) {
+            throw new IllegalArgumentException("Empty popup menu path");
+        }
+
+        // Use arrays to capture results from EDT
+        final String[] errorMessage = new String[1];
+        final boolean[] actionCompleted = new boolean[1];
+
+        // Retry loop - popup may take time to appear
+        for (int attempt = 0; attempt < 10; attempt++) {
+            // Reset for each attempt
+            errorMessage[0] = null;
+            actionCompleted[0] = false;
+
+            // Schedule popup navigation on EDT
+            EdtHelper.runOnEdtLater(() -> {
+                // Find the visible popup menu
+                JPopupMenu popupMenu = findVisiblePopupMenu();
+                if (popupMenu == null) {
+                    errorMessage[0] = "No popup menu is currently visible";
+                    actionCompleted[0] = true;
+                    return;
+                }
+
+                // Navigate the popup menu
+                try {
+                    navigatePopupMenu(popupMenu, parts);
+                } catch (IllegalArgumentException e) {
+                    errorMessage[0] = e.getMessage();
+                }
+                actionCompleted[0] = true;
+            });
+
+            // Wait for action to complete
+            EdtHelper.sleep(100);
+
+            // Check result
+            if (actionCompleted[0]) {
+                if (errorMessage[0] == null) {
+                    // Success!
+                    return;
+                } else if (!errorMessage[0].contains("No popup menu is currently visible")) {
+                    // Non-recoverable error (e.g., menu item not found)
+                    throw new IllegalArgumentException(errorMessage[0]);
+                }
+                // Popup not visible yet, retry
+            }
+
+            // Wait a bit before retry
+            EdtHelper.sleep(50);
+        }
+
+        // All retries exhausted
+        throw new IllegalArgumentException("No popup menu is currently visible");
+    }
+
+    private static JPopupMenu findVisiblePopupMenu() {
+        // Search for visible popup menus
+        for (Window window : Window.getWindows()) {
+            if (window instanceof JWindow || window instanceof JDialog) {
+                JPopupMenu popup = findPopupInContainer(window);
+                if (popup != null && popup.isVisible()) {
+                    return popup;
+                }
+            }
+        }
+
+        // Also check MenuSelectionManager for active popups
+        MenuElement[] selected = MenuSelectionManager.defaultManager().getSelectedPath();
+        if (selected != null && selected.length > 0) {
+            for (MenuElement elem : selected) {
+                if (elem instanceof JPopupMenu) {
+                    return (JPopupMenu) elem;
+                }
+            }
+        }
+
+        // Search all components for popup menus
+        for (Window window : Window.getWindows()) {
+            if (window.isVisible()) {
+                JPopupMenu popup = findPopupRecursive(window);
+                if (popup != null && popup.isVisible()) {
+                    return popup;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static JPopupMenu findPopupInContainer(Container container) {
+        for (Component comp : container.getComponents()) {
+            if (comp instanceof JPopupMenu && comp.isVisible()) {
+                return (JPopupMenu) comp;
+            }
+            if (comp instanceof Container) {
+                JPopupMenu popup = findPopupInContainer((Container) comp);
+                if (popup != null) {
+                    return popup;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static JPopupMenu findPopupRecursive(Component comp) {
+        if (comp instanceof JComponent) {
+            JPopupMenu popup = ((JComponent) comp).getComponentPopupMenu();
+            if (popup != null && popup.isVisible()) {
+                return popup;
+            }
+        }
+        if (comp instanceof Container) {
+            for (Component child : ((Container) comp).getComponents()) {
+                JPopupMenu popup = findPopupRecursive(child);
+                if (popup != null) {
+                    return popup;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void navigatePopupMenu(JPopupMenu popupMenu, String[] pathParts) {
+        MenuElement currentMenu = popupMenu;
+
+        for (int i = 0; i < pathParts.length; i++) {
+            String itemName = pathParts[i].trim();
+            JMenuItem foundItem = null;
+
+            // Get menu items from current menu element
+            MenuElement[] subElements;
+            if (currentMenu instanceof JPopupMenu) {
+                subElements = ((JPopupMenu) currentMenu).getSubElements();
+            } else if (currentMenu instanceof JMenu) {
+                subElements = ((JMenu) currentMenu).getPopupMenu().getSubElements();
+            } else {
+                subElements = currentMenu.getSubElements();
+            }
+
+            // Search for the item
+            for (MenuElement elem : subElements) {
+                if (elem instanceof JMenuItem) {
+                    JMenuItem item = (JMenuItem) elem;
+                    if (itemName.equals(item.getText())) {
+                        foundItem = item;
+                        break;
+                    }
+                }
+            }
+
+            if (foundItem == null) {
+                // Close popup and throw
+                MenuSelectionManager.defaultManager().clearSelectedPath();
+                throw new IllegalArgumentException("Popup menu item not found: " + itemName);
+            }
+
+            // If this is a submenu and not the last item, navigate into it
+            if (foundItem instanceof JMenu && i < pathParts.length - 1) {
+                currentMenu = (JMenu) foundItem;
+                // Hover to open submenu
+                foundItem.setArmed(true);
+                EdtHelper.waitForEdt(100);
+            } else {
+                // Click the item
+                foundItem.doClick();
+                break;
+            }
+        }
+    }
+
+    /**
      * Select a menu item by path.
      * Path format: "File|New" or "Edit|Find|Find Next"
      *
@@ -257,21 +471,24 @@ public class ActionExecutor {
             throw new IllegalArgumentException("Empty menu path");
         }
 
-        // Find the menu bar from any visible frame
-        JMenuBar menuBar = EdtHelper.runOnEdtAndReturn(() -> {
+        // Find the menu bar and navigate synchronously to properly propagate errors
+        EdtHelper.runOnEdt(() -> {
+            // Find the menu bar from any visible frame
+            JMenuBar menuBar = null;
             for (Window window : Window.getWindows()) {
                 if (window instanceof JFrame && window.isVisible()) {
                     JMenuBar bar = ((JFrame) window).getJMenuBar();
                     if (bar != null) {
-                        return bar;
+                        menuBar = bar;
+                        break;
                     }
                 }
             }
-            throw new IllegalArgumentException("No menu bar found");
-        });
 
-        // Navigate the menu path
-        EdtHelper.runOnEdtLater(() -> {
+            if (menuBar == null) {
+                throw new IllegalArgumentException("No menu bar found");
+            }
+
             try {
                 JMenu currentMenu = null;
 
@@ -397,6 +614,13 @@ public class ActionExecutor {
             }
 
             JTable table = (JTable) component;
+            // Validate row and column indices
+            if (row < 0 || row >= table.getRowCount()) {
+                throw new IndexOutOfBoundsException("Row index out of bounds: " + row + " (table has " + table.getRowCount() + " rows)");
+            }
+            if (column < 0 || column >= table.getColumnCount()) {
+                throw new IndexOutOfBoundsException("Column index out of bounds: " + column + " (table has " + table.getColumnCount() + " columns)");
+            }
             table.changeSelection(row, column, false, false);
         });
     }

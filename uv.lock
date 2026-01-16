@@ -1305,54 +1305,7 @@ wheels = [
 ]
 
 [[package]]
-name = "robotframework-robocop"
-version = "5.5.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version < '3.9'",
-]
-dependencies = [
-    { name = "jinja2", marker = "python_full_version < '3.9'" },
-    { name = "pathspec", version = "0.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "platformdirs", version = "4.3.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-    { name = "python-dateutil", marker = "python_full_version < '3.9'" },
-    { name = "pytz", marker = "python_full_version < '3.9'" },
-    { name = "robotframework", marker = "python_full_version < '3.9'" },
-    { name = "tomli", version = "2.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/22/7a/187f081565b67f41ee9ffed731d222725b8b068f006451a9f7eaf7adc4fe/robotframework_robocop-5.5.0.tar.gz", hash = "sha256:c5fffc51e27e862ee2225c18783d4cbb01f2ecba9a8d90b879519d817fe9e0d3", size = 108872, upload-time = "2024-10-19T09:45:31.598Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8e/5f/2a249695156da42a59de22e6e7aa85210386e8710e19a980239afa95fa2e/robotframework_robocop-5.5.0-py3-none-any.whl", hash = "sha256:282e2dfe5ff0405ccbf37b942038fdd37588c8200a5817bf22c723baf9d22eb5", size = 121414, upload-time = "2024-10-19T09:45:29.684Z" },
-]
-
-[[package]]
-name = "robotframework-robocop"
-version = "7.2.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.10'",
-    "python_full_version == '3.9.*'",
-]
-dependencies = [
-    { name = "jinja2", marker = "python_full_version >= '3.9'" },
-    { name = "msgpack", marker = "python_full_version >= '3.9'" },
-    { name = "pathspec", version = "1.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
-    { name = "platformdirs", version = "4.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
-    { name = "platformdirs", version = "4.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "pytz", marker = "python_full_version >= '3.9'" },
-    { name = "rich", marker = "python_full_version >= '3.9'" },
-    { name = "robotframework", marker = "python_full_version >= '3.9'" },
-    { name = "tomli", version = "2.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and python_full_version < '3.11'" },
-    { name = "tomli-w", marker = "python_full_version >= '3.9'" },
-    { name = "typer-slim", marker = "python_full_version >= '3.9'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/46/74/aaa0d8614d1b105dd93ae4e349beb82ae2217bbae43b3f8f7e27ba82114a/robotframework_robocop-7.2.0.tar.gz", hash = "sha256:20482f6cf0578558be8bca0a7655c74973d78deb33cbe71163bb7e2eec046b3d", size = 935618, upload-time = "2026-01-02T11:05:20.479Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/aa/84/c919389a580698da070a794543952ca02d89d90ac49f56d98de41a51326f/robotframework_robocop-7.2.0-py3-none-any.whl", hash = "sha256:4ed807f49d8ddb64c40a013fa3f200b90c3e40b3d4ce4ae8ec3f045424967126", size = 301779, upload-time = "2026-01-02T11:05:18.975Z" },
-]
-
-[[package]]
-name = "robotframework-swing"
+name = "robotframework-javagui"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -1404,6 +1357,53 @@ dev = [
     { name = "mypy", specifier = ">=1.14.1" },
     { name = "robotframework-robocop", specifier = ">=5.5.0" },
     { name = "ruff", specifier = ">=0.14.11" },
+]
+
+[[package]]
+name = "robotframework-robocop"
+version = "5.5.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.9'",
+]
+dependencies = [
+    { name = "jinja2", marker = "python_full_version < '3.9'" },
+    { name = "pathspec", version = "0.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "platformdirs", version = "4.3.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "python-dateutil", marker = "python_full_version < '3.9'" },
+    { name = "pytz", marker = "python_full_version < '3.9'" },
+    { name = "robotframework", marker = "python_full_version < '3.9'" },
+    { name = "tomli", version = "2.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/22/7a/187f081565b67f41ee9ffed731d222725b8b068f006451a9f7eaf7adc4fe/robotframework_robocop-5.5.0.tar.gz", hash = "sha256:c5fffc51e27e862ee2225c18783d4cbb01f2ecba9a8d90b879519d817fe9e0d3", size = 108872, upload-time = "2024-10-19T09:45:31.598Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/5f/2a249695156da42a59de22e6e7aa85210386e8710e19a980239afa95fa2e/robotframework_robocop-5.5.0-py3-none-any.whl", hash = "sha256:282e2dfe5ff0405ccbf37b942038fdd37588c8200a5817bf22c723baf9d22eb5", size = 121414, upload-time = "2024-10-19T09:45:29.684Z" },
+]
+
+[[package]]
+name = "robotframework-robocop"
+version = "7.2.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.10'",
+    "python_full_version == '3.9.*'",
+]
+dependencies = [
+    { name = "jinja2", marker = "python_full_version >= '3.9'" },
+    { name = "msgpack", marker = "python_full_version >= '3.9'" },
+    { name = "pathspec", version = "1.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
+    { name = "platformdirs", version = "4.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "platformdirs", version = "4.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "pytz", marker = "python_full_version >= '3.9'" },
+    { name = "rich", marker = "python_full_version >= '3.9'" },
+    { name = "robotframework", marker = "python_full_version >= '3.9'" },
+    { name = "tomli", version = "2.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and python_full_version < '3.11'" },
+    { name = "tomli-w", marker = "python_full_version >= '3.9'" },
+    { name = "typer-slim", marker = "python_full_version >= '3.9'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/46/74/aaa0d8614d1b105dd93ae4e349beb82ae2217bbae43b3f8f7e27ba82114a/robotframework_robocop-7.2.0.tar.gz", hash = "sha256:20482f6cf0578558be8bca0a7655c74973d78deb33cbe71163bb7e2eec046b3d", size = 935618, upload-time = "2026-01-02T11:05:20.479Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/aa/84/c919389a580698da070a794543952ca02d89d90ac49f56d98de41a51326f/robotframework_robocop-7.2.0-py3-none-any.whl", hash = "sha256:4ed807f49d8ddb64c40a013fa3f200b90c3e40b3d4ce4ae8ec3f045424967126", size = 301779, upload-time = "2026-01-02T11:05:18.975Z" },
 ]
 
 [[package]]

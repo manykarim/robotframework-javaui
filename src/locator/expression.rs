@@ -368,17 +368,36 @@ pub struct XPathExpression {
 impl XPathExpression {
     pub fn from_locator(locator: &Locator) -> Self {
         let mut steps = Vec::new();
+        let is_descendant_search = locator.original.starts_with("//");
 
         if let Some(first_selector) = locator.selectors.first() {
-            for compound in &first_selector.compounds {
-                steps.push(XPathStep::from_compound(compound));
+            for (i, compound) in first_selector.compounds.iter().enumerate() {
+                // For the first step in a // xpath, use Descendant axis
+                // For subsequent steps, check the combinator from the previous compound
+                let axis = if i == 0 && is_descendant_search {
+                    XPathAxis::Descendant
+                } else if i > 0 {
+                    // Get combinator from previous compound
+                    if let Some(prev) = first_selector.compounds.get(i - 1) {
+                        match prev.combinator {
+                            Some(super::ast::Combinator::Descendant) => XPathAxis::Descendant,
+                            Some(super::ast::Combinator::Child) => XPathAxis::Child,
+                            _ => XPathAxis::Descendant, // Default to descendant for XPath-style
+                        }
+                    } else {
+                        XPathAxis::Child
+                    }
+                } else {
+                    XPathAxis::Child
+                };
+                steps.push(XPathStep::from_compound_with_axis(compound, axis));
             }
         }
 
         Self {
             steps,
             absolute: locator.is_xpath,
-            descendant_search: locator.original.starts_with("//"),
+            descendant_search: is_descendant_search,
         }
     }
 }
@@ -393,6 +412,10 @@ pub struct XPathStep {
 
 impl XPathStep {
     pub fn from_compound(compound: &CompoundSelector) -> Self {
+        Self::from_compound_with_axis(compound, XPathAxis::Child)
+    }
+
+    pub fn from_compound_with_axis(compound: &CompoundSelector, axis: XPathAxis) -> Self {
         let node_test = match &compound.type_selector {
             Some(TypeSelector::TypeName(name)) => name.clone(),
             Some(TypeSelector::Universal) => "*".to_string(),
@@ -415,7 +438,7 @@ impl XPathStep {
         }
 
         Self {
-            axis: XPathAxis::Child,
+            axis,
             node_test,
             predicates,
         }

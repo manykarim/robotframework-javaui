@@ -657,6 +657,7 @@ fn parse_combinator(pair: pest::iterators::Pair<Rule>) -> Result<Combinator, Par
 fn parse_xpath_expr(pair: pest::iterators::Pair<Rule>) -> Result<ComplexSelector, ParseError> {
     let mut compounds: Vec<CompoundSelector> = Vec::new();
     let mut is_descendant = false;
+    let mut next_is_descendant = false;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -664,12 +665,16 @@ fn parse_xpath_expr(pair: pest::iterators::Pair<Rule>) -> Result<ComplexSelector
                 // // means descendant-or-self
                 is_descendant = inner.as_str() == "//";
             }
+            Rule::xpath_step_separator => {
+                // Track if next step should use descendant combinator
+                next_is_descendant = inner.as_str() == "//";
+            }
             Rule::xpath_step => {
                 let compound = parse_xpath_step(inner, is_descendant)?;
                 if !compounds.is_empty() {
-                    // Set combinator on previous
+                    // Set combinator on previous compound based on separator
                     if let Some(prev) = compounds.last_mut() {
-                        prev.combinator = Some(if is_descendant {
+                        prev.combinator = Some(if next_is_descendant {
                             Combinator::Descendant
                         } else {
                             Combinator::Child
@@ -677,8 +682,8 @@ fn parse_xpath_expr(pair: pest::iterators::Pair<Rule>) -> Result<ComplexSelector
                     }
                 }
                 compounds.push(compound);
-                // After first step, subsequent / means child
-                is_descendant = false;
+                // Reset for next iteration
+                next_is_descendant = false;
             }
             _ => {}
         }
@@ -1076,6 +1081,44 @@ mod tests {
             &compound.pseudo_selectors[0],
             PseudoSelector::NthChild(NthExpr::Index(1))
         ));
+    }
+
+    #[test]
+    fn test_parse_xpath_multi_step_descendant() {
+        // Test //JPanel//JButton - should produce 2 compounds with Descendant combinator
+        let result = parse_locator("//JPanel//JButton");
+        assert!(result.is_ok(), "Failed to parse //JPanel//JButton: {:?}", result.err());
+        let locator = result.unwrap();
+        assert!(locator.is_xpath, "Should be recognized as XPath");
+        assert_eq!(locator.selectors.len(), 1, "Should have 1 selector");
+
+        let selector = &locator.selectors[0];
+        assert_eq!(selector.compounds.len(), 2, "Should have 2 compounds (JPanel and JButton)");
+
+        let panel = &selector.compounds[0];
+        assert!(matches!(&panel.type_selector, Some(TypeSelector::TypeName(n)) if n == "JPanel"),
+            "First compound should be JPanel, got {:?}", panel.type_selector);
+        assert!(matches!(panel.combinator, Some(Combinator::Descendant)),
+            "JPanel should have Descendant combinator, got {:?}", panel.combinator);
+
+        let button = &selector.compounds[1];
+        assert!(matches!(&button.type_selector, Some(TypeSelector::TypeName(n)) if n == "JButton"),
+            "Second compound should be JButton, got {:?}", button.type_selector);
+    }
+
+    #[test]
+    fn test_parse_xpath_multi_step_child() {
+        // Test //JPanel/JButton - should produce 2 compounds with Child combinator
+        let result = parse_locator("//JPanel/JButton");
+        assert!(result.is_ok(), "Failed to parse //JPanel/JButton");
+        let locator = result.unwrap();
+
+        let selector = &locator.selectors[0];
+        assert_eq!(selector.compounds.len(), 2, "Should have 2 compounds");
+
+        let panel = &selector.compounds[0];
+        assert!(matches!(panel.combinator, Some(Combinator::Child)),
+            "JPanel should have Child combinator for single /, got {:?}", panel.combinator);
     }
 
     #[test]

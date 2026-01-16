@@ -228,12 +228,11 @@ impl Evaluator {
     fn match_combinator_chain(
         &self,
         selector: &ComplexSelector,
-        target: &UIComponent,
+        _target: &UIComponent,
         context: &MatchContext,
     ) -> MatchResult {
         // Walk through compounds from right to left
-        let mut current_component = target;
-        let mut current_context = context;
+        let current_context = context;
 
         for i in (0..selector.compounds.len()).rev() {
             let compound = &selector.compounds[i];
@@ -267,7 +266,6 @@ impl Evaluator {
                     if let Some(parent) = current_context.parent {
                         let parent_ctx = MatchContext::new(parent);
                         if self.evaluate_compound_selector(compound, parent, &parent_ctx).matches {
-                            current_component = parent;
                             continue;
                         }
                     }

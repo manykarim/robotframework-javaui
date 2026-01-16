@@ -3,14 +3,14 @@ requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "robotframework-swing"
+name = "robotframework-javagui"
 version = "0.1.0"
-description = "High-performance Robot Framework library for Java Swing automation"
+description = "High-performance Robot Framework library for Java GUI automation (Swing, SWT, Eclipse RCP)"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.8"
 authors = [
-    { name = "robotframework-swing contributors" }
+    { name = "robotframework-javagui contributors" }
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -29,7 +29,7 @@ classifiers = [
     "Topic :: Software Development :: Testing",
     "Topic :: Software Development :: Quality Assurance",
 ]
-keywords = ["robotframework", "swing", "java", "automation", "testing", "gui"]
+keywords = ["robotframework", "swing", "swt", "rcp", "eclipse", "java", "automation", "testing", "gui"]
 dependencies = [
     "docutils>=0.20.1",
     "robotframework>=4.0",
@@ -45,18 +45,15 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/robotframework/robotframework-swing"
-Documentation = "https://robotframework-swing.readthedocs.io"
-Repository = "https://github.com/robotframework/robotframework-swing"
-Issues = "https://github.com/robotframework/robotframework-swing/issues"
+Homepage = "https://github.com/robotframework/robotframework-javagui"
+Documentation = "https://robotframework-javagui.readthedocs.io"
+Repository = "https://github.com/robotframework/robotframework-javagui"
+Issues = "https://github.com/robotframework/robotframework-javagui/issues"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
 python-source = "python"
-module-name = "swing_library._core"
-include = [
-    { path = "agent/target/swing-agent.jar", format = "wheel" }
-]
+module-name = "JavaGui._core"
 
 [tool.black]
 line-length = 100

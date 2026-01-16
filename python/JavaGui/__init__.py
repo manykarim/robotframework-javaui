@@ -1,33 +1,69 @@
 """
-Robot Framework Swing Library - High-performance automation for Java Swing applications.
+Robot Framework JavaGUI Library - High-performance automation for Java GUI applications.
 
-This library provides comprehensive support for automating Java Swing applications
-with Robot Framework. It features:
+This library provides comprehensive support for automating Java Swing, SWT, and
+Eclipse RCP applications with Robot Framework. It features:
 
 - CSS/XPath-like locator syntax for finding UI elements
 - High-performance Rust core with Python bindings
-- Automatic JVM discovery and agent injection
-- UI Tree visualization and filtering
+- Support for Swing, SWT, and Eclipse RCP toolkits
+- Bundled Java agent JAR for easy setup
 - Full Robot Framework keyword integration
 
 Basic Usage:
     *** Settings ***
-    Library    swing_library.SwingLibrary
+    Library    JavaGui.Swing
 
     *** Test Cases ***
     Click Submit Button
         Connect To Application    MyApp
         Click Element    JButton#submit
         Disconnect
+
+For SWT applications:
+    *** Settings ***
+    Library    JavaGui.Swt
+
+For Eclipse RCP applications:
+    *** Settings ***
+    Library    JavaGui.Swt    WITH NAME    SWT
+    Library    JavaGui.Rcp    WITH NAME    RCP
 """
 
 from typing import Optional, List, Dict, Any, Union
 import sys
 import os
 
+# Path to bundled Java agent JAR
+_PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
+AGENT_JAR_PATH = os.path.join(_PACKAGE_DIR, "jars", "javagui-agent.jar")
+
+
+def get_agent_jar_path() -> str:
+    """Get the path to the bundled Java agent JAR file.
+
+    Returns:
+        str: Absolute path to the Java agent JAR file.
+
+    Raises:
+        FileNotFoundError: If the agent JAR is not found (incomplete installation).
+
+    Example:
+        >>> from JavaGui import get_agent_jar_path
+        >>> agent_jar = get_agent_jar_path()
+        >>> # Use: java -javaagent:{agent_jar}=port=5678 -jar your-app.jar
+    """
+    if not os.path.exists(AGENT_JAR_PATH):
+        raise FileNotFoundError(
+            f"Agent JAR not found at {AGENT_JAR_PATH}. "
+            "This may indicate an incomplete installation."
+        )
+    return AGENT_JAR_PATH
+
+
 # Import the Rust core module
 try:
-    from swing_library._core import (
+    from JavaGui._core import (
         SwingLibrary as _SwingLibrary,
         SwingElement as _SwingElement,
         SwtLibrary as _SwtLibrary,
@@ -51,15 +87,25 @@ except ImportError as e:
 
 __version__ = "0.1.0"
 __all__ = [
+    # Main library classes (preferred names)
+    "Swing",
+    "Swt",
+    "Rcp",
+    # Legacy names for backwards compatibility
     "SwingLibrary",
     "SwingElement",
     "SwtLibrary",
     "SwtElement",
     "RcpLibrary",
+    # Agent JAR utilities
+    "get_agent_jar_path",
+    "AGENT_JAR_PATH",
+    # Exceptions
     "SwingError",
     "ConnectionError",
     "ElementNotFoundError",
     "SwingTimeoutError",
+    # Robot Framework metadata
     "ROBOT_LIBRARY_DOC_FORMAT",
     "ROBOT_LIBRARY_SCOPE",
     "ROBOT_LIBRARY_VERSION",
@@ -74,6 +120,14 @@ else:
     SwtLibrary = None
     SwtElement = None
     RcpLibrary = None
+
+
+# Preferred class aliases for Robot Framework usage:
+# Library    JavaGui.Swing
+# Library    JavaGui.Swt
+# Library    JavaGui.Rcp
+# NOTE: We use Python wrapper classes (defined below) instead of the Rust classes directly
+# because Robot Framework needs to introspect __init__ signatures, which PyO3 classes don't expose properly.
 
 ROBOT_LIBRARY_DOC_FORMAT = "REST"
 ROBOT_LIBRARY_SCOPE = "GLOBAL"
@@ -992,10 +1046,7 @@ class SwingLibrary:
         | `Right Click` | JTree#fileTree |
         | `Select From Popup Menu` | Delete |
         """
-        # Use click_element - the Rust implementation should support right-click
-        # For now, we'll use regular click as a placeholder
-        # A proper implementation would need right-click support in Rust
-        self._lib.click_element(locator, click_count=1)
+        self._lib.right_click_element(locator)
 
     def element_should_be_selected(self, locator: str) -> None:
         """Verify that an element is selected (checked).
@@ -1393,3 +1444,575 @@ class SwingElement:
         name = f"[{self.name}]" if self.name else ""
         text = f'"{self.text[:20]}..."' if self.text and len(self.text) > 20 else f'"{self.text}"' if self.text else ""
         return f"<SwingElement {self.simple_name}{name} {text}>".strip()
+
+
+class SwtLibrary:
+    """
+    Robot Framework library for SWT (Standard Widget Toolkit) application automation.
+
+    This library provides keywords for automating SWT-based desktop applications
+    including Eclipse and other Eclipse RCP-based applications.
+
+    = Initialization =
+
+    The library can be imported with optional default timeout:
+
+    | =Setting= | =Value= |
+    | Library | JavaGui.SwtLibrary |
+    | Library | JavaGui.SwtLibrary | timeout=30 |
+
+    = Locator Syntax =
+
+    The library supports CSS-like selectors for SWT widgets:
+
+    | *Selector* | *Description* | *Example* |
+    | Type | Match by widget class | Shell, Button, Text |
+    | #name | Match by widget name | #submitBtn |
+    | [attr=value] | Match by attribute | [text='OK'] |
+    """
+
+    ROBOT_LIBRARY_SCOPE = "GLOBAL"
+    ROBOT_LIBRARY_VERSION = __version__
+    ROBOT_LIBRARY_DOC_FORMAT = "REST"
+
+    def __init__(
+        self,
+        timeout: float = 10.0,
+    ) -> None:
+        """Initialize the SWT Library.
+
+        | =Argument= | =Description= |
+        | ``timeout`` | Default timeout in seconds for wait operations. Default ``10.0``. |
+
+        Example:
+        | =Setting= | =Value= | =Value= |
+        | Library | JavaGui.SwtLibrary | |
+        | Library | JavaGui.SwtLibrary | timeout=30 |
+        """
+        if not _RUST_AVAILABLE:
+            raise ImportError(
+                f"SWT Library Rust core not available: {_IMPORT_ERROR}\n"
+                "Please ensure the library is properly installed with: pip install robotframework-javagui"
+            )
+
+        self._lib = _SwtLibrary(timeout=timeout)
+        self._timeout = timeout
+
+    # Connection Keywords
+    def connect_to_swt_application(self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None):
+        """Connect to an SWT application."""
+        return self._lib.connect_to_swt_application(app, host, port, timeout)
+
+    def disconnect(self):
+        """Disconnect from the SWT application."""
+        return self._lib.disconnect()
+
+    def is_connected(self) -> bool:
+        """Check if connected to an SWT application."""
+        return self._lib.is_connected()
+
+    # Shell Keywords
+    def get_shells(self):
+        """Get all shells."""
+        return self._lib.get_shells()
+
+    def activate_shell(self, locator: str):
+        """Activate a shell."""
+        return self._lib.activate_shell(locator)
+
+    def close_shell(self, locator: str):
+        """Close a shell."""
+        return self._lib.close_shell(locator)
+
+    # Widget Finding Keywords
+    def find_widget(self, locator: str):
+        """Find a single widget."""
+        return self._lib.find_widget(locator)
+
+    def find_widgets(self, locator: str):
+        """Find all matching widgets."""
+        return self._lib.find_widgets(locator)
+
+    # Click Keywords
+    def click_widget(self, locator: str):
+        """Click on a widget."""
+        return self._lib.click_widget(locator)
+
+    def double_click_widget(self, locator: str):
+        """Double-click on a widget."""
+        return self._lib.double_click_widget(locator)
+
+    # Text Input Keywords
+    def input_text(self, locator: str, text: str, clear: bool = True):
+        """Input text into a widget."""
+        return self._lib.input_text(locator, text, clear)
+
+    def clear_text(self, locator: str):
+        """Clear text from a widget."""
+        return self._lib.clear_text(locator)
+
+    # Selection Keywords
+    def select_combo_item(self, locator: str, item: str):
+        """Select an item from a combo box."""
+        return self._lib.select_combo_item(locator, item)
+
+    def select_list_item(self, locator: str, item: str):
+        """Select an item from a list."""
+        return self._lib.select_list_item(locator, item)
+
+    def check_button(self, locator: str):
+        """Check a checkbox or toggle button."""
+        return self._lib.check_button(locator)
+
+    def uncheck_button(self, locator: str):
+        """Uncheck a checkbox or toggle button."""
+        return self._lib.uncheck_button(locator)
+
+    # Table Keywords
+    def get_table_row_count(self, locator: str) -> int:
+        """Get the number of rows in a table."""
+        return self._lib.get_table_row_count(locator)
+
+    def get_table_cell(self, locator: str, row: int, col: int) -> str:
+        """Get the value of a table cell."""
+        return self._lib.get_table_cell(locator, row, col)
+
+    def select_table_row(self, locator: str, row: int):
+        """Select a table row."""
+        return self._lib.select_table_row(locator, row)
+
+    def get_table_row_values(self, locator: str, row: int):
+        """Get all values from a table row."""
+        return self._lib.get_table_row_values(locator, row)
+
+    def select_table_rows(self, locator: str, rows: List[int]):
+        """Select multiple table rows."""
+        return self._lib.select_table_rows(locator, rows)
+
+    def deselect_all_table_rows(self, locator: str):
+        """Deselect all table rows."""
+        return self._lib.deselect_all_table_rows(locator)
+
+    def select_table_row_by_value(self, locator: str, column: int, value: str) -> int:
+        """Select a table row by cell value."""
+        return self._lib.select_table_row_by_value(locator, column, value)
+
+    def select_table_row_range(self, locator: str, start_row: int, end_row: int):
+        """Select a range of table rows."""
+        return self._lib.select_table_row_range(locator, start_row, end_row)
+
+    def click_table_column_header(self, locator: str, column: int):
+        """Click a table column header."""
+        return self._lib.click_table_column_header(locator, column)
+
+    def get_table_columns(self, locator: str):
+        """Get table column headers."""
+        return self._lib.get_table_columns(locator)
+
+    # Tree Keywords
+    def expand_tree_item(self, locator: str, path: str):
+        """Expand a tree item."""
+        return self._lib.expand_tree_item(locator, path)
+
+    def collapse_tree_item(self, locator: str, path: str):
+        """Collapse a tree item."""
+        return self._lib.collapse_tree_item(locator, path)
+
+    def select_tree_item(self, locator: str, path: str):
+        """Select a tree item."""
+        return self._lib.select_tree_item(locator, path)
+
+    def select_tree_nodes(self, locator: str, paths: List[str]):
+        """Select multiple tree nodes."""
+        return self._lib.select_tree_nodes(locator, paths)
+
+    def get_tree_node_parent(self, locator: str, node_name: str) -> str:
+        """Get the parent of a tree node."""
+        return self._lib.get_tree_node_parent(locator, node_name)
+
+    def get_tree_node_level(self, locator: str, node_name: str) -> int:
+        """Get the level of a tree node."""
+        return self._lib.get_tree_node_level(locator, node_name)
+
+    def tree_node_exists(self, locator: str, node_name: str) -> bool:
+        """Check if a tree node exists."""
+        return self._lib.tree_node_exists(locator, node_name)
+
+    def get_selected_tree_nodes(self, locator: str):
+        """Get selected tree nodes."""
+        return self._lib.get_selected_tree_nodes(locator)
+
+    def deselect_all_tree_nodes(self, locator: str):
+        """Deselect all tree nodes."""
+        return self._lib.deselect_all_tree_nodes(locator)
+
+    # Wait Keywords
+    def wait_until_widget_exists(self, locator: str, timeout: Optional[float] = None):
+        """Wait until a widget exists."""
+        return self._lib.wait_until_widget_exists(locator, timeout)
+
+    def wait_until_widget_enabled(self, locator: str, timeout: Optional[float] = None):
+        """Wait until a widget is enabled."""
+        return self._lib.wait_until_widget_enabled(locator, timeout)
+
+    # Verification Keywords
+    def widget_should_be_visible(self, locator: str):
+        """Verify that a widget is visible."""
+        return self._lib.widget_should_be_visible(locator)
+
+    def widget_should_be_enabled(self, locator: str):
+        """Verify that a widget is enabled."""
+        return self._lib.widget_should_be_enabled(locator)
+
+    def widget_text_should_be(self, locator: str, expected: str):
+        """Verify widget text."""
+        return self._lib.widget_text_should_be(locator, expected)
+
+    # Configuration Keywords
+    def set_timeout(self, timeout: float) -> float:
+        """Set the default timeout."""
+        self._timeout = timeout
+        return self._lib.set_timeout(timeout)
+
+    def __getattr__(self, name: str):
+        """Delegate other attribute access to the underlying Rust library."""
+        return getattr(self._lib, name)
+
+
+class RcpLibrary:
+    """
+    Robot Framework library for Eclipse RCP application automation.
+
+    This library extends SWT support with Eclipse RCP-specific keywords for
+    workbench, perspectives, views, editors, and commands.
+
+    = Initialization =
+
+    The library can be imported with optional default timeout:
+
+    | =Setting= | =Value= |
+    | Library | JavaGui.RcpLibrary |
+    | Library | JavaGui.RcpLibrary | timeout=30 |
+
+    = Workbench Keywords =
+
+    | *Keyword* | *Description* |
+    | Open Perspective | Open a perspective by ID |
+    | Show View | Show a view by ID |
+    | Open Editor | Open an editor for a file |
+    | Execute Command | Execute an Eclipse command |
+    """
+
+    ROBOT_LIBRARY_SCOPE = "GLOBAL"
+    ROBOT_LIBRARY_VERSION = __version__
+    ROBOT_LIBRARY_DOC_FORMAT = "REST"
+
+    def __init__(
+        self,
+        timeout: float = 10.0,
+    ) -> None:
+        """Initialize the RCP Library.
+
+        | =Argument= | =Description= |
+        | ``timeout`` | Default timeout in seconds for wait operations. Default ``10.0``. |
+
+        Example:
+        | =Setting= | =Value= | =Value= |
+        | Library | JavaGui.RcpLibrary | |
+        | Library | JavaGui.RcpLibrary | timeout=30 |
+        """
+        if not _RUST_AVAILABLE:
+            raise ImportError(
+                f"RCP Library Rust core not available: {_IMPORT_ERROR}\n"
+                "Please ensure the library is properly installed with: pip install robotframework-javagui"
+            )
+
+        self._lib = _RcpLibrary(timeout=timeout)
+        self._timeout = timeout
+
+    # Connection Keywords (delegated from SWT)
+    def connect_to_swt_application(self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None):
+        """Connect to an RCP/SWT application."""
+        return self._lib.connect_to_swt_application(app, host, port, timeout)
+
+    def connect_to_application(self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None):
+        """Connect to an RCP application (alias)."""
+        return self._lib.connect_to_application(app, host, port, timeout)
+
+    def disconnect(self):
+        """Disconnect from the RCP application."""
+        return self._lib.disconnect()
+
+    def is_connected(self) -> bool:
+        """Check if connected to an RCP application."""
+        return self._lib.is_connected()
+
+    # Shell Keywords
+    def get_shells(self):
+        """Get all shells."""
+        return self._lib.get_shells()
+
+    def activate_shell(self, locator: str):
+        """Activate a shell."""
+        return self._lib.activate_shell(locator)
+
+    def close_shell(self, locator: str):
+        """Close a shell."""
+        return self._lib.close_shell(locator)
+
+    # Widget Finding Keywords
+    def find_widget(self, locator: str):
+        """Find a single widget."""
+        return self._lib.find_widget(locator)
+
+    def find_widgets(self, locator: str):
+        """Find all matching widgets."""
+        return self._lib.find_widgets(locator)
+
+    # Click Keywords
+    def click_widget(self, locator: str):
+        """Click on a widget."""
+        return self._lib.click_widget(locator)
+
+    def double_click_widget(self, locator: str):
+        """Double-click on a widget."""
+        return self._lib.double_click_widget(locator)
+
+    # Text Input Keywords
+    def input_text(self, locator: str, text: str, clear: bool = True):
+        """Input text into a widget."""
+        return self._lib.input_text(locator, text, clear)
+
+    def clear_text(self, locator: str):
+        """Clear text from a widget."""
+        return self._lib.clear_text(locator)
+
+    # Selection Keywords
+    def select_combo_item(self, locator: str, item: str):
+        """Select an item from a combo box."""
+        return self._lib.select_combo_item(locator, item)
+
+    def select_list_item(self, locator: str, item: str):
+        """Select an item from a list."""
+        return self._lib.select_list_item(locator, item)
+
+    def check_button(self, locator: str):
+        """Check a checkbox or toggle button."""
+        return self._lib.check_button(locator)
+
+    def uncheck_button(self, locator: str):
+        """Uncheck a checkbox or toggle button."""
+        return self._lib.uncheck_button(locator)
+
+    # Table Keywords
+    def get_table_row_count(self, locator: str) -> int:
+        """Get the number of rows in a table."""
+        return self._lib.get_table_row_count(locator)
+
+    def get_table_cell(self, locator: str, row: int, col: int) -> str:
+        """Get the value of a table cell."""
+        return self._lib.get_table_cell(locator, row, col)
+
+    def select_table_row(self, locator: str, row: int):
+        """Select a table row."""
+        return self._lib.select_table_row(locator, row)
+
+    # Tree Keywords
+    def expand_tree_item(self, locator: str, path: str):
+        """Expand a tree item."""
+        return self._lib.expand_tree_item(locator, path)
+
+    def collapse_tree_item(self, locator: str, path: str):
+        """Collapse a tree item."""
+        return self._lib.collapse_tree_item(locator, path)
+
+    def select_tree_item(self, locator: str, path: str):
+        """Select a tree item."""
+        return self._lib.select_tree_item(locator, path)
+
+    # Wait Keywords
+    def wait_until_widget_exists(self, locator: str, timeout: Optional[float] = None):
+        """Wait until a widget exists."""
+        return self._lib.wait_until_widget_exists(locator, timeout)
+
+    def wait_until_widget_enabled(self, locator: str, timeout: Optional[float] = None):
+        """Wait until a widget is enabled."""
+        return self._lib.wait_until_widget_enabled(locator, timeout)
+
+    # Verification Keywords
+    def widget_should_be_visible(self, locator: str):
+        """Verify that a widget is visible."""
+        return self._lib.widget_should_be_visible(locator)
+
+    def widget_should_be_enabled(self, locator: str):
+        """Verify that a widget is enabled."""
+        return self._lib.widget_should_be_enabled(locator)
+
+    def widget_text_should_be(self, locator: str, expected: str):
+        """Verify widget text."""
+        return self._lib.widget_text_should_be(locator, expected)
+
+    # Configuration Keywords
+    def set_timeout(self, timeout: float) -> float:
+        """Set the default timeout."""
+        self._timeout = timeout
+        return self._lib.set_timeout(timeout)
+
+    # RCP-Specific Keywords
+    def get_workbench_info(self):
+        """Get workbench information."""
+        return self._lib.get_workbench_info()
+
+    def get_active_perspective(self) -> str:
+        """Get the active perspective ID."""
+        return self._lib.get_active_perspective()
+
+    def open_perspective(self, perspective_id: str):
+        """Open a perspective by ID."""
+        return self._lib.open_perspective(perspective_id)
+
+    def reset_perspective(self):
+        """Reset the current perspective."""
+        return self._lib.reset_perspective()
+
+    def get_available_perspectives(self):
+        """Get available perspectives."""
+        return self._lib.get_available_perspectives()
+
+    def show_view(self, view_id: str, secondary_id: Optional[str] = None):
+        """Show a view by ID."""
+        return self._lib.show_view(view_id, secondary_id)
+
+    def close_view(self, view_id: str, secondary_id: Optional[str] = None):
+        """Close a view by ID."""
+        return self._lib.close_view(view_id, secondary_id)
+
+    def activate_view(self, view_id: str):
+        """Activate a view."""
+        return self._lib.activate_view(view_id)
+
+    def view_should_be_visible(self, view_id: str):
+        """Verify view is visible."""
+        return self._lib.view_should_be_visible(view_id)
+
+    def get_open_views(self):
+        """Get open views."""
+        return self._lib.get_open_views()
+
+    def get_view_widget(self, view_id: str, locator: str):
+        """Get a widget in a view."""
+        return self._lib.get_view_widget(view_id, locator)
+
+    def get_active_editor(self):
+        """Get the active editor."""
+        return self._lib.get_active_editor()
+
+    def get_open_editors(self):
+        """Get all open editors.
+
+        Returns a list of open editors with their titles and dirty state.
+
+        Example:
+        | ${editors}= | Get Open Editors |
+        | FOR | ${editor} | IN | @{editors} |
+        |     | Log | ${editor}[title] - Dirty: ${editor}[dirty] |
+        | END |
+        """
+        return self._lib.get_open_editors()
+
+    def open_editor(self, file_path: str):
+        """Open an editor for a file."""
+        return self._lib.open_editor(file_path)
+
+    def close_editor(self, title: str, save: bool = False):
+        """Close an editor."""
+        return self._lib.close_editor(title, save)
+
+    def close_all_editors(self, save: bool = False) -> bool:
+        """Close all editors."""
+        return self._lib.close_all_editors(save)
+
+    def save_editor(self, title: Optional[str] = None):
+        """Save an editor."""
+        return self._lib.save_editor(title)
+
+    def save_all_editors(self):
+        """Save all editors."""
+        return self._lib.save_all_editors()
+
+    def activate_editor(self, title: str):
+        """Activate an editor."""
+        return self._lib.activate_editor(title)
+
+    def is_editor_dirty(self, file_path: str) -> bool:
+        """Check if an editor has unsaved changes."""
+        return self._lib.is_editor_dirty(file_path)
+
+    def editor_should_be_dirty(self, file_path: str):
+        """Verify that an editor has unsaved changes."""
+        return self._lib.editor_should_be_dirty(file_path)
+
+    def editor_should_not_be_dirty(self, file_path: str):
+        """Verify that an editor has no unsaved changes."""
+        return self._lib.editor_should_not_be_dirty(file_path)
+
+    def get_editor_widget(self, title: str, locator: str):
+        """Find a widget within an editor."""
+        return self._lib.get_editor_widget(title, locator)
+
+    def execute_command(self, command_id: str):
+        """Execute an Eclipse command."""
+        return self._lib.execute_command(command_id)
+
+    def get_available_commands(self, category: Optional[str] = None):
+        """Get available commands."""
+        return self._lib.get_available_commands(category)
+
+    def click_toolbar_item(self, tooltip: str):
+        """Click a toolbar item."""
+        return self._lib.click_toolbar_item(tooltip)
+
+    def open_preferences(self):
+        """Open preferences dialog."""
+        return self._lib.open_preferences()
+
+    def navigate_to_preference_page(self, path: str):
+        """Navigate to a preference page."""
+        return self._lib.navigate_to_preference_page(path)
+
+    def select_main_menu(self, path: str):
+        """Select main menu item."""
+        return self._lib.select_main_menu(path)
+
+    def select_context_menu(self, locator: str, path: str):
+        """Select context menu item."""
+        return self._lib.select_context_menu(locator, path)
+
+    def wait_for_workbench(self, timeout: Optional[float] = None):
+        """Wait for workbench to be ready."""
+        return self._lib.wait_for_workbench(timeout)
+
+    def __getattr__(self, name: str):
+        """Delegate other attribute access to the underlying Rust library."""
+        return getattr(self._lib, name)
+
+
+# ==========================================================================
+# Robot Framework Class Aliases
+# ==========================================================================
+# These aliases point to the Python wrapper classes (not the Rust classes)
+# so that Robot Framework can properly introspect constructor signatures.
+#
+# Usage in Robot Framework:
+#     Library    JavaGui.Swing    timeout=15
+#     Library    JavaGui.Swt      timeout=30
+#     Library    JavaGui.Rcp      timeout=20
+
+if _RUST_AVAILABLE:
+    Swing = SwingLibrary
+    Swt = SwtLibrary
+    Rcp = RcpLibrary
+else:
+    Swing = None
+    Swt = None
+    Rcp = None

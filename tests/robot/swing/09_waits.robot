@@ -10,8 +10,15 @@ Resource          resources/common.resource
 
 Suite Setup       Start Test Application
 Suite Teardown    Stop Test Application
+Test Setup        Ensure Form Input Tab
 
 Force Tags        waits    regression
+
+*** Keywords ***
+Ensure Form Input Tab
+    [Documentation]    Navigate to Form Input tab if not already there.
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Form Input
+    Sleep    0.1s
 
 *** Test Cases ***
 # =============================================================================
@@ -21,26 +28,26 @@ Force Tags        waits    regression
 Wait Until Element Is Visible By Name
     [Documentation]    Wait for element to be visible using name selector.
     [Tags]    smoke    positive
-    Wait Until Element Is Visible    [name='loginBtn']
-    Element Should Exist    [name='loginBtn']
+    Wait Until Element Is Visible    [name='submitButton']
+    Element Should Exist    [name='submitButton']
 
 Wait Until Element Is Visible By ID
     [Documentation]    Wait for element using ID-style selector.
     [Tags]    positive
-    Wait Until Element Is Visible    \#loginBtn    timeout=${DEFAULT_TIMEOUT}
-    Element Should Exist    \#loginBtn
+    Wait Until Element Is Visible    \#submitButton    timeout=${DEFAULT_TIMEOUT}
+    Element Should Exist    \#submitButton
 
 Wait Until Element Is Visible By Type
     [Documentation]    Wait for element by component type.
     [Tags]    positive
-    Wait Until Element Is Visible    JButton[name='loginBtn']
-    Element Should Exist    JButton[name='loginBtn']
+    Wait Until Element Is Visible    JButton[name='submitButton']
+    Element Should Exist    JButton[name='submitButton']
 
 Wait Until Element Is Visible Using XPath
     [Documentation]    Wait using XPath selector.
     [Tags]    positive    xpath-locator
-    Wait Until Element Is Visible    //JButton[@name='loginBtn']
-    Element Should Exist    //JButton[@name='loginBtn']
+    Wait Until Element Is Visible    //JButton[@name='submitButton']
+    Element Should Exist    //JButton[@name='submitButton']
 
 Wait Until Element Is Visible With Custom Timeout
     [Documentation]    Wait with custom timeout value.
@@ -61,26 +68,26 @@ Wait Until Already Visible Element
 Wait Until Element Is Enabled By Name
     [Documentation]    Wait for element to be enabled using name selector.
     [Tags]    smoke    positive
-    Wait Until Element Is Enabled    [name='loginBtn']
-    Element Should Exist    [name='loginBtn']
+    Wait Until Element Is Enabled    [name='submitButton']
+    Element Should Exist    [name='submitButton']
 
 Wait Until Element Is Enabled By ID
     [Documentation]    Wait for element using ID-style selector.
     [Tags]    positive
-    Wait Until Element Is Enabled    \#loginBtn    timeout=${DEFAULT_TIMEOUT}
-    Element Should Exist    \#loginBtn
+    Wait Until Element Is Enabled    \#submitButton    timeout=${DEFAULT_TIMEOUT}
+    Element Should Exist    \#submitButton
 
 Wait Until Element Is Enabled By Type
     [Documentation]    Wait for element by component type.
     [Tags]    positive
-    Wait Until Element Is Enabled    JButton[name='loginBtn']
-    Element Should Exist    JButton[name='loginBtn']
+    Wait Until Element Is Enabled    JButton[name='submitButton']
+    Element Should Exist    JButton[name='submitButton']
 
 Wait Until Element Is Enabled Using XPath
     [Documentation]    Wait using XPath selector.
     [Tags]    positive    xpath-locator
-    Wait Until Element Is Enabled    //JButton[@name='loginBtn']
-    Element Should Exist    //JButton[@name='loginBtn']
+    Wait Until Element Is Enabled    //JButton[@name='submitButton']
+    Element Should Exist    //JButton[@name='submitButton']
 
 Wait Until Element Is Enabled With Custom Timeout
     [Documentation]    Wait with custom timeout value.
@@ -101,25 +108,25 @@ Wait Until Already Enabled Element
 Wait For Element By Name
     [Documentation]    Wait for element and get reference.
     [Tags]    smoke    positive
-    ${element}=    Wait For Element    [name='loginBtn']
+    ${element}=    Wait For Element    [name='submitButton']
     Should Not Be Equal    ${element}    ${NONE}
 
 Wait For Element By ID
     [Documentation]    Wait for element using ID-style selector.
     [Tags]    positive
-    ${element}=    Wait For Element    \#loginBtn    timeout=${DEFAULT_TIMEOUT}
+    ${element}=    Wait For Element    \#submitButton    timeout=${DEFAULT_TIMEOUT}
     Should Not Be Equal    ${element}    ${NONE}
 
 Wait For Element By Type
     [Documentation]    Wait for element by component type.
     [Tags]    positive
-    ${element}=    Wait For Element    JButton[name='loginBtn']
+    ${element}=    Wait For Element    JButton[name='submitButton']
     Should Not Be Equal    ${element}    ${NONE}
 
 Wait For Element Using XPath
     [Documentation]    Wait using XPath selector.
     [Tags]    positive    xpath-locator
-    ${element}=    Wait For Element    //JButton[@name='loginBtn']
+    ${element}=    Wait For Element    //JButton[@name='submitButton']
     Should Not Be Equal    ${element}    ${NONE}
 
 Wait For Element With Custom Timeout
@@ -182,16 +189,16 @@ Wait Before Click Workflow
 Wait And Input Workflow
     [Documentation]    Wait for field and then input.
     [Tags]    workflow
-    Wait Until Element Is Visible    [name='username']
-    Wait Until Element Is Enabled    [name='username']
-    Input Text    [name='username']    waituser
-    Element Should Exist    [name='username']
+    Wait Until Element Is Visible    [name='nameTextField']
+    Wait Until Element Is Enabled    [name='nameTextField']
+    Input Text    [name='nameTextField']    waituser
+    Element Should Exist    [name='nameTextField']
 
 Wait For Multiple Elements Workflow
     [Documentation]    Wait for multiple elements before action.
     [Tags]    workflow
-    Wait Until Element Is Visible    [name='username']
-    Wait Until Element Is Visible    [name='password']
+    Wait Until Element Is Visible    [name='nameTextField']
+    Wait Until Element Is Visible    [name='passwordField']
     Wait Until Element Is Enabled    ${LOGIN_BUTTON}
     # All elements ready, perform action
     Click Button    ${LOGIN_BUTTON}
@@ -200,12 +207,12 @@ Wait For Multiple Elements Workflow
 Wait Chain Workflow
     [Documentation]    Chain multiple waits together.
     [Tags]    workflow
-    Wait Until Element Is Visible    [name='username']
-    Wait Until Element Is Enabled    [name='username']
-    Input Text    [name='username']    chainuser
-    Wait Until Element Is Visible    [name='password']
-    Wait Until Element Is Enabled    [name='password']
-    Input Text    [name='password']    chainpass
+    Wait Until Element Is Visible    [name='nameTextField']
+    Wait Until Element Is Enabled    [name='nameTextField']
+    Input Text    [name='nameTextField']    chainuser
+    Wait Until Element Is Visible    [name='passwordField']
+    Wait Until Element Is Enabled    [name='passwordField']
+    Input Text    [name='passwordField']    chainpass
     Wait Until Element Is Enabled    ${LOGIN_BUTTON}
     Click Button    ${LOGIN_BUTTON}
     Sleep    0.5s
@@ -217,18 +224,18 @@ Wait Chain Workflow
 Wait For Button To Be Ready
     [Documentation]    Wait for button element.
     [Tags]    positive
-    Wait Until Element Is Visible    JButton[name='loginBtn']
-    Wait Until Element Is Enabled    JButton[name='loginBtn']
-    Click Button    JButton[name='loginBtn']
+    Wait Until Element Is Visible    JButton[name='submitButton']
+    Wait Until Element Is Enabled    JButton[name='submitButton']
+    Click Button    JButton[name='submitButton']
     Sleep    0.3s
 
 Wait For TextField To Be Ready
     [Documentation]    Wait for text field element.
     [Tags]    positive
-    Wait Until Element Is Visible    JTextField[name='username']
-    Wait Until Element Is Enabled    JTextField[name='username']
-    Input Text    JTextField[name='username']    testuser
-    Element Should Exist    JTextField[name='username']
+    Wait Until Element Is Visible    JTextField[name='nameTextField']
+    Wait Until Element Is Enabled    JTextField[name='nameTextField']
+    Input Text    JTextField[name='nameTextField']    testuser
+    Element Should Exist    JTextField[name='nameTextField']
 
 Wait For Label To Have Text
     [Documentation]    Wait for label with specific text.
@@ -239,6 +246,7 @@ Wait For Label To Have Text
 Wait For Table To Be Ready
     [Documentation]    Wait for table element.
     [Tags]    positive
+    Select Data View Tab
     Wait Until Element Is Visible    JTable[name='dataTable']
     Wait Until Element Is Enabled    JTable[name='dataTable']
     Element Should Exist    JTable[name='dataTable']
@@ -319,14 +327,14 @@ Wait With Long Timeout For Existing
 Multiple Concurrent Waits
     [Documentation]    Multiple wait operations.
     [Tags]    edge-case
-    Wait Until Element Is Visible    [name='username']
-    Wait Until Element Is Visible    [name='password']
+    Wait Until Element Is Visible    [name='nameTextField']
+    Wait Until Element Is Visible    [name='passwordField']
     Wait Until Element Is Visible    ${LOGIN_BUTTON}
-    Wait Until Element Is Enabled    [name='username']
-    Wait Until Element Is Enabled    [name='password']
+    Wait Until Element Is Enabled    [name='nameTextField']
+    Wait Until Element Is Enabled    [name='passwordField']
     Wait Until Element Is Enabled    ${LOGIN_BUTTON}
-    Element Should Exist    [name='username']
-    Element Should Exist    [name='password']
+    Element Should Exist    [name='nameTextField']
+    Element Should Exist    [name='passwordField']
     Element Should Exist    ${LOGIN_BUTTON}
 
 Rapid Wait Calls
@@ -345,11 +353,11 @@ Wait And Complete Form
     [Documentation]    Complete form using wait before each step.
     [Tags]    integration
     # Wait and fill username
-    Wait Until Element Is Enabled    [name='username']
-    Input Text    [name='username']    integrationuser
+    Wait Until Element Is Enabled    [name='nameTextField']
+    Input Text    [name='nameTextField']    integrationuser
     # Wait and fill password
-    Wait Until Element Is Enabled    [name='password']
-    Input Text    [name='password']    integrationpass
+    Wait Until Element Is Enabled    [name='passwordField']
+    Input Text    [name='passwordField']    integrationpass
     # Wait and click login
     Wait Until Element Is Enabled    ${LOGIN_BUTTON}
     Click Button    ${LOGIN_BUTTON}

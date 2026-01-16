@@ -21,21 +21,21 @@ Find Element By Name Attribute
     [Documentation]    Find a single element using the name attribute selector.
     ...                Uses CSS-style [name='value'] syntax.
     [Tags]    smoke    positive    css-locator
-    ${element}=    Find Element    [name='loginBtn']
+    ${element}=    Find Element    [name='submitButton']
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Element By Name With Type
     [Documentation]    Find element using type and name attribute together.
     ...                Combines component type with attribute selector.
     [Tags]    smoke    positive    css-locator
-    ${element}=    Find Element    JButton[name='loginBtn']
+    ${element}=    Find Element    JButton[name='submitButton']
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Element By Name Using ID Syntax
     [Documentation]    Find element using CSS ID-style selector.
     ...                The # prefix matches the name attribute.
     [Tags]    positive    css-locator
-    ${element}=    Find Element    \#loginBtn
+    ${element}=    Find Element    \#submitButton
     Should Not Be Equal    ${element}    ${NONE}
 
 # =============================================================================
@@ -45,49 +45,49 @@ Find Element By Name Using ID Syntax
 Find Element By Text Attribute
     [Documentation]    Find element by its text content using attribute selector.
     [Tags]    smoke    positive    css-locator
-    ${element}=    Find Element    JButton[text='Login']
+    ${element}=    Find Element    JButton[text='Submit']
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Element By Text Contains
-    [Documentation]    Find element by partial text match using *= operator.
+    [Documentation]    Find elements by partial text match using *= operator.
     [Tags]    positive    css-locator
-    ${element}=    Find Element    JButton[text*='Log']
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JButton[text*='Sub']
+    Should Not Be Empty    ${elements}    Should find button containing 'Sub'
 
 Find Element By Text Starts With
     [Documentation]    Find element by text prefix using ^= operator.
     [Tags]    positive    css-locator
-    ${element}=    Find Element    JButton[text^='Log']
+    ${element}=    Find Element    JButton[text^='Sub']
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Element By Text Ends With
-    [Documentation]    Find element by text suffix using $= operator.
+    [Documentation]    Find elements by text suffix using $= operator.
     [Tags]    positive    css-locator
-    ${element}=    Find Element    JLabel[text$=':']
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JLabel[text$=':']
+    Should Not Be Empty    ${elements}    Should find labels ending with colon
 
 # =============================================================================
 # FIND ELEMENT - BY CLASS/TYPE
 # =============================================================================
 
 Find Element By Component Type
-    [Documentation]    Find element by its Swing component type.
+    [Documentation]    Find elements by Swing component type.
     ...                Uses the simple class name as selector.
     [Tags]    smoke    positive    css-locator
-    ${element}=    Find Element    JButton
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JButton
+    Should Not Be Empty    ${elements}    Should find at least one button
 
 Find Element By Type JTextField
-    [Documentation]    Find a text field element by type.
+    [Documentation]    Find text field elements by type.
     [Tags]    positive    css-locator
-    ${element}=    Find Element    JTextField
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JTextField
+    Should Not Be Empty    ${elements}    Should find at least one text field
 
 Find Element By Type JLabel
-    [Documentation]    Find a label element by type.
+    [Documentation]    Find label elements by type.
     [Tags]    positive    css-locator
-    ${element}=    Find Element    JLabel
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JLabel
+    Should Not Be Empty    ${elements}    Should find at least one label
 
 Find Element By Type JTabbedPane
     [Documentation]    Find a tabbed pane element by type.
@@ -112,61 +112,62 @@ Find Element By Type JTree
 # =============================================================================
 
 Find Element By XPath Simple
-    [Documentation]    Find element using simple XPath syntax.
+    [Documentation]    Find elements using simple XPath syntax.
     ...                Uses //Type to find any matching component.
     [Tags]    smoke    positive    xpath-locator
-    ${element}=    Find Element    //JButton
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    //JButton
+    Should Not Be Empty    ${elements}    Should find at least one button via XPath
 
 Find Element By XPath With Attribute
     [Documentation]    Find element using XPath with attribute predicate.
     ...                Uses [@attr='value'] syntax.
     [Tags]    positive    xpath-locator
-    ${element}=    Find Element    //JButton[@name='loginBtn']
+    ${element}=    Find Element    //JButton[@name='submitButton']
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Element By XPath With Text
     [Documentation]    Find element using XPath with text attribute.
     [Tags]    positive    xpath-locator
-    ${element}=    Find Element    //JButton[@text='Login']
+    ${element}=    Find Element    //JButton[@text='Submit']
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Element By XPath With Index
     [Documentation]    Find element using XPath index predicate.
     ...                Uses [n] to select nth matching element.
     [Tags]    positive    xpath-locator
-    ${element}=    Find Element    //JButton[1]
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    //JButton
+    ${first}=    Get From List    ${elements}    0
+    Should Not Be Equal    ${first}    ${NONE}
 
 Find Element By XPath Descendant
-    [Documentation]    Find element as descendant using XPath.
+    [Documentation]    Find elements as descendant using XPath.
     [Tags]    positive    xpath-locator
-    ${element}=    Find Element    //JPanel//JButton
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    //JPanel//JButton
+    Should Not Be Empty    ${elements}    Should find at least one button in panel
 
 # =============================================================================
 # FIND ELEMENT - CSS COMBINATORS
 # =============================================================================
 
 Find Element With Child Combinator
-    [Documentation]    Find element using CSS child combinator (>).
+    [Documentation]    Find elements using CSS child combinator (>).
     ...                Matches direct child elements only.
     [Tags]    positive    css-locator    combinator
-    ${element}=    Find Element    JPanel > JButton
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JPanel > JButton
+    Should Not Be Empty    ${elements}    Should find at least one direct child button
 
 Find Element With Descendant Combinator
-    [Documentation]    Find element using CSS descendant combinator (space).
+    [Documentation]    Find elements using CSS descendant combinator (space).
     ...                Matches any descendant elements.
     [Tags]    positive    css-locator    combinator
-    ${element}=    Find Element    JPanel JButton
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JPanel JButton
+    Should Not Be Empty    ${elements}    Should find at least one descendant button
 
 Find Element In Nested Container
-    [Documentation]    Find element within multiple nested containers.
+    [Documentation]    Find elements within multiple nested containers.
     [Tags]    positive    css-locator    combinator
-    ${element}=    Find Element    JTabbedPane JPanel JButton
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JTabbedPane JPanel JButton
+    Should Not Be Empty    ${elements}    Should find at least one nested button
 
 # =============================================================================
 # FIND ELEMENT - PSEUDO SELECTORS
@@ -175,26 +176,26 @@ Find Element In Nested Container
 Find Element With Enabled Pseudo Selector
     [Documentation]    Find enabled elements using :enabled pseudo selector.
     [Tags]    positive    css-locator    pseudo-selector
-    ${element}=    Find Element    JButton:enabled
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JButton:enabled
+    Should Not Be Empty    ${elements}    Should find at least one enabled button
 
 Find Element With Visible Pseudo Selector
     [Documentation]    Find visible elements using :visible pseudo selector.
     [Tags]    positive    css-locator    pseudo-selector
-    ${element}=    Find Element    JButton:visible
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JButton:visible
+    Should Not Be Empty    ${elements}    Should find at least one visible button
 
 Find Element With First Child Pseudo Selector
     [Documentation]    Find first child elements using :first-child pseudo selector.
     [Tags]    positive    css-locator    pseudo-selector
-    ${element}=    Find Element    JButton:first-child
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JButton:first-child
+    Should Not Be Empty    ${elements}    Should find at least one first-child button
 
 Find Element With Combined Pseudo Selectors
-    [Documentation]    Find element with multiple pseudo selectors.
+    [Documentation]    Find elements with multiple pseudo selectors.
     [Tags]    positive    css-locator    pseudo-selector
-    ${element}=    Find Element    JButton:enabled:visible
-    Should Not Be Equal    ${element}    ${NONE}
+    ${elements}=    Find Elements    JButton:enabled:visible
+    Should Not Be Empty    ${elements}    Should find at least one enabled and visible button
 
 # =============================================================================
 # FIND ELEMENT - COMPLEX SELECTORS
@@ -203,25 +204,25 @@ Find Element With Combined Pseudo Selectors
 Find Element With Multiple Attributes
     [Documentation]    Find element using multiple attribute selectors.
     [Tags]    positive    css-locator    complex
-    ${element}=    Find Element    JButton[name='loginBtn'][text='Login']
+    ${element}=    Find Element    JButton[name='submitButton'][text='Submit']
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Element With Attribute And Pseudo Selector
     [Documentation]    Combine attribute selectors with pseudo selectors.
     [Tags]    positive    css-locator    complex
-    ${element}=    Find Element    JButton[name='loginBtn']:enabled
+    ${element}=    Find Element    JButton[name='submitButton']:enabled
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Element With Type Attribute And Pseudo
     [Documentation]    Full combination of type, attribute, and pseudo selectors.
     [Tags]    positive    css-locator    complex
-    ${element}=    Find Element    JButton[name='loginBtn']:enabled:visible
+    ${element}=    Find Element    JButton[name='submitButton']:enabled:visible
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Element With Combinator And Attribute
     [Documentation]    Combine descendant combinator with attribute selector.
     [Tags]    positive    css-locator    complex
-    ${element}=    Find Element    JPanel JButton[text='Login']
+    ${element}=    Find Element    JPanel JButton[text='Submit']
     Should Not Be Equal    ${element}    ${NONE}
 
 # =============================================================================
@@ -276,7 +277,7 @@ Find Elements Using XPath
 Wait Until Element Exists By Name
     [Documentation]    Wait for an element to exist using name selector.
     [Tags]    smoke    positive    wait
-    Wait Until Element Exists    [name='loginBtn']    timeout=${DEFAULT_TIMEOUT}
+    Wait Until Element Exists    [name='submitButton']    timeout=${DEFAULT_TIMEOUT}
 
 Wait Until Element Exists By Type
     [Documentation]    Wait for an element to exist using type selector.
@@ -286,7 +287,7 @@ Wait Until Element Exists By Type
 Wait Until Element Exists By XPath
     [Documentation]    Wait for an element to exist using XPath selector.
     [Tags]    positive    wait    xpath-locator
-    Wait Until Element Exists    //JButton[@name='loginBtn']    timeout=${DEFAULT_TIMEOUT}
+    Wait Until Element Exists    //JButton[@name='submitButton']    timeout=${DEFAULT_TIMEOUT}
 
 Wait Until Element Exists With Short Timeout
     [Documentation]    Wait for an existing element with short timeout.
@@ -358,7 +359,7 @@ Find Element With Empty Locator
 Find Element With Special Characters In Text
     [Documentation]    Find element handles special characters in text search.
     [Tags]    edge-case
-    ${element}=    Find Element    JLabel[text='Username:']
+    ${element}=    Find Element    JLabel[text='Name:']
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Elements With Locator Matching Many

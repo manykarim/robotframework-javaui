@@ -3,7 +3,7 @@ Documentation     Common resources for RCP Library tests.
 ...               Contains shared variables, keywords, and library imports
 ...               for testing Eclipse RCP application automation.
 
-Library           swing_library.RcpLibrary
+Library           JavaGui.Rcp
 Library           Collections
 Library           String
 Library           OperatingSystem

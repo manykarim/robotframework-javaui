@@ -25,13 +25,13 @@ Select Menu Single Level
 Select Menu Two Levels
     [Documentation]    Select a two-level menu path.
     [Tags]    positive
-    Select Menu    Edit|Undo
+    Select Menu    Edit|Copy
     Sleep    0.2s
 
 Select Menu Three Levels
-    [Documentation]    Select a three-level menu path.
+    [Documentation]    Select a three-level menu path (Edit|Find|Find Next).
     [Tags]    positive
-    Select Menu    File|Export|As PDF
+    Select Menu    Edit|Find|Find Next
     Sleep    0.2s
 
 Select Different Menu Items
@@ -39,9 +39,9 @@ Select Different Menu Items
     [Tags]    positive
     Select Menu    File|New
     Sleep    0.2s
-    Select Menu    Edit|Copy
+    Select Menu    Edit|Paste
     Sleep    0.2s
-    Select Menu    View|Refresh
+    Select Menu    View|Toolbar
     Sleep    0.2s
 
 Select Menu With Accelerator
@@ -60,7 +60,7 @@ Select Same Menu Item Multiple Times
     [Documentation]    Verify selecting same menu item multiple times.
     [Tags]    positive    edge-case
     FOR    ${i}    IN RANGE    3
-        Select Menu    View|Refresh
+        Select Menu    Edit|Copy
         Sleep    0.1s
     END
 
@@ -79,22 +79,23 @@ Select File Menu Items
 Select Edit Menu Items
     [Documentation]    Select various items from Edit menu.
     [Tags]    positive
-    Select Menu    Edit|Undo
+    Select Menu    Edit|Cut
     Sleep    0.2s
-    Select Menu    Edit|Redo
+    Select Menu    Edit|Copy
     Sleep    0.2s
 
 Select View Menu Items
     [Documentation]    Select various items from View menu.
     [Tags]    positive
-    Select Menu    View|Refresh
+    Select Menu    View|Toolbar
     Sleep    0.2s
 
 Select Help Menu Items
     [Documentation]    Select items from Help menu.
     [Tags]    positive
-    Select Menu    Help|About
-    Sleep    0.5s
+    # Use Help Contents instead of About (About opens modal dialog which blocks)
+    Select Menu    Help|Help Contents
+    Sleep    0.2s
 
 # =============================================================================
 # SELECT FROM POPUP MENU (CONTEXT MENU)
@@ -103,45 +104,48 @@ Select Help Menu Items
 Select From Popup Menu After Right Click On Table
     [Documentation]    Right-click table and select from popup menu.
     [Tags]    smoke    positive    context-menu
+    # First navigate to Data View tab where the table is
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Data View
+    Sleep    0.2s
     Right Click    JTable[name='dataTable']
     Sleep    0.2s
-    Select From Popup Menu    Copy
+    Select From Popup Menu    View Details
     Sleep    0.2s
 
 Select From Popup Menu After Right Click On Tree
     [Documentation]    Right-click tree and select from popup menu.
     [Tags]    positive    context-menu
+    # Tree is in the left split pane, always visible
     Right Click    JTree[name='fileTree']
     Sleep    0.2s
     Select From Popup Menu    Refresh
     Sleep    0.2s
 
-Select From Popup Menu After Right Click On List
-    [Documentation]    Right-click list and select from popup menu.
+Select Different Table Popup Menu Item
+    [Documentation]    Right-click table and select different popup menu item.
     [Tags]    positive    context-menu
-    Right Click    JList[name='itemList']
+    # Ensure Data View tab is selected
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Data View
     Sleep    0.2s
-    Select From Popup Menu    Delete
-    Sleep    0.2s
-
-Select Nested Popup Menu Item
-    [Documentation]    Select nested item from popup menu.
-    [Tags]    positive    context-menu
     Right Click    JTable[name='dataTable']
     Sleep    0.2s
-    Select From Popup Menu    Edit|Paste
+    Select From Popup Menu    Edit Item
     Sleep    0.2s
 
 Select Multiple Popup Menu Items
     [Documentation]    Test multiple popup menu selections.
     [Tags]    positive    context-menu
+    # Table popup
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Data View
+    Sleep    0.2s
     Right Click    JTable[name='dataTable']
     Sleep    0.2s
-    Select From Popup Menu    Copy
+    Select From Popup Menu    View Details
     Sleep    0.2s
-    Right Click    JTable[name='dataTable']
+    # Tree popup (tree is always visible in left split pane)
+    Right Click    JTree[name='fileTree']
     Sleep    0.2s
-    Select From Popup Menu    Paste
+    Select From Popup Menu    Open
     Sleep    0.2s
 
 # =============================================================================
@@ -169,15 +173,18 @@ Edit Operations Menu Workflow
 Context Menu Edit Workflow
     [Documentation]    Test context menu for editing.
     [Tags]    workflow    context-menu
+    # Navigate to Data View tab first
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Data View
+    Sleep    0.2s
     # Right click on table
     Right Click    JTable[name='dataTable']
     Sleep    0.2s
-    Select From Popup Menu    Copy
+    Select From Popup Menu    View Details
     Sleep    0.2s
     # Right click again
     Right Click    JTable[name='dataTable']
     Sleep    0.2s
-    Select From Popup Menu    Paste
+    Select From Popup Menu    Edit Item
     Sleep    0.2s
 
 Navigate Multiple Menus Workflow
@@ -185,12 +192,13 @@ Navigate Multiple Menus Workflow
     [Tags]    workflow
     Select Menu    File|New
     Sleep    0.2s
-    Select Menu    Edit|Undo
+    Select Menu    Edit|Cut
     Sleep    0.2s
-    Select Menu    View|Refresh
+    Select Menu    View|Status Bar
     Sleep    0.2s
-    Select Menu    Help|About
-    Sleep    0.5s
+    # Use Help Contents instead of About (About opens modal dialog which blocks)
+    Select Menu    Help|Help Contents
+    Sleep    0.2s
 
 # =============================================================================
 # MENU STATE VERIFICATION
@@ -261,6 +269,9 @@ Select From Popup Menu Without Context Fails
 Select Nonexistent Popup Menu Item Fails
     [Documentation]    Select non-existent popup item throws error.
     [Tags]    negative    error-handling    context-menu
+    # Navigate to Data View tab first
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Data View
+    Sleep    0.2s
     Right Click    JTable[name='dataTable']
     Sleep    0.2s
     ${status}=    Run Keyword And Return Status
@@ -291,7 +302,7 @@ Rapid Menu Selection
     [Documentation]    Test rapid menu selection.
     [Tags]    edge-case    stress
     FOR    ${i}    IN RANGE    5
-        Select Menu    View|Refresh
+        Select Menu    Edit|Copy
         Sleep    0.1s
     END
 
@@ -300,7 +311,7 @@ Menu Selection With Timing
     [Tags]    edge-case
     Select Menu    File|New
     Sleep    0.5s
-    Select Menu    Edit|Undo
+    Select Menu    Edit|Cut
     Sleep    0.5s
 
 Context Menu On Different Elements
@@ -310,7 +321,7 @@ Context Menu On Different Elements
     Right Click    JTable[name='dataTable']
     Sleep    0.2s
     ${status1}=    Run Keyword And Return Status
-    ...    Select From Popup Menu    Copy
+    ...    Select From Popup Menu    View Details
     Log    Table popup: ${status1}
     # Tree
     Right Click    JTree[name='fileTree']
@@ -336,20 +347,23 @@ Menu And Button Integration
     [Documentation]    Test menu operations alongside button clicks.
     [Tags]    integration
     # Click a button
-    Click Button    JButton[name='clearBtn']
+    Click Button    JButton[name='clearButton']
     Sleep    0.2s
     # Use menu
     Select Menu    File|New
     Sleep    0.2s
     # Click another button
-    Click Button    JButton[name='loginBtn']
+    Click Button    JButton[name='submitButton']
     Sleep    0.2s
 
 Menu And Text Input Integration
     [Documentation]    Test menu with text input operations.
     [Tags]    integration
+    # Navigate to Form Input tab where the text field is
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Form Input
+    Sleep    0.2s
     # Input text
-    Input Text    [name='username']    menutest
+    Input Text    [name='nameTextField']    menutest
     Sleep    0.2s
     # Use menu
     Select Menu    Edit|Select All
@@ -361,6 +375,9 @@ Menu And Text Input Integration
 Context Menu And Selection Integration
     [Documentation]    Test context menu with element selection.
     [Tags]    integration    context-menu
+    # Navigate to Data View tab where the table is
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Data View
+    Sleep    0.2s
     # Select table row
     Select Table Row    JTable[name='dataTable']    0
     Sleep    0.2s
@@ -369,5 +386,5 @@ Context Menu And Selection Integration
     Sleep    0.2s
     # Select from context menu
     ${status}=    Run Keyword And Return Status
-    ...    Select From Popup Menu    Copy
+    ...    Select From Popup Menu    View Details
     Log    Context menu result: ${status}

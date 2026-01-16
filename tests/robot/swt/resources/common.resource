@@ -3,7 +3,7 @@ Documentation     Common resources for SWT Library Robot Framework tests.
 ...               Contains shared variables, keywords, and library imports
 ...               used across all SWT test suites.
 
-Library           swing_library.SwtLibrary    WITH NAME    SwtLibrary
+Library           JavaGui.Swt    WITH NAME    SwtLibrary
 Library           Collections
 Library           String
 Library           OperatingSystem
@@ -21,7 +21,7 @@ ${DEFAULT_TIMEOUT}              10
 
 # Test Application Settings
 ${TEST_APP_CLASS}               testapp.SwtTestApp
-${TEST_APP_JAR}                 ${CURDIR}${/}..${/}..${/}..${/}..${/}demo${/}swt-test-app.jar
+${TEST_APP_JAR}                 ${CURDIR}${/}..${/}..${/}..${/}apps${/}swt${/}target${/}swt-test-app-1.0.0-all.jar
 ${SWT_AGENT_JAR}                ${CURDIR}${/}..${/}..${/}..${/}..${/}agent${/}target${/}robotframework-swt-agent-1.0.0-all.jar
 
 # Widget Locators - Buttons (matching SwtTestApp widget names)

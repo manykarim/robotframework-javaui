@@ -3,7 +3,7 @@ Documentation     Common resources for SwingLibrary comprehensive test suite
 ...               Provides library imports, common variables, and reusable keywords
 ...               for testing all SwingLibrary keywords against the demo application.
 
-Library           swing_library.SwingLibrary    timeout=15    poll_interval=0.5
+Library           JavaGui.Swing    timeout=15    poll_interval=0.5
 Library           OperatingSystem
 Library           Process
 Library           Collections
@@ -11,12 +11,12 @@ Library           String
 
 *** Variables ***
 # Application paths
-${DEMO_APP_JAR}           ${CURDIR}/../../../../demo/target/swing-demo-app-1.0.0.jar
+${DEMO_APP_JAR}           ${CURDIR}/../../../../tests/apps/swing/target/swing-test-app-1.0.0.jar
 ${AGENT_JAR}              ${CURDIR}/../../../../agent/target/robotframework-swing-agent-1.0.0-all.jar
 
 # Demo application configuration
-${DEMO_MAIN_CLASS}        com.example.demo.SwingDemoApp
-${DEMO_WINDOW_TITLE}      Swing Demo Application
+${DEMO_MAIN_CLASS}        testapp.SwingTestApp
+${DEMO_WINDOW_TITLE}      Swing Test Application
 
 # Connection configuration
 ${AGENT_HOST}             localhost
@@ -29,46 +29,67 @@ ${SHORT_TIMEOUT}          5
 ${LONG_TIMEOUT}           30
 
 # Common element locators
-${MAIN_TABS}              JTabbedPane[name='mainTabs']
-${LOGIN_PANEL}            JPanel[name='loginPanel']
-${TABLE_PANEL}            JPanel[name='tablePanel']
-${TREE_PANEL}             JPanel[name='treePanel']
+${MAIN_TABS}              JTabbedPane[name='mainTabbedPane']
 ${FORM_PANEL}             JPanel[name='formPanel']
-${LIST_PANEL}             JPanel[name='listPanel']
+${SELECTIONS_PANEL}       JPanel[name='selectionsPanel']
+${DATA_PANEL}             JPanel[name='dataPanel']
+${SETTINGS_PANEL}         JPanel[name='settingsTabPanel']
 
-# Login form elements
-${USERNAME_FIELD}         JTextField[name='username']
-${PASSWORD_FIELD}         JPasswordField[name='password']
-${LOGIN_BUTTON}           JButton[name='loginBtn']
-${CLEAR_BUTTON}           JButton[name='clearBtn']
-${REMEMBER_CHECKBOX}      JCheckBox[name='rememberMe']
+# Form elements (Form Input tab)
+${NAME_FIELD}             JTextField[name='nameTextField']
+${EMAIL_FIELD}            JTextField[name='emailTextField']
+${PASSWORD_FIELD}         JPasswordField[name='passwordField']
+${DESCRIPTION_AREA}       JTextArea[name='descriptionTextArea']
+${SUBMIT_BUTTON}          JButton[name='submitButton']
+${CLEAR_BUTTON}           JButton[name='clearButton']
 ${STATUS_LABEL}           JLabel[name='statusLabel']
 
-# Table elements
+# Selection elements (Selections tab)
+${CATEGORY_COMBO}            JComboBox[name='categoryComboBox']
+${QUANTITY_SPINNER}          JSpinner[name='quantitySpinner']
+${VOLUME_SLIDER}             JSlider[name='volumeSlider']
+${ENABLED_CHECKBOX}          JCheckBox[name='enabledCheckBox']
+${NOTIFICATIONS_CHECKBOX}    JCheckBox[name='notificationsCheckBox']
+${AUTOSAVE_CHECKBOX}         JCheckBox[name='autoSaveCheckBox']
+${HIGH_PRIORITY_RADIO}       JRadioButton[name='highPriorityRadioButton']
+${NORMAL_PRIORITY_RADIO}     JRadioButton[name='normalPriorityRadioButton']
+${LOW_PRIORITY_RADIO}        JRadioButton[name='lowPriorityRadioButton']
+${ITEM_LIST}                 JList[name='itemList']
+
+# Table elements (Data View tab)
 ${DATA_TABLE}             JTable[name='dataTable']
 
 # Tree elements
 ${FILE_TREE}              JTree[name='fileTree']
 
-# List elements
-${ITEM_LIST}              JList[name='itemList']
+# Dialog elements
+${SETTINGS_DIALOG}        JDialog[name='settingsDialog']
+${ABOUT_DIALOG}           JDialog[name='aboutDialog']
 
-# Form elements
-${COUNTRY_COMBO}          JComboBox[name='countryCombo']
-${OPTION_A_RADIO}         JRadioButton[name='optionA']
-${OPTION_B_RADIO}         JRadioButton[name='optionB']
-${VOLUME_SLIDER}          JSlider[name='volumeSlider']
-${QUANTITY_SPINNER}       JSpinner[name='quantitySpinner']
+# Progress bar
 ${PROGRESS_BAR}           JProgressBar[name='progressBar']
-${NOTES_AREA}             JTextArea[name='notesArea']
 
 # Test data
-${VALID_USERNAME}         admin
-${VALID_PASSWORD}         password123
-${TEST_USERNAME}          testuser
-${TEST_PASSWORD}          testpass
+${TEST_NAME}              John Doe
+${TEST_EMAIL}             john@example.com
+${TEST_PASSWORD}          testpass123
+
+# Aliases for backward compatibility with tests
+${LOGIN_BUTTON}           ${SUBMIT_BUTTON}
+${VALID_USERNAME}         testuser
+${VALID_PASSWORD}         testpass123
 
 *** Keywords ***
+# =============================================================================
+# Test Setup Keywords
+# =============================================================================
+
+Clear Login Form
+    [Documentation]    Clear the form fields for text input tests
+    Select Form Input Tab
+    Clear Text    ${NAME_FIELD}
+    Clear Text    ${PASSWORD_FIELD}
+
 # =============================================================================
 # Application Lifecycle Keywords
 # =============================================================================
@@ -106,60 +127,57 @@ Restart Test Application
 # Tab Navigation Keywords
 # =============================================================================
 
-Select Login Tab
-    [Documentation]    Navigate to the Login tab
-    Select Tab    ${MAIN_TABS}    Login
-    Wait Until Element Is Visible    ${LOGIN_PANEL}    timeout=${SHORT_TIMEOUT}
-
-Select Table Tab
-    [Documentation]    Navigate to the Table tab
-    Select Tab    ${MAIN_TABS}    Table
-    Wait Until Element Is Visible    ${DATA_TABLE}    timeout=${SHORT_TIMEOUT}
-
-Select Tree Tab
-    [Documentation]    Navigate to the Tree tab
-    Select Tab    ${MAIN_TABS}    Tree
-    Wait Until Element Is Visible    ${FILE_TREE}    timeout=${SHORT_TIMEOUT}
-
-Select Form Tab
-    [Documentation]    Navigate to the Form tab
-    Select Tab    ${MAIN_TABS}    Form
+Select Form Input Tab
+    [Documentation]    Navigate to the Form Input tab
+    Select Tab    ${MAIN_TABS}    Form Input
     Wait Until Element Is Visible    ${FORM_PANEL}    timeout=${SHORT_TIMEOUT}
 
-Select List Tab
-    [Documentation]    Navigate to the List tab
-    Select Tab    ${MAIN_TABS}    List
-    Wait Until Element Is Visible    ${ITEM_LIST}    timeout=${SHORT_TIMEOUT}
+Select Selections Tab
+    [Documentation]    Navigate to the Selections tab
+    Select Tab    ${MAIN_TABS}    Selections
+    Wait Until Element Is Visible    ${SELECTIONS_PANEL}    timeout=${SHORT_TIMEOUT}
+
+Select Data View Tab
+    [Documentation]    Navigate to the Data View tab
+    Select Tab    ${MAIN_TABS}    Data View
+    Wait Until Element Is Visible    ${DATA_TABLE}    timeout=${SHORT_TIMEOUT}
+
+Select Settings Tab
+    [Documentation]    Navigate to the Settings tab
+    Select Tab    ${MAIN_TABS}    Settings
+    Wait Until Element Is Visible    ${SETTINGS_PANEL}    timeout=${SHORT_TIMEOUT}
 
 # =============================================================================
-# Login Form Keywords
+# Form Input Keywords
 # =============================================================================
 
-Clear Login Form
-    [Documentation]    Clear all fields in the login form
-    Select Login Tab
-    Clear Text    ${USERNAME_FIELD}
+Clear Form
+    [Documentation]    Clear all fields in the form
+    Select Form Input Tab
+    Clear Text    ${NAME_FIELD}
+    Clear Text    ${EMAIL_FIELD}
     Clear Text    ${PASSWORD_FIELD}
+    Clear Text    ${DESCRIPTION_AREA}
 
-Enter Login Credentials
-    [Documentation]    Enter username and password into the login form
-    [Arguments]    ${username}    ${password}
-    Select Login Tab
-    Clear Text    ${USERNAME_FIELD}
-    Input Text    ${USERNAME_FIELD}    ${username}
-    Clear Text    ${PASSWORD_FIELD}
-    Input Text    ${PASSWORD_FIELD}    ${password}
+Enter Form Data
+    [Documentation]    Enter name and email into the form
+    [Arguments]    ${name}    ${email}
+    Select Form Input Tab
+    Clear Text    ${NAME_FIELD}
+    Input Text    ${NAME_FIELD}    ${name}
+    Clear Text    ${EMAIL_FIELD}
+    Input Text    ${EMAIL_FIELD}    ${email}
 
-Submit Login Form
-    [Documentation]    Click the login button
-    Click Button    ${LOGIN_BUTTON}
+Submit Form
+    [Documentation]    Click the submit button
+    Click Button    ${SUBMIT_BUTTON}
     Sleep    0.5s    Wait for form processing
 
-Perform Login
-    [Documentation]    Complete login workflow with given credentials
-    [Arguments]    ${username}    ${password}
-    Enter Login Credentials    ${username}    ${password}
-    Submit Login Form
+Fill And Submit Form
+    [Documentation]    Complete form workflow with given data
+    [Arguments]    ${name}    ${email}
+    Enter Form Data    ${name}    ${email}
+    Submit Form
 
 Get Status Label Text
     [Documentation]    Get the current text of the status label
