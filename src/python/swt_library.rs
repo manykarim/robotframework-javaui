@@ -1585,6 +1585,13 @@ impl SwtLibrary {
 
     /// Find widgets by locator (internal)
     fn find_widgets_internal(&self, locator: &str) -> Result<Vec<SwtElement>, SwingError> {
+        // Validate empty locator
+        if locator.trim().is_empty() {
+            return Err(SwingError::element_not_found(
+                "Locator cannot be empty".to_string()
+            ));
+        }
+
         let (locator_type, value) = self.parse_locator(locator);
 
         let result = self.send_rpc_request("findWidgets", serde_json::json!({

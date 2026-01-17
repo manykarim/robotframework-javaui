@@ -1914,6 +1914,13 @@ impl SwingLibrary {
     /// - Combinators: > (child), space (descendant), + (adjacent sibling), ~ (general sibling)
     /// - XPath expressions: //JButton, //JButton[@text='Login'], //JButton[1]
     fn find_elements_internal(&self, locator: &str) -> Result<Vec<SwingElement>, SwingError> {
+        // Validate empty locator
+        if locator.trim().is_empty() {
+            return Err(SwingError::element_not_found(
+                "Locator cannot be empty".to_string()
+            ));
+        }
+
         // Get the component tree
         let tree = self.get_or_refresh_tree()
             .map_err(|_| SwingError::element_not_found(format!("Failed to get component tree for: {}", locator)))?;
