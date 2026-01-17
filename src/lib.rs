@@ -9,11 +9,54 @@
 //! - Java agent for JVM injection and component inspection
 //! - Support for Swing, SWT, and RCP widget toolkits
 //!
+//! # Architecture
+//!
+//! The library is organized into the following modules:
+//!
+//! - `core`: Unified abstractions (Backend trait, configuration, unified elements)
+//! - `locator`: Locator parsing and matching
+//! - `model`: Data models for UI components
+//! - `protocol`: JSON-RPC communication protocol
+//! - `connection`: Connection management
+//! - `python`: PyO3 bindings for Robot Framework
+//!
 //! # Supported Toolkits
 //!
 //! - **Swing**: Standard Java GUI toolkit (javax.swing)
 //! - **SWT**: Eclipse Standard Widget Toolkit (org.eclipse.swt)
 //! - **RCP**: Eclipse Rich Client Platform (org.eclipse.ui)
+//!
+//! # Exception Hierarchy
+//!
+//! The library uses a unified, technology-agnostic exception hierarchy:
+//!
+//! ```text
+//! JavaGuiError (base)
+//! +-- ConnectionError
+//! |   +-- ConnectionRefusedError
+//! |   +-- ConnectionTimeoutError
+//! |   +-- NotConnectedError
+//! +-- ElementError
+//! |   +-- ElementNotFoundError
+//! |   +-- MultipleElementsFoundError
+//! |   +-- ElementNotInteractableError
+//! |   +-- StaleElementError
+//! +-- LocatorError
+//! |   +-- LocatorParseError
+//! |   +-- InvalidLocatorSyntaxError
+//! +-- ActionError
+//! |   +-- ActionFailedError
+//! |   +-- ActionTimeoutError
+//! |   +-- ActionNotSupportedError
+//! +-- TechnologyError
+//! |   +-- ModeNotSupportedError
+//! |   +-- RcpWorkbenchError
+//! |   +-- SwtShellError
+//! +-- InternalError
+//! ```
+//!
+//! Legacy exception names (e.g., `SwingConnectionError`, `SwingTimeoutError`)
+//! are maintained as aliases for backwards compatibility.
 //!
 //! # Feature Flags
 //!
@@ -21,6 +64,9 @@
 //! - `swt` - Enable Eclipse SWT widget toolkit support
 //! - `rcp` - Enable Eclipse RCP support (requires SWT)
 //! - `all-toolkits` - Enable all UI toolkits
+
+// Core abstractions module (unified Backend, Config, Element)
+pub mod core;
 
 pub mod error;
 pub mod locator;
@@ -39,15 +85,21 @@ use pyo3::prelude::*;
 /// It registers all Python-accessible classes and exceptions.
 #[pymodule]
 fn _core(py: Python<'_>, m: &PyModule) -> PyResult<()> {
-    // Add Swing library classes
+    // Add unified element class (works across all toolkits)
+    m.add_class::<core::element::JavaGuiElement>()?;
+
+    // Add unified JavaGuiLibrary (recommended for new projects)
+    m.add_class::<python::base_library::JavaGuiLibrary>()?;
+
+    // Add Swing library classes (backwards-compatible wrapper)
     m.add_class::<python::swing_library::SwingLibrary>()?;
     m.add_class::<python::element::SwingElement>()?;
 
-    // Add SWT library classes
+    // Add SWT library classes (backwards-compatible wrapper)
     m.add_class::<python::swt_library::SwtLibrary>()?;
     m.add_class::<python::swt_element::SwtElement>()?;
 
-    // Add RCP library classes (extends SWT with workbench/perspective/view/editor keywords)
+    // Add RCP library classes (backwards-compatible wrapper, extends SWT)
     m.add_class::<python::rcp_library::RcpLibrary>()?;
 
     // Register exception types

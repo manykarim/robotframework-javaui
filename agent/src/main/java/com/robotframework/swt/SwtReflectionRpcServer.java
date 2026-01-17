@@ -132,6 +132,7 @@ public class SwtReflectionRpcServer implements Runnable {
                 return new JsonPrimitive(SwtReflectionBridge.isInitialized());
 
             case "getShells":
+            case "listShells":  // Add alias for compatibility with different test naming
                 return SwtReflectionBridge.getShells();
 
             case "findWidgets":

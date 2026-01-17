@@ -5,7 +5,6 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use std::collections::HashMap;
 
 /// Represents a reference to an SWT widget
 ///

@@ -1411,7 +1411,12 @@ impl SwtLibrary {
         })?;
 
         if !conn.connected {
-            return Err(SwingError::connection("Not connected to any SWT application").into());
+            let hint = if conn.host.is_some() && conn.port.is_some() {
+                format!("Not connected to any SWT application. Use 'Connect To Application' keyword first. Last attempted connection: {}:{}", conn.host.as_ref().unwrap(), conn.port.as_ref().unwrap())
+            } else {
+                "Not connected to any SWT application. Use 'Connect To Application' keyword first.".to_string()
+            };
+            return Err(SwingError::connection(hint).into());
         }
 
         conn.request_id += 1;
@@ -1437,10 +1442,10 @@ impl SwtLibrary {
         stream.set_nodelay(true).ok();
 
         writeln!(stream, "{}", request_str).map_err(|e| {
-            SwingError::connection(format!("Failed to send request: {}", e))
+            SwingError::connection(format!("Failed to send RPC request to SWT application: {}. The connection may have been lost. Try reconnecting.", e))
         })?;
         stream.flush().map_err(|e| {
-            SwingError::connection(format!("Failed to flush request: {}", e))
+            SwingError::connection(format!("Failed to flush RPC request to SWT application: {}. The connection may have been lost. Try reconnecting.", e))
         })?;
 
         // Read response - track JSON depth and consume trailing newline
@@ -1522,7 +1527,25 @@ impl SwtLibrary {
         if let Some(error) = response.get("error") {
             let code = error.get("code").and_then(|c| c.as_i64()).unwrap_or(-1);
             let message = error.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
-            return Err(SwingError::connection(format!("RPC error {}: {}", code, message)).into());
+
+            // Provide more helpful error messages for common issues
+            let helpful_message = match (code, message) {
+                (-32603, msg) if msg.contains("Method not found") => {
+                    format!("RPC method '{}' is not supported by the Java agent. The agent may need to be updated. Error: {}", method, msg)
+                },
+                (-32603, msg) => {
+                    format!("Java agent error while executing '{}': {}. The widget may have been disposed or the application state changed.", method, msg)
+                },
+                (-32600, _) => {
+                    format!("Invalid RPC request format for method '{}': {}. This is likely a library bug.", method, message)
+                },
+                (-32601, _) => {
+                    format!("RPC method '{}' not found. The Java agent may not support this operation.", method)
+                },
+                _ => format!("RPC error {} while calling '{}': {}", code, method, message)
+            };
+
+            return Err(SwingError::connection(helpful_message).into());
         }
 
         Ok(response.get("result").cloned().unwrap_or(serde_json::Value::Null))

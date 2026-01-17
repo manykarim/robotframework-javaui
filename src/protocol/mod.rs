@@ -1,7 +1,6 @@
 //! JSON-RPC protocol for communication with the Java agent
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// JSON-RPC 2.0 Request
 #[derive(Debug, Clone, Serialize, Deserialize)]

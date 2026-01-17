@@ -3,7 +3,7 @@
 //! This module provides the high-level expression types used by the Python bindings
 //! for simplified locator handling.
 
-use super::ast::{Locator, ComplexSelector, CompoundSelector, AttributeSelector, TypeSelector, PseudoSelector as AstPseudoSelector};
+use super::ast::{Locator, CompoundSelector, AttributeSelector, TypeSelector, PseudoSelector as AstPseudoSelector};
 use super::parser;
 use std::fmt;
 

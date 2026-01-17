@@ -267,7 +267,7 @@ impl UIElement {
     }
 
     /// Find the first descendant matching a predicate
-    pub fn find_descendant<F>(&self, predicate: F) -> Option<&UIElement>
+    pub fn find_descendant<F>(&self, predicate: &F) -> Option<&UIElement>
     where
         F: Fn(&UIElement) -> bool,
     {
@@ -275,7 +275,7 @@ impl UIElement {
             if predicate(child) {
                 return Some(child);
             }
-            if let Some(found) = child.find_descendant(&predicate) {
+            if let Some(found) = child.find_descendant(predicate) {
                 return Some(found);
             }
         }

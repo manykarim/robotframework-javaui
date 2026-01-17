@@ -4,12 +4,11 @@
 //! UI component trees.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 
 use lru::LruCache;
 use regex::Regex;
 
-use crate::model::{ComponentState, SwingBaseType, UIComponent};
+use crate::model::UIComponent;
 
 use super::ast::*;
 
