@@ -6,26 +6,26 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, Write};
 use std::net::TcpStream;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use crate::locator::{
-    LocatorExpression, SimpleLocator, SimpleLocatorType, CssSelector, XPathExpression,
-    AttributeOperator, XPathPredicate, PseudoSelector as LocatorPseudoSelector,
+    SimpleLocator, SimpleLocatorType, CssSelector, XPathExpression,
+    AttributeOperator,
     // Pest parser and evaluator for advanced locator support
-    parse_locator as pest_parse_locator, Evaluator, ParseError, MatchContext,
+    parse_locator as pest_parse_locator, Evaluator, MatchContext,
     Locator as ParsedLocator,
 };
 use crate::model::{
-    FilterBuilder, FilterSpecification, SwingBaseType, TreeMetadata, TreeStatistics, UIComponent,
+    SwingBaseType, UIComponent,
     UITree, ComponentState, ComponentType, ComponentId, ComponentIdentity, AccessibilityInfo,
     TraversalMetadata, Bounds,
 };
 
 use super::element::SwingElement;
-use super::exceptions::{SwingError, SwingErrorKind};
+use super::exceptions::SwingError;
 
 /// Configuration for the Swing Library
 #[derive(Clone)]
@@ -107,18 +107,21 @@ impl Clone for ConnectionState {
 /// A high-performance library for automating Java Swing applications
 /// through Robot Framework.
 ///
-/// Example:
-///     *** Settings ***
-///     Library    SwingLibrary
+/// Example (Robot Framework):
 ///
-///     *** Test Cases ***
-///     Test Login
-///         Connect To Application    myapp.jar
-///         Input Text    name:username    testuser
-///         Input Text    name:password    secret
-///         Click Button    text:Login
-///         Wait Until Element Exists    name:dashboard
-///         [Teardown]    Disconnect From Application
+/// ```text
+/// *** Settings ***
+/// Library    SwingLibrary
+///
+/// *** Test Cases ***
+/// Test Login
+///     Connect To Application    myapp.jar
+///     Input Text    name:username    testuser
+///     Input Text    name:password    secret
+///     Click Button    text:Login
+///     Wait Until Element Exists    name:dashboard
+///     [Teardown]    Disconnect From Application
+/// ```
 #[pyclass(name = "SwingLibrary")]
 pub struct SwingLibrary {
     /// Library configuration
@@ -1133,18 +1136,24 @@ impl SwingLibrary {
     /// Example:
     ///     | Select Menu | File|New|Project |
     ///     | Select Menu | Edit|Preferences |
-    #[pyo3(signature = (path))]
-    pub fn select_menu(&self, path: &str) -> PyResult<()> {
+    #[pyo3(signature = (path, timeout=None))]
+    pub fn select_menu(&self, path: &str, timeout: Option<i32>) -> PyResult<()> {
         self.ensure_connected()?;
 
         if path.is_empty() {
             return Err(SwingError::action_failed("select menu", "Empty menu path").into());
         }
 
-        // Use dedicated selectMenu RPC method
-        self.send_rpc_request("selectMenu", serde_json::json!({
+        // Use dedicated selectMenu RPC method with optional timeout
+        let mut params = serde_json::json!({
             "path": path
-        }))?;
+        });
+
+        if let Some(timeout_ms) = timeout {
+            params["timeout"] = serde_json::json!(timeout_ms);
+        }
+
+        self.send_rpc_request("selectMenu", params)?;
 
         Ok(())
     }
@@ -1604,7 +1613,47 @@ impl SwingLibrary {
         Ok(())
     }
 
-    /// Refresh the UI tree cache
+    /// Close all open dialogs
+    ///
+    /// Closes all visible JDialog instances to recover from stuck dialogs.
+    /// This is useful for test cleanup or error recovery.
+    ///
+    /// Example:
+    ///     | Close All Dialogs |
+    pub fn close_all_dialogs(&self) -> PyResult<()> {
+        self.ensure_connected()?;
+        self.send_rpc_request("closeAllDialogs", serde_json::json!({}))?;
+        Ok(())
+    }
+
+    /// Force close a specific dialog by name
+    ///
+    /// Args:
+    ///     name: The name or title of the dialog to close
+    ///
+    /// Returns:
+    ///     True if the dialog was found and closed, False otherwise
+    ///
+    /// Example:
+    ///     | ${closed}= | Force Close Dialog | aboutDialog |
+    ///     | Should Be True | ${closed} |
+    #[pyo3(signature = (name))]
+    pub fn force_close_dialog(&self, name: &str) -> PyResult<bool> {
+        self.ensure_connected()?;
+        
+        let result = self.send_rpc_request("forceCloseDialog", serde_json::json!({
+            "name": name
+        }))?;
+        
+        // Result should be a boolean
+        if let Some(closed) = result.as_bool() {
+            Ok(closed)
+        } else {
+            Ok(false)
+        }
+    }
+
+        /// Refresh the UI tree cache
     ///
     /// Forces a refresh of the cached UI tree.
     ///

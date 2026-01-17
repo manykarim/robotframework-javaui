@@ -154,7 +154,7 @@ public class SwtReflectionBridge {
         System.err.flush();
 
         try {
-            Instrumentation inst = SwtAgent.getInstrumentation();
+            Instrumentation inst = com.robotframework.UnifiedAgent.getInstrumentation();
             if (inst == null) {
                 System.err.println("[SwtBridge] Instrumentation not available");
                 System.err.flush();
@@ -713,13 +713,22 @@ public class SwtReflectionBridge {
             Method getShells = displayClass.getMethod("getShells");
             Object[] shells = (Object[]) getShells.invoke(displayInstance);
 
+            System.err.println("[SwtBridge] DEBUG findWidgets: found " + shells.length + " shells, searching for name='" + name + "'");
+            System.err.flush();
+
             for (Object shell : shells) {
                 if (shell == null) continue;
                 Method isDisposed = shellClass.getMethod("isDisposed");
                 if ((Boolean) isDisposed.invoke(shell)) continue;
 
+                System.err.println("[SwtBridge] DEBUG findWidgets: searching shell " + shell.getClass().getSimpleName());
+                System.err.flush();
+
                 searchWidgetTree(shell, text, className, type, name, results);
             }
+
+            System.err.println("[SwtBridge] DEBUG findWidgets: returning " + results.size() + " results");
+            System.err.flush();
 
             return results;
         });
@@ -731,6 +740,7 @@ public class SwtReflectionBridge {
             if ((Boolean) isDisposed.invoke(widget)) return;
 
             boolean matches = true;
+            String widgetType = widget.getClass().getSimpleName();
 
             // Check class name
             if (className != null) {
@@ -742,8 +752,7 @@ public class SwtReflectionBridge {
 
             // Check type
             if (type != null && matches) {
-                String widgetType = widget.getClass().getSimpleName().toLowerCase();
-                if (!widgetType.contains(type.toLowerCase())) {
+                if (!widgetType.toLowerCase().contains(type.toLowerCase())) {
                     matches = false;
                 }
             }
@@ -759,6 +768,8 @@ public class SwtReflectionBridge {
             // Check name (getData("name") or similar)
             if (name != null && matches) {
                 String widgetName = getWidgetName(widget);
+                System.err.println("[SwtBridge] DEBUG searchWidgetTree: checking " + widgetType + ", widgetName='" + widgetName + "' against name='" + name + "'");
+                System.err.flush();
                 if (widgetName == null || !widgetName.equals(name)) {
                     matches = false;
                 }
@@ -789,9 +800,14 @@ public class SwtReflectionBridge {
             Method getData = widget.getClass().getMethod("getData", String.class);
             Object nameData = getData.invoke(widget, "name");
             if (nameData != null) {
-                return nameData.toString();
+                String name = nameData.toString();
+                System.err.println("[SwtBridge] DEBUG getWidgetName: " + widget.getClass().getSimpleName() + " has name='" + name + "'");
+                System.err.flush();
+                return name;
             }
         } catch (Exception e) {
+            System.err.println("[SwtBridge] DEBUG getWidgetName exception for " + widget.getClass().getSimpleName() + ": " + e.getMessage());
+            System.err.flush();
             // Fall through
         }
         try {

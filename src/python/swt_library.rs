@@ -4,15 +4,15 @@
 //! Robot Framework keywords for automating Eclipse SWT applications.
 
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::PyList;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::net::TcpStream;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use super::swt_element::SwtElement;
-use super::exceptions::{SwingError, SwingErrorKind};
+use super::exceptions::SwingError;
 
 /// Helper function to convert a PyObject (which may be a string or number) to an Option<f64>
 /// Robot Framework passes keyword arguments as strings, so we need to handle both cases.
@@ -115,18 +115,21 @@ impl Clone for SwtConnectionState {
 /// A high-performance library for automating Eclipse SWT applications
 /// through Robot Framework.
 ///
-/// Example:
-///     *** Settings ***
-///     Library    SwtLibrary
+/// Example (Robot Framework):
 ///
-///     *** Test Cases ***
-///     Test Eclipse Dialog
-///         Connect To SWT Application    eclipse    localhost    5679
-///         Activate Shell    text:New Project
-///         Input Text    name:projectName    MyProject
-///         Click Widget    text:Finish
-///         Wait Until Widget Exists    name:projectExplorer
-///         [Teardown]    Disconnect
+/// ```text
+/// *** Settings ***
+/// Library    SwtLibrary
+///
+/// *** Test Cases ***
+/// Test Eclipse Dialog
+///     Connect To SWT Application    eclipse    localhost    5679
+///     Activate Shell    text:New Project
+///     Input Text    name:projectName    MyProject
+///     Click Widget    text:Finish
+///     Wait Until Widget Exists    name:projectExplorer
+///     [Teardown]    Disconnect
+/// ```
 #[pyclass(name = "SwtLibrary")]
 pub struct SwtLibrary {
     /// Library configuration
@@ -199,13 +202,14 @@ impl SwtLibrary {
         }
 
         let timeout_secs = py_to_f64(py, timeout).unwrap_or(30.0);
-        let timeout_duration = Duration::from_secs_f64(timeout_secs);
+        let start_time = Instant::now();
+        let total_timeout = Duration::from_secs_f64(timeout_secs);
 
         let mut conn = self.connection.write().map_err(|_| {
             SwingError::connection("Failed to acquire connection lock")
         })?;
 
-        // Establish TCP connection to the SWT agent
+        // Establish TCP connection to the SWT agent with retry logic
         let addr = format!("{}:{}", host, port);
 
         use std::net::ToSocketAddrs;
@@ -214,8 +218,27 @@ impl SwtLibrary {
             .next()
             .ok_or_else(|| SwingError::connection(format!("No addresses found for '{}'", addr)))?;
 
-        let stream = TcpStream::connect_timeout(&socket_addr, timeout_duration)
-            .map_err(|e| SwingError::connection(format!("Failed to connect to {}: {}", addr, e)))?;
+        // Retry connection attempts to allow SWT agent time to start
+        let mut last_error = None;
+        let stream = loop {
+            let remaining_time = total_timeout.saturating_sub(start_time.elapsed());
+            if remaining_time.is_zero() {
+                break Err(last_error.unwrap_or_else(|| {
+                    SwingError::connection("Connection timeout")
+                }));
+            }
+
+            // Try to connect with a shorter timeout per attempt
+            let attempt_timeout = std::cmp::min(remaining_time, Duration::from_secs(2));
+            match TcpStream::connect_timeout(&socket_addr, attempt_timeout) {
+                Ok(s) => break Ok(s),
+                Err(e) => {
+                    last_error = Some(SwingError::connection(format!("Failed to connect to {}: {}", addr, e)));
+                    // Small delay before retry
+                    std::thread::sleep(Duration::from_millis(500));
+                }
+            }
+        }?;
 
         // Set stream timeouts
         stream.set_read_timeout(Some(Duration::from_secs(30))).ok();

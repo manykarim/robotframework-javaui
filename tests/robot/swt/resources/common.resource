@@ -22,7 +22,7 @@ ${DEFAULT_TIMEOUT}              10
 # Test Application Settings
 ${TEST_APP_CLASS}               testapp.SwtTestApp
 ${TEST_APP_JAR}                 ${CURDIR}${/}..${/}..${/}..${/}apps${/}swt${/}target${/}swt-test-app-1.0.0-all.jar
-${SWT_AGENT_JAR}                ${CURDIR}${/}..${/}..${/}..${/}..${/}agent${/}target${/}robotframework-swt-agent-1.0.0-all.jar
+${SWT_AGENT_JAR}                ${CURDIR}${/}..${/}..${/}..${/}..${/}agent${/}target${/}robotframework-swing-agent-1.0.0-all.jar
 
 # Widget Locators - Buttons (matching SwtTestApp widget names)
 ${BUTTON_LOCATOR}               name:buttonSubmit

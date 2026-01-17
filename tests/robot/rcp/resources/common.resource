@@ -20,7 +20,7 @@ ${DEFAULT_TIMEOUT}            30
 
 # Application Paths
 ${RCP_MOCK_JAR}               ${CURDIR}/../../../../tests/apps/rcp-mock/target/rcp-mock-test-app-1.0.0-all.jar
-${AGENT_JAR}                  ${CURDIR}/../../../../agent/target/robotframework-swt-agent-1.0.0-all.jar
+${AGENT_JAR}                  ${CURDIR}/../../../../agent/target/robotframework-swing-agent-1.0.0-all.jar
 ${RCP_PROCESS}                ${NONE}
 
 # Common Perspective IDs
@@ -225,6 +225,21 @@ Test Teardown Cleanup
     [Documentation]    Standard test teardown with state capture on failure.
     Run Keyword If Test Failed    Capture Test Context
 
+Wait For Agent To Be Ready
+    [Documentation]    Wait for the RCP agent to be ready by checking port availability.
+    ...                Attempts to connect to verify the agent RPC server is accepting connections.
+    [Arguments]    ${port}=${PORT}    ${timeout}=10s
+    Log    Waiting for agent on port ${port} to be ready (timeout: ${timeout})
+    # Use Robot's built-in wait mechanism which is more reliable
+    Wait Until Keyword Succeeds    ${timeout}    0.5s    Check Port Is Open    ${port}
+    Log    Agent is ready on port ${port}
+
+Check Port Is Open
+    [Documentation]    Check if a port is open and accepting connections.
+    [Arguments]    ${port}
+    ${result}=    Run Process    nc    -z    -w1    localhost    ${port}
+    Should Be Equal As Integers    ${result.rc}    0    msg=Port ${port} is not accepting connections yet
+
 Start RCP Mock Application
     [Documentation]    Start the mock RCP application with the Robot Framework agent attached.
     ...                This also connects to the application after starting.
@@ -233,16 +248,24 @@ Start RCP Mock Application
     File Should Exist    ${RCP_MOCK_JAR}    msg=Mock RCP JAR not found. Build with: cd tests/apps/rcp-mock && mvn package
     File Should Exist    ${AGENT_JAR}    msg=Agent JAR not found. Build with: cd agent && mvn package
 
+    # Check if port is available
+    ${port_check}=    Run Process    lsof    -i    :${port}
+    Should Be Equal As Integers    ${port_check.rc}    1    msg=Port ${port} is already in use. Kill the process first.
+
     # Build the command to start the mock RCP app with agent
     ${cmd}=    Set Variable    java -javaagent:${AGENT_JAR}=port=${port} -jar ${RCP_MOCK_JAR}
     Log    Starting mock RCP application: ${cmd}
 
     # Start the process
-    ${process}=    Start Process    ${cmd}    shell=True    stdout=PIPE    stderr=PIPE
+    ${process}=    Start Process    ${cmd}    shell=True    stdout=${TEMPDIR}/rcp-mock-stdout.log    stderr=${TEMPDIR}/rcp-mock-stderr.log
     Set Suite Variable    ${RCP_PROCESS}    ${process}
 
-    # Wait for the agent to initialize
-    Sleep    3s
+    # Verify the process started
+    ${alive}=    Is Process Running    ${process}
+    Should Be True    ${alive}    msg=RCP Mock process failed to start. Check logs at ${TEMPDIR}/rcp-mock-*.log
+
+    # Wait for the agent to initialize with retry verification
+    Wait For Agent To Be Ready    ${port}    timeout=10s
 
     # Connect to the application
     Connect To SWT Application    ${APP_NAME}    ${HOST}    ${port}    timeout=${CONNECTION_TIMEOUT}
@@ -257,23 +280,33 @@ Start RCP Mock Application Without Connect
     File Should Exist    ${RCP_MOCK_JAR}    msg=Mock RCP JAR not found. Build with: cd tests/apps/rcp-mock && mvn package
     File Should Exist    ${AGENT_JAR}    msg=Agent JAR not found. Build with: cd agent && mvn package
 
+    # Check if port is available
+    ${port_check}=    Run Process    lsof    -i    :${port}
+    Should Be Equal As Integers    ${port_check.rc}    1    msg=Port ${port} is already in use. Kill the process first.
+
     # Build the command to start the mock RCP app with agent
     ${cmd}=    Set Variable    java -javaagent:${AGENT_JAR}=port=${port} -jar ${RCP_MOCK_JAR}
     Log    Starting mock RCP application: ${cmd}
 
     # Start the process
-    ${process}=    Start Process    ${cmd}    shell=True    stdout=PIPE    stderr=PIPE
+    ${process}=    Start Process    ${cmd}    shell=True    stdout=${TEMPDIR}/rcp-mock-stdout.log    stderr=${TEMPDIR}/rcp-mock-stderr.log
     Set Suite Variable    ${RCP_PROCESS}    ${process}
 
-    # Wait for the agent to initialize
-    Sleep    3s
-    Log    Mock RCP application started (no connection established)
+    # Verify the process started
+    ${alive}=    Is Process Running    ${process}
+    Should Be True    ${alive}    msg=RCP Mock process failed to start. Check logs at ${TEMPDIR}/rcp-mock-*.log
+
+    # Wait for the agent to initialize with retry verification
+    Wait For Agent To Be Ready    ${port}    timeout=10s
+    Log    Mock RCP application started and agent is ready on port ${port}
 
 Stop RCP Mock Application
     [Documentation]    Stop the mock RCP application gracefully.
+    ...                Captures logs before terminating the process.
     TRY
         ${is_connected}=    Is Connected
         IF    ${is_connected}
+            Log    Disconnecting from RCP application before shutdown
             Disconnect
         END
     EXCEPT    AS    ${error}
@@ -282,11 +315,23 @@ Stop RCP Mock Application
 
     IF    $RCP_PROCESS is not None
         TRY
-            Terminate Process    ${RCP_PROCESS}    kill=True
-            Log    Mock RCP application terminated
+            # Capture final logs before terminating
+            ${alive}=    Is Process Running    ${RCP_PROCESS}
+            IF    ${alive}
+                ${stdout}=    Run Process    cat    ${TEMPDIR}/rcp-mock-stdout.log
+                ${stderr}=    Run Process    cat    ${TEMPDIR}/rcp-mock-stderr.log
+                Log    Final Application STDOUT:\n${stdout.stdout}
+                Log    Final Application STDERR:\n${stderr.stdout}
+                Terminate Process    ${RCP_PROCESS}    kill=True
+                Log    Mock RCP application terminated
+            ELSE
+                Log    Process was already terminated
+            END
         EXCEPT    AS    ${error}
             Log    Warning: Error terminating process: ${error}
         END
+    ELSE
+        Log    No RCP process to stop
     END
     Set Suite Variable    ${RCP_PROCESS}    ${NONE}
 
