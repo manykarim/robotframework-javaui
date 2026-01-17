@@ -1794,7 +1794,9 @@ impl SwingLibrary {
                         } else if c == '}' {
                             depth -= 1;
                             if started && depth == 0 {
-                                // Complete JSON object received
+                                // JSON complete - break immediately to avoid multi-test hangs
+                                // Breaking immediately prevents timeout-based blocking that could
+                                // delay subsequent tests in a multi-test run.
                                 break;
                             }
                         }

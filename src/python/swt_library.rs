@@ -1485,13 +1485,10 @@ impl SwtLibrary {
                         } else if c == '}' {
                             depth -= 1;
                             if started && depth == 0 {
-                                // JSON complete - consume trailing newline if present
-                                stream.set_read_timeout(Some(Duration::from_millis(100))).ok();
-                                let _ = stream.read(&mut byte_buf); // consume \n or \r\n
-                                if byte_buf[0] == b'\r' {
-                                    let _ = stream.read(&mut byte_buf); // consume \n after \r
-                                }
-                                stream.set_read_timeout(Some(Duration::from_secs(30))).ok();
+                                // JSON complete - break immediately to avoid multi-test hangs
+                                // The timeout-based newline consumption was causing hangs when running
+                                // multiple tests in sequence because it would wait 100ms for data that
+                                // might not arrive, blocking the next test from starting.
                                 break;
                             }
                         }

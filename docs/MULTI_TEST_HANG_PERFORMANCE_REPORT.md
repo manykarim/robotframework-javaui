@@ -1,0 +1,174 @@
+# Multi-Test Hang Fix - Performance Report
+
+**Status**: ⏳ **PENDING** - Awaiting benchmark results
+
+**Generated**: 2026-01-17
+
+---
+
+## Executive Summary
+
+This document will contain performance benchmarking results comparing the system before and after the multi-test hang fix.
+
+### Purpose
+
+The multi-test hang fix addresses a socket buffer synchronization issue in `send_rpc_request()`. This report verifies that the fix:
+
+1. ✅ Resolves the hang issue
+2. ✅ Does not introduce performance regressions
+3. ✅ Does not increase memory usage
+4. ✅ Maintains or improves throughput
+
+---
+
+## How to Generate This Report
+
+### Prerequisites
+
+1. SWT test application built and ready
+2. Agent JAR compiled
+3. Python dependencies installed
+
+### Steps
+
+1. **Capture Baseline (Before Fix)**:
+   ```bash
+   # Start the test app
+   java -javaagent:agent/target/robotframework-swing-agent-1.0.0-all.jar=port=5679 \
+        -jar tests/apps/swt/target/swt-test-app-1.0.0-all.jar &
+
+   sleep 3
+
+   # Run baseline benchmarks
+   python tests/experiments/performance_benchmark.py --baseline -o benchmark_results.json
+   ```
+
+2. **Apply the Fix**:
+   - Implement buffer drain changes in `src/python/swt_library.rs`
+   - Rebuild: `cargo build --release && cd agent && mvn clean package && cd ..`
+
+3. **Capture After-Fix Results**:
+   ```bash
+   # Restart the test app
+   pkill -f swt-test-app
+   sleep 2
+
+   java -javaagent:agent/target/robotframework-swing-agent-1.0.0-all.jar=port=5679 \
+        -jar tests/apps/swt/target/swt-test-app-1.0.0-all.jar &
+
+   sleep 3
+
+   # Run after-fix benchmarks
+   python tests/experiments/performance_benchmark.py --after -o benchmark_results.json
+   ```
+
+4. **Generate This Report**:
+   ```bash
+   python tests/experiments/generate_performance_report.py \
+       baseline_benchmark_results.json \
+       after_benchmark_results.json \
+       -o docs/MULTI_TEST_HANG_PERFORMANCE_REPORT.md
+   ```
+
+---
+
+## Benchmark Suite
+
+The performance benchmark suite runs 4 comprehensive tests:
+
+### Benchmark 1: RPC Call Latency
+- **Test**: 100 sequential RPC calls using `ping` method
+- **Purpose**: Measure raw RPC performance
+- **Metrics**: Min/Mean/Median/P95/P99/Max latency, throughput, error rate
+
+### Benchmark 2: Multi-Method Call Mix
+- **Test**: Mixed RPC methods (ping, isInitialized, findWidgets)
+- **Purpose**: Simulate real Robot Framework usage
+- **Metrics**: Latency distribution, throughput
+
+### Benchmark 3: Robot Framework Test Suite
+- **Test**: Full execution of `tests/robot/swt/02_widgets.robot`
+- **Purpose**: End-to-end test performance
+- **Metrics**: Total duration, memory usage, success rate
+- **Expected**: Should complete successfully (before fix, likely hangs)
+
+### Benchmark 4: Memory Usage Under Sustained Load
+- **Test**: Continuous RPC calls over 30 seconds with memory monitoring
+- **Purpose**: Detect memory leaks or excessive growth
+- **Metrics**: Memory min/mean/max, latency under load
+
+---
+
+## Expected Outcomes
+
+### Success Criteria
+
+✅ **Fix is successful if**:
+1. Robot test suite completes without hanging (Benchmark 3)
+2. Mean RPC latency change < 5% (Benchmark 1)
+3. P99 latency change < 10% (Benchmark 1)
+4. Memory usage change < 10% (Benchmark 4)
+5. Error rate = 0% for all benchmarks
+
+⚠️ **Requires investigation if**:
+1. Mean latency increases by 5-10%
+2. Memory increases by 10-20%
+3. Robot test suite still hangs
+
+❌ **Fix needs revision if**:
+1. Mean latency increases by >10%
+2. Memory increases by >20%
+3. Any benchmark shows errors or timeouts
+
+---
+
+## Performance Targets
+
+Based on the implementation plan and expected behavior:
+
+| Metric | Baseline | Target After Fix | Tolerance |
+|--------|----------|------------------|-----------|
+| Mean RPC Latency | 2-5 ms | Similar | ±5% |
+| P99 RPC Latency | 5-15 ms | Similar | ±10% |
+| Throughput | 200-400 calls/sec | Similar or better | ±5% |
+| Robot Test Duration | N/A (hangs) | 30-60 seconds | Complete successfully |
+| Memory Usage | 200-400 MB | Similar | ±10% |
+
+---
+
+## Related Documentation
+
+- **Root Cause Analysis**: `docs/SWT_MULTIPLE_TEST_HANG_ANALYSIS.md`
+- **Implementation Plan**: `docs/MULTI_TEST_HANG_IMPLEMENTATION_PLAN.md`
+- **Benchmark Guide**: `tests/experiments/PERFORMANCE_BENCHMARK_GUIDE.md`
+- **Original Experiments**: `tests/experiments/multi_call_test.py`
+
+---
+
+## Benchmark Scripts
+
+All benchmark scripts are located in `tests/experiments/`:
+
+- **performance_benchmark.py** - Main benchmark suite
+- **generate_performance_report.py** - Report generator (creates this file)
+- **multi_call_test.py** - Original diagnostic experiments
+- **PERFORMANCE_BENCHMARK_GUIDE.md** - Detailed usage guide
+
+---
+
+## Next Steps
+
+1. ✅ Create benchmark scripts (COMPLETE)
+2. ⏳ Run baseline benchmarks (before fix)
+3. ⏳ Implement the fix as per implementation plan
+4. ⏳ Run after-fix benchmarks
+5. ⏳ Generate and review this report
+6. ⏳ Make go/no-go decision for merge
+
+---
+
+**Document Status**: TEMPLATE - Awaiting benchmark results
+
+**Last Updated**: 2026-01-17
+
+**Auto-generated by**: `tests/experiments/generate_performance_report.py`
