@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+        python: ["3.10", "3.12", "3.14"]
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python (primary)
+        id: setup_python_primary
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          allow-prereleases: true
+        continue-on-error: ${{ matrix.python == '3.14' }}
+
+      - name: Setup Python (fallback to 3.13)
+        if: ${{ matrix.python == '3.14' && steps.setup_python_primary.outcome == 'failure' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Show Python version
+        run: python --version
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+          cache-dependency-glob: |
+            pyproject.toml
+            uv.lock
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install Python tooling
+        run: uv pip install -e ".[dev]" "invoke>=2.2.1" "maturin>=1.4,<2.0"
+
+      - name: Install Linux UI dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xvfb \
+            libgtk-3-0 \
+            libglib2.0-0 \
+            libx11-6 \
+            libxext6 \
+            libxrender1 \
+            libxtst6 \
+            libxi6 \
+            libxrandr2 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxkbcommon0 \
+            libasound2
+
+      - name: Start Xvfb
+        if: runner.os == 'Linux'
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 > /tmp/xvfb.log 2>&1 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+
+      - name: Build test apps (Swing/SWT/RCP-mock)
+        run: |
+          cd tests/apps
+          (cd swing && mvn clean package)
+          (cd swt && mvn clean package)
+          (cd rcp-mock && mvn clean package)
+
+      - name: Build full package (agent + wheel)
+        run: uv run invoke build
+
+      - name: Run Robot Framework tests
+        run: uv run robot --outputdir tests/robot/output tests/robot/
+
+      - name: Run Python tests
+        run: uv run pytest tests/python/
+
+      - name: Upload Robot logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-logs-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            tests/robot/output/**
+          if-no-files-found: warn
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            target/wheels/*.whl
+            agent/target/*.jar
+            python/JavaGui/jars/*.jar
+          if-no-files-found: warn
