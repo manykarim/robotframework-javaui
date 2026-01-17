@@ -23,22 +23,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python (primary)
-        id: setup_python_primary
-        uses: actions/setup-python@v5
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v2
         with:
-          python-version: ${{ matrix.python }}
-          allow-prereleases: true
+          version: latest
+
+      - name: Setup Python (primary, via uv)
+        id: setup_python_primary
+        run: uv python install ${{ matrix.python }}
         continue-on-error: ${{ matrix.python == '3.14' }}
 
-      - name: Setup Python (fallback to 3.13)
+      - name: Setup Python (fallback to 3.13, via uv)
         if: ${{ matrix.python == '3.14' && steps.setup_python_primary.outcome == 'failure' }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
+        run: uv python install 3.13
 
-      - name: Show Python version
-        run: python --version
+      - name: Show uv and Python versions
+        run: |
+          uv --version
+          uv run python --version
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -49,14 +51,6 @@ jobs:
 
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-          cache-dependency-glob: |
-            pyproject.toml
-            uv.lock
 
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -69,8 +63,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install Python tooling
-        run: uv pip install -e ".[dev]" "invoke>=2.2.1" "maturin>=1.4,<2.0"
+      - name: Install dependencies (dev)
+        run: uv sync --all-extras --group dev
+
+      - name: Install build tools
+        run: uv tool install maturin
 
       - name: Install Linux UI dependencies
         if: runner.os == 'Linux'
