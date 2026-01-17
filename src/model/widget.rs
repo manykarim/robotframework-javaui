@@ -1603,7 +1603,7 @@ impl SwtWidget {
     }
 
     /// Find the first descendant matching a predicate
-    pub fn find_descendant<F>(&self, predicate: F) -> Option<&SwtWidget>
+    pub fn find_descendant<F>(&self, predicate: &F) -> Option<&SwtWidget>
     where
         F: Fn(&SwtWidget) -> bool,
     {
@@ -1612,7 +1612,7 @@ impl SwtWidget {
                 if predicate(child) {
                     return Some(child);
                 }
-                if let Some(found) = child.find_descendant(&predicate) {
+                if let Some(found) = child.find_descendant(predicate) {
                     return Some(found);
                 }
             }

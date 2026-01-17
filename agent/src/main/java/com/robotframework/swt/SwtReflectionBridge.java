@@ -154,7 +154,7 @@ public class SwtReflectionBridge {
         System.err.flush();
 
         try {
-            Instrumentation inst = SwtAgent.getInstrumentation();
+            Instrumentation inst = com.robotframework.UnifiedAgent.getInstrumentation();
             if (inst == null) {
                 System.err.println("[SwtBridge] Instrumentation not available");
                 System.err.flush();
@@ -658,6 +658,11 @@ public class SwtReflectionBridge {
      * locatorType/value format from Rust client.
      */
     public static JsonArray findWidgets(JsonObject criteria) throws Exception {
+        // Safety: Check if initialized before proceeding
+        if (!isInitialized()) {
+            throw new IllegalStateException("SWT bridge not initialized. Display instance is null.");
+        }
+
         return syncExec(() -> {
             JsonArray results = new JsonArray();
 
@@ -709,16 +714,63 @@ public class SwtReflectionBridge {
                 name = criteria.has("name") ? criteria.get("name").getAsString() : null;
             }
 
-            // Get all shells and search through their children
-            Method getShells = displayClass.getMethod("getShells");
-            Object[] shells = (Object[]) getShells.invoke(displayInstance);
+            // Safety: Check displayClass is available
+            if (displayClass == null || displayInstance == null) {
+                System.err.println("[SwtBridge] ERROR: Display not available for findWidgets");
+                System.err.flush();
+                return results;
+            }
 
-            for (Object shell : shells) {
-                if (shell == null) continue;
-                Method isDisposed = shellClass.getMethod("isDisposed");
-                if ((Boolean) isDisposed.invoke(shell)) continue;
+            try {
+                // Get all shells and search through their children
+                Method getShells = displayClass.getMethod("getShells");
+                Object[] shells = (Object[]) getShells.invoke(displayInstance);
 
-                searchWidgetTree(shell, text, className, type, name, results);
+                // Safety: Check for null shells array
+                if (shells == null) {
+                    System.err.println("[SwtBridge] WARNING: getShells() returned null");
+                    System.err.flush();
+                    return results;
+                }
+
+                System.err.println("[SwtBridge] DEBUG findWidgets: found " + shells.length + " shells, searching for name='" + name + "'");
+                System.err.flush();
+
+                for (Object shell : shells) {
+                    // Safety: Skip null shells
+                    if (shell == null) {
+                        System.err.println("[SwtBridge] DEBUG: Skipping null shell");
+                        continue;
+                    }
+
+                    try {
+                        // Safety: Check if shell is disposed before processing
+                        Method isDisposed = shellClass.getMethod("isDisposed");
+                        if ((Boolean) isDisposed.invoke(shell)) {
+                            System.err.println("[SwtBridge] DEBUG: Skipping disposed shell");
+                            continue;
+                        }
+
+                        System.err.println("[SwtBridge] DEBUG findWidgets: searching shell " + shell.getClass().getSimpleName());
+                        System.err.flush();
+
+                        searchWidgetTree(shell, text, className, type, name, results);
+                    } catch (Exception e) {
+                        // Safety: Log error but continue with other shells
+                        System.err.println("[SwtBridge] WARNING: Error processing shell: " + e.getMessage());
+                        System.err.flush();
+                        // Continue to next shell instead of failing entirely
+                    }
+                }
+
+                System.err.println("[SwtBridge] DEBUG findWidgets: returning " + results.size() + " results");
+                System.err.flush();
+
+            } catch (Exception e) {
+                System.err.println("[SwtBridge] ERROR in findWidgets: " + e.getMessage());
+                e.printStackTrace();
+                System.err.flush();
+                // Return empty results instead of throwing
             }
 
             return results;
@@ -726,11 +778,26 @@ public class SwtReflectionBridge {
     }
 
     private static void searchWidgetTree(Object widget, String text, String className, String type, String name, JsonArray results) {
+        // Safety: Check for null widget
+        if (widget == null) {
+            return;
+        }
+
         try {
+            // Safety: Check if widget is disposed before processing
+            if (widgetClass == null) {
+                System.err.println("[SwtBridge] WARNING: widgetClass is null in searchWidgetTree");
+                return;
+            }
+
             Method isDisposed = widgetClass.getMethod("isDisposed");
-            if ((Boolean) isDisposed.invoke(widget)) return;
+            Boolean disposed = (Boolean) isDisposed.invoke(widget);
+            if (disposed == null || disposed) {
+                return;
+            }
 
             boolean matches = true;
+            String widgetType = widget.getClass().getSimpleName();
 
             // Check class name
             if (className != null) {
@@ -742,44 +809,77 @@ public class SwtReflectionBridge {
 
             // Check type
             if (type != null && matches) {
-                String widgetType = widget.getClass().getSimpleName().toLowerCase();
-                if (!widgetType.contains(type.toLowerCase())) {
+                if (!widgetType.toLowerCase().contains(type.toLowerCase())) {
                     matches = false;
                 }
             }
 
-            // Check text
+            // Check text - with safety for potential exceptions
             if (text != null && matches) {
-                String widgetText = getWidgetText(widget);
-                if (widgetText == null || !widgetText.contains(text)) {
+                try {
+                    String widgetText = getWidgetText(widget);
+                    if (widgetText == null || !widgetText.contains(text)) {
+                        matches = false;
+                    }
+                } catch (Exception e) {
+                    // If getText fails, assume no match
                     matches = false;
                 }
             }
 
-            // Check name (getData("name") or similar)
+            // Check name (getData("name") or similar) - with safety
             if (name != null && matches) {
-                String widgetName = getWidgetName(widget);
-                if (widgetName == null || !widgetName.equals(name)) {
+                try {
+                    String widgetName = getWidgetName(widget);
+                    System.err.println("[SwtBridge] DEBUG searchWidgetTree: checking " + widgetType + ", widgetName='" + widgetName + "' against name='" + name + "'");
+                    System.err.flush();
+                    if (widgetName == null || !widgetName.equals(name)) {
+                        matches = false;
+                    }
+                } catch (Exception e) {
+                    // If getName fails, assume no match
+                    System.err.println("[SwtBridge] WARNING: Error getting widget name: " + e.getMessage());
                     matches = false;
                 }
             }
 
             if (matches) {
-                JsonObject info = getWidgetInfo(widget);
-                results.add(info);
+                try {
+                    JsonObject info = getWidgetInfo(widget);
+                    if (info != null) {
+                        results.add(info);
+                    }
+                } catch (Exception e) {
+                    System.err.println("[SwtBridge] WARNING: Error getting widget info: " + e.getMessage());
+                }
             }
 
-            // Search children if this is a Composite
-            if (compositeClass.isInstance(widget)) {
-                Method getChildren = compositeClass.getMethod("getChildren");
-                Object[] children = (Object[]) getChildren.invoke(widget);
-                for (Object child : children) {
-                    searchWidgetTree(child, text, className, type, name, results);
+            // Search children if this is a Composite - with safety
+            if (compositeClass != null && compositeClass.isInstance(widget)) {
+                try {
+                    Method getChildren = compositeClass.getMethod("getChildren");
+                    Object[] children = (Object[]) getChildren.invoke(widget);
+
+                    // Safety: Check for null children array
+                    if (children != null) {
+                        for (Object child : children) {
+                            // Safety: Skip null children
+                            if (child != null) {
+                                searchWidgetTree(child, text, className, type, name, results);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    // Log but don't fail - widget might not have children
+                    System.err.println("[SwtBridge] DEBUG: Could not get children for " + widgetType + ": " + e.getMessage());
                 }
             }
 
         } catch (Exception e) {
-            // Ignore errors and continue
+            // Safety: Log errors but continue processing other widgets
+            System.err.println("[SwtBridge] WARNING: Error in searchWidgetTree for " +
+                (widget != null ? widget.getClass().getSimpleName() : "null") + ": " + e.getMessage());
+            System.err.flush();
         }
     }
 
@@ -789,9 +889,14 @@ public class SwtReflectionBridge {
             Method getData = widget.getClass().getMethod("getData", String.class);
             Object nameData = getData.invoke(widget, "name");
             if (nameData != null) {
-                return nameData.toString();
+                String name = nameData.toString();
+                System.err.println("[SwtBridge] DEBUG getWidgetName: " + widget.getClass().getSimpleName() + " has name='" + name + "'");
+                System.err.flush();
+                return name;
             }
         } catch (Exception e) {
+            System.err.println("[SwtBridge] DEBUG getWidgetName exception for " + widget.getClass().getSimpleName() + ": " + e.getMessage());
+            System.err.flush();
             // Fall through
         }
         try {

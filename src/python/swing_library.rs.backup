@@ -1136,24 +1136,18 @@ impl SwingLibrary {
     /// Example:
     ///     | Select Menu | File|New|Project |
     ///     | Select Menu | Edit|Preferences |
-    #[pyo3(signature = (path, timeout=None))]
-    pub fn select_menu(&self, path: &str, timeout: Option<i32>) -> PyResult<()> {
+    #[pyo3(signature = (path))]
+    pub fn select_menu(&self, path: &str) -> PyResult<()> {
         self.ensure_connected()?;
 
         if path.is_empty() {
             return Err(SwingError::action_failed("select menu", "Empty menu path").into());
         }
 
-        // Use dedicated selectMenu RPC method with optional timeout
-        let mut params = serde_json::json!({
+        // Use dedicated selectMenu RPC method
+        self.send_rpc_request("selectMenu", serde_json::json!({
             "path": path
-        });
-
-        if let Some(timeout_ms) = timeout {
-            params["timeout"] = serde_json::json!(timeout_ms);
-        }
-
-        self.send_rpc_request("selectMenu", params)?;
+        }))?;
 
         Ok(())
     }
@@ -1613,47 +1607,7 @@ impl SwingLibrary {
         Ok(())
     }
 
-    /// Close all open dialogs
-    ///
-    /// Closes all visible JDialog instances to recover from stuck dialogs.
-    /// This is useful for test cleanup or error recovery.
-    ///
-    /// Example:
-    ///     | Close All Dialogs |
-    pub fn close_all_dialogs(&self) -> PyResult<()> {
-        self.ensure_connected()?;
-        self.send_rpc_request("closeAllDialogs", serde_json::json!({}))?;
-        Ok(())
-    }
-
-    /// Force close a specific dialog by name
-    ///
-    /// Args:
-    ///     name: The name or title of the dialog to close
-    ///
-    /// Returns:
-    ///     True if the dialog was found and closed, False otherwise
-    ///
-    /// Example:
-    ///     | ${closed}= | Force Close Dialog | aboutDialog |
-    ///     | Should Be True | ${closed} |
-    #[pyo3(signature = (name))]
-    pub fn force_close_dialog(&self, name: &str) -> PyResult<bool> {
-        self.ensure_connected()?;
-        
-        let result = self.send_rpc_request("forceCloseDialog", serde_json::json!({
-            "name": name
-        }))?;
-        
-        // Result should be a boolean
-        if let Some(closed) = result.as_bool() {
-            Ok(closed)
-        } else {
-            Ok(false)
-        }
-    }
-
-        /// Refresh the UI tree cache
+    /// Refresh the UI tree cache
     ///
     /// Forces a refresh of the cached UI tree.
     ///
@@ -1794,9 +1748,7 @@ impl SwingLibrary {
                         } else if c == '}' {
                             depth -= 1;
                             if started && depth == 0 {
-                                // JSON complete - break immediately to avoid multi-test hangs
-                                // Breaking immediately prevents timeout-based blocking that could
-                                // delay subsequent tests in a multi-test run.
+                                // Complete JSON object received
                                 break;
                             }
                         }
@@ -1916,13 +1868,6 @@ impl SwingLibrary {
     /// - Combinators: > (child), space (descendant), + (adjacent sibling), ~ (general sibling)
     /// - XPath expressions: //JButton, //JButton[@text='Login'], //JButton[1]
     fn find_elements_internal(&self, locator: &str) -> Result<Vec<SwingElement>, SwingError> {
-        // Validate empty locator
-        if locator.trim().is_empty() {
-            return Err(SwingError::element_not_found(
-                "Locator cannot be empty".to_string()
-            ));
-        }
-
         // Get the component tree
         let tree = self.get_or_refresh_tree()
             .map_err(|_| SwingError::element_not_found(format!("Failed to get component tree for: {}", locator)))?;

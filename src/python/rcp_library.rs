@@ -5,12 +5,10 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 
 use super::swt_element::SwtElement;
 use super::swt_library::SwtLibrary;
-use super::exceptions::{SwingError, SwingErrorKind};
+use super::exceptions::SwingError;
 
 /// Robot Framework RCP Library
 ///
@@ -18,18 +16,21 @@ use super::exceptions::{SwingError, SwingErrorKind};
 /// through Robot Framework. Extends SwtLibrary with RCP-specific keywords
 /// for workbench, perspectives, views, editors, and commands.
 ///
-/// Example:
-///     *** Settings ***
-///     Library    RcpLibrary
+/// Example (Robot Framework):
 ///
-///     *** Test Cases ***
-///     Test Eclipse Workbench
-///         Connect To SWT Application    eclipse    localhost    5679
-///         Open Perspective    org.eclipse.jdt.ui.JavaPerspective
-///         Show View    org.eclipse.jdt.ui.PackageExplorer
-///         Open Editor    /project/src/Main.java
-///         Execute Command    org.eclipse.ui.file.save
-///         [Teardown]    Disconnect
+/// ```text
+/// *** Settings ***
+/// Library    RcpLibrary
+///
+/// *** Test Cases ***
+/// Test Eclipse Workbench
+///     Connect To SWT Application    eclipse    localhost    5679
+///     Open Perspective    org.eclipse.jdt.ui.JavaPerspective
+///     Show View    org.eclipse.jdt.ui.PackageExplorer
+///     Open Editor    /project/src/Main.java
+///     Execute Command    org.eclipse.ui.file.save
+///     [Teardown]    Disconnect
+/// ```
 #[pyclass(name = "RcpLibrary")]
 pub struct RcpLibrary {
     /// Underlying SWT library for base widget operations

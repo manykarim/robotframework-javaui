@@ -4,15 +4,15 @@
 //! Robot Framework keywords for automating Eclipse SWT applications.
 
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList};
+use pyo3::types::PyList;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::net::TcpStream;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use super::swt_element::SwtElement;
-use super::exceptions::{SwingError, SwingErrorKind};
+use super::exceptions::SwingError;
 
 /// Helper function to convert a PyObject (which may be a string or number) to an Option<f64>
 /// Robot Framework passes keyword arguments as strings, so we need to handle both cases.
@@ -115,18 +115,21 @@ impl Clone for SwtConnectionState {
 /// A high-performance library for automating Eclipse SWT applications
 /// through Robot Framework.
 ///
-/// Example:
-///     *** Settings ***
-///     Library    SwtLibrary
+/// Example (Robot Framework):
 ///
-///     *** Test Cases ***
-///     Test Eclipse Dialog
-///         Connect To SWT Application    eclipse    localhost    5679
-///         Activate Shell    text:New Project
-///         Input Text    name:projectName    MyProject
-///         Click Widget    text:Finish
-///         Wait Until Widget Exists    name:projectExplorer
-///         [Teardown]    Disconnect
+/// ```text
+/// *** Settings ***
+/// Library    SwtLibrary
+///
+/// *** Test Cases ***
+/// Test Eclipse Dialog
+///     Connect To SWT Application    eclipse    localhost    5679
+///     Activate Shell    text:New Project
+///     Input Text    name:projectName    MyProject
+///     Click Widget    text:Finish
+///     Wait Until Widget Exists    name:projectExplorer
+///     [Teardown]    Disconnect
+/// ```
 #[pyclass(name = "SwtLibrary")]
 pub struct SwtLibrary {
     /// Library configuration
@@ -199,13 +202,14 @@ impl SwtLibrary {
         }
 
         let timeout_secs = py_to_f64(py, timeout).unwrap_or(30.0);
-        let timeout_duration = Duration::from_secs_f64(timeout_secs);
+        let start_time = Instant::now();
+        let total_timeout = Duration::from_secs_f64(timeout_secs);
 
         let mut conn = self.connection.write().map_err(|_| {
             SwingError::connection("Failed to acquire connection lock")
         })?;
 
-        // Establish TCP connection to the SWT agent
+        // Establish TCP connection to the SWT agent with retry logic
         let addr = format!("{}:{}", host, port);
 
         use std::net::ToSocketAddrs;
@@ -214,8 +218,27 @@ impl SwtLibrary {
             .next()
             .ok_or_else(|| SwingError::connection(format!("No addresses found for '{}'", addr)))?;
 
-        let stream = TcpStream::connect_timeout(&socket_addr, timeout_duration)
-            .map_err(|e| SwingError::connection(format!("Failed to connect to {}: {}", addr, e)))?;
+        // Retry connection attempts to allow SWT agent time to start
+        let mut last_error = None;
+        let stream = loop {
+            let remaining_time = total_timeout.saturating_sub(start_time.elapsed());
+            if remaining_time.is_zero() {
+                break Err(last_error.unwrap_or_else(|| {
+                    SwingError::connection("Connection timeout")
+                }));
+            }
+
+            // Try to connect with a shorter timeout per attempt
+            let attempt_timeout = std::cmp::min(remaining_time, Duration::from_secs(2));
+            match TcpStream::connect_timeout(&socket_addr, attempt_timeout) {
+                Ok(s) => break Ok(s),
+                Err(e) => {
+                    last_error = Some(SwingError::connection(format!("Failed to connect to {}: {}", addr, e)));
+                    // Small delay before retry
+                    std::thread::sleep(Duration::from_millis(500));
+                }
+            }
+        }?;
 
         // Set stream timeouts
         stream.set_read_timeout(Some(Duration::from_secs(30))).ok();
@@ -1388,7 +1411,12 @@ impl SwtLibrary {
         })?;
 
         if !conn.connected {
-            return Err(SwingError::connection("Not connected to any SWT application").into());
+            let hint = if conn.host.is_some() && conn.port.is_some() {
+                format!("Not connected to any SWT application. Use 'Connect To Application' keyword first. Last attempted connection: {}:{}", conn.host.as_ref().unwrap(), conn.port.as_ref().unwrap())
+            } else {
+                "Not connected to any SWT application. Use 'Connect To Application' keyword first.".to_string()
+            };
+            return Err(SwingError::connection(hint).into());
         }
 
         conn.request_id += 1;
@@ -1414,10 +1442,10 @@ impl SwtLibrary {
         stream.set_nodelay(true).ok();
 
         writeln!(stream, "{}", request_str).map_err(|e| {
-            SwingError::connection(format!("Failed to send request: {}", e))
+            SwingError::connection(format!("Failed to send RPC request to SWT application: {}. The connection may have been lost. Try reconnecting.", e))
         })?;
         stream.flush().map_err(|e| {
-            SwingError::connection(format!("Failed to flush request: {}", e))
+            SwingError::connection(format!("Failed to flush RPC request to SWT application: {}. The connection may have been lost. Try reconnecting.", e))
         })?;
 
         // Read response - track JSON depth and consume trailing newline
@@ -1462,13 +1490,10 @@ impl SwtLibrary {
                         } else if c == '}' {
                             depth -= 1;
                             if started && depth == 0 {
-                                // JSON complete - consume trailing newline if present
-                                stream.set_read_timeout(Some(Duration::from_millis(100))).ok();
-                                let _ = stream.read(&mut byte_buf); // consume \n or \r\n
-                                if byte_buf[0] == b'\r' {
-                                    let _ = stream.read(&mut byte_buf); // consume \n after \r
-                                }
-                                stream.set_read_timeout(Some(Duration::from_secs(30))).ok();
+                                // JSON complete - break immediately to avoid multi-test hangs
+                                // The timeout-based newline consumption was causing hangs when running
+                                // multiple tests in sequence because it would wait 100ms for data that
+                                // might not arrive, blocking the next test from starting.
                                 break;
                             }
                         }
@@ -1502,7 +1527,25 @@ impl SwtLibrary {
         if let Some(error) = response.get("error") {
             let code = error.get("code").and_then(|c| c.as_i64()).unwrap_or(-1);
             let message = error.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
-            return Err(SwingError::connection(format!("RPC error {}: {}", code, message)).into());
+
+            // Provide more helpful error messages for common issues
+            let helpful_message = match (code, message) {
+                (-32603, msg) if msg.contains("Method not found") => {
+                    format!("RPC method '{}' is not supported by the Java agent. The agent may need to be updated. Error: {}", method, msg)
+                },
+                (-32603, msg) => {
+                    format!("Java agent error while executing '{}': {}. The widget may have been disposed or the application state changed.", method, msg)
+                },
+                (-32600, _) => {
+                    format!("Invalid RPC request format for method '{}': {}. This is likely a library bug.", method, message)
+                },
+                (-32601, _) => {
+                    format!("RPC method '{}' not found. The Java agent may not support this operation.", method)
+                },
+                _ => format!("RPC error {} while calling '{}': {}", code, method, message)
+            };
+
+            return Err(SwingError::connection(helpful_message).into());
         }
 
         Ok(response.get("result").cloned().unwrap_or(serde_json::Value::Null))
@@ -1562,6 +1605,13 @@ impl SwtLibrary {
 
     /// Find widgets by locator (internal)
     fn find_widgets_internal(&self, locator: &str) -> Result<Vec<SwtElement>, SwingError> {
+        // Validate empty locator
+        if locator.trim().is_empty() {
+            return Err(SwingError::element_not_found(
+                "Locator cannot be empty".to_string()
+            ));
+        }
+
         let (locator_type, value) = self.parse_locator(locator);
 
         let result = self.send_rpc_request("findWidgets", serde_json::json!({

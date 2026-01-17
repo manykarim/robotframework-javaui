@@ -5,15 +5,12 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
 
 use crate::model::{
-    Bounds, ComponentId, ComponentIdentity, ComponentProperties, ComponentState, ComponentType,
+    ComponentProperties,
     SwingBaseType, UIComponent,
 };
 
-use super::exceptions::SwingError;
 
 /// Represents a reference to a Swing UI element
 ///

@@ -466,10 +466,23 @@ public class ActionExecutor {
      * @param path Menu path separated by | (pipe)
      */
     public static void selectMenu(String path) {
+        selectMenu(path, 5000); // Default 5 second timeout
+    }
+
+    /**
+     * Select a menu item by path with configurable timeout.
+     * Path format: "File|New" or "Edit|Find|Find Next"
+     *
+     * @param path Menu path separated by | (pipe)
+     * @param timeoutMs Timeout in milliseconds for menu operations
+     */
+    public static void selectMenu(String path, int timeoutMs) {
         String[] parts = path.split("\\|");
         if (parts.length == 0) {
             throw new IllegalArgumentException("Empty menu path");
         }
+
+        long startTime = System.currentTimeMillis();
 
         // Find the menu bar and navigate synchronously to properly propagate errors
         EdtHelper.runOnEdt(() -> {
@@ -505,12 +518,23 @@ public class ActionExecutor {
                     throw new IllegalArgumentException("Menu not found: " + parts[0]);
                 }
 
+                // Check timeout
+                if (System.currentTimeMillis() - startTime > timeoutMs) {
+                    throw new RuntimeException("Menu selection timed out after " + timeoutMs + "ms");
+                }
+
                 // Click to open the menu
                 currentMenu.doClick();
-                EdtHelper.waitForEdt(100);
+                EdtHelper.waitForEdt(200); // Increased from 100ms to 200ms for stability
 
                 // Navigate through submenus
                 for (int i = 1; i < parts.length; i++) {
+                    // Check timeout before each submenu navigation
+                    if (System.currentTimeMillis() - startTime > timeoutMs) {
+                        MenuSelectionManager.defaultManager().clearSelectedPath();
+                        throw new RuntimeException("Menu selection timed out after " + timeoutMs + "ms");
+                    }
+
                     String itemName = parts[i];
                     JMenuItem foundItem = null;
 
@@ -536,10 +560,13 @@ public class ActionExecutor {
                         if (robot != null) {
                             robot.mouseMove(loc.x + foundItem.getWidth() / 2, loc.y + foundItem.getHeight() / 2);
                         }
-                        EdtHelper.waitForEdt(150);
+                        EdtHelper.waitForEdt(250); // Increased from 150ms to 250ms for stability
                     } else {
-                        // Click the menu item
-                        foundItem.doClick();
+                        // Click the menu item - use invokeLater for modal dialogs
+                        final JMenuItem finalItem = foundItem;
+                        SwingUtilities.invokeLater(() -> {
+                            finalItem.doClick();
+                        });
                         break;
                     }
                 }
@@ -550,8 +577,8 @@ public class ActionExecutor {
             }
         });
 
-        // Wait for menu action to complete
-        EdtHelper.sleep(100);
+        // Wait for menu action to complete - increased for modal dialogs
+        EdtHelper.sleep(300); // Increased from 100ms to 300ms
     }
 
     /**
@@ -1046,5 +1073,63 @@ public class ActionExecutor {
             }
         }
         return null;
+    }
+
+    /**
+     * Close all open dialogs to recover from stuck state.
+     * This is a recovery mechanism for tests that get stuck on modal dialogs.
+     */
+    public static void closeAllDialogs() {
+        EdtHelper.runOnEdt(() -> {
+            // Close all JDialog instances
+            for (Window window : Window.getWindows()) {
+                if (window instanceof JDialog && window.isVisible()) {
+                    try {
+                        System.out.println("[SwingAgent] Closing dialog: " + ((JDialog) window).getTitle());
+                        window.dispose();
+                    } catch (Exception e) {
+                        System.err.println("[SwingAgent] Failed to close dialog: " + e.getMessage());
+                    }
+                }
+            }
+
+            // Clear any menu selections
+            try {
+                MenuSelectionManager.defaultManager().clearSelectedPath();
+            } catch (Exception e) {
+                System.err.println("[SwingAgent] Failed to clear menu selection: " + e.getMessage());
+            }
+        });
+
+        // Give EDT time to process cleanup
+        EdtHelper.sleep(200);
+    }
+
+    /**
+     * Force close a specific dialog by name.
+     *
+     * @param dialogName The name of the dialog to close
+     * @return true if dialog was found and closed, false otherwise
+     */
+    public static boolean forceCloseDialog(String dialogName) {
+        return EdtHelper.runOnEdtAndReturn(() -> {
+            for (Window window : Window.getWindows()) {
+                if (window instanceof JDialog && window.isVisible()) {
+                    JDialog dialog = (JDialog) window;
+                    if (dialogName.equals(dialog.getName()) ||
+                        dialogName.equals(dialog.getTitle())) {
+                        try {
+                            System.out.println("[SwingAgent] Force closing dialog: " + dialogName);
+                            dialog.dispose();
+                            EdtHelper.sleep(100);
+                            return true;
+                        } catch (Exception e) {
+                            System.err.println("[SwingAgent] Failed to force close dialog: " + e.getMessage());
+                        }
+                    }
+                }
+            }
+            return false;
+        });
     }
 }

@@ -192,7 +192,7 @@ fn parse_complex_selector(pair: pest::iterators::Pair<Rule>) -> Result<ComplexSe
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::compound_selector => {
-                let mut compound = parse_compound_selector(inner)?;
+                let compound = parse_compound_selector(inner)?;
                 if let Some(comb) = current_combinator.take() {
                     // Set the combinator on the previous compound
                     if let Some(prev) = compounds.last_mut() {

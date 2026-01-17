@@ -44,6 +44,18 @@ pyo3-build-config = "0.20"
 tempfile = "3.9"
 criterion = "0.5"
 
+[[bench]]
+name = "locator_benchmark"
+harness = false
+
+[[bench]]
+name = "element_benchmark"
+harness = false
+
+[[bench]]
+name = "rpc_benchmark"
+harness = false
+
 [profile.release]
 lto = true
 codegen-units = 1

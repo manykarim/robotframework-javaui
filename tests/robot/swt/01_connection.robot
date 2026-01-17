@@ -210,5 +210,5 @@ Start App Without Connect
     ${cmd}=    Set Variable    java -javaagent:${SWT_AGENT_JAR}=port=${SWT_PORT} -jar ${TEST_APP_JAR}
     Log    Starting SWT Application: ${cmd}
     ${process}=    Start Process    ${cmd}    shell=True    alias=swt_test
-    Sleep    3s    Wait for application and agent to start
+    Sleep    5s    Wait for application and agent to start (increased for SWT initialization)
     RETURN    ${process}

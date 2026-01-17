@@ -194,7 +194,14 @@ public class RpcServer implements Runnable {
                 return JsonNull.INSTANCE;
 
             case "selectMenu":
-                ActionExecutor.selectMenu(paramsObj.get("path").getAsString());
+                if (paramsObj.has("timeout")) {
+                    ActionExecutor.selectMenu(
+                        paramsObj.get("path").getAsString(),
+                        paramsObj.get("timeout").getAsInt()
+                    );
+                } else {
+                    ActionExecutor.selectMenu(paramsObj.get("path").getAsString());
+                }
                 return JsonNull.INSTANCE;
 
             case "selectFromPopupMenu":
@@ -287,6 +294,15 @@ public class RpcServer implements Runnable {
                 return ActionExecutor.captureScreenshot(
                     paramsObj.has("componentId") ? paramsObj.get("componentId").getAsInt() : -1
                 );
+
+            // Dialog cleanup/recovery
+            case "closeAllDialogs":
+                ActionExecutor.closeAllDialogs();
+                return JsonNull.INSTANCE;
+
+            case "forceCloseDialog":
+                boolean closed = ActionExecutor.forceCloseDialog(paramsObj.get("name").getAsString());
+                return new JsonPrimitive(closed);
 
             default:
                 throw new NoSuchMethodException(method);
