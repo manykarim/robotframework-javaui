@@ -85,8 +85,8 @@ jobs:
             libxrandr2 \
             libxcomposite1 \
             libxdamage1 \
-            libxkbcommon0 \
-            libasound2
+            libxkbcommon0
+          sudo apt-get install -y libasound2 || sudo apt-get install -y libasound2t64
 
       - name: Start Xvfb
         if: runner.os == 'Linux'
