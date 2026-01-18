@@ -239,8 +239,8 @@ Wait For Agent To Be Ready
 Check Port Is Open
     [Documentation]    Check if a port is open and accepting connections.
     [Arguments]    ${port}
-    ${os}=    Get Operating System
-    IF    'Windows' in '${os}'
+    ${os}=    Get Platform System
+    IF    '${os}' == 'Windows'
         ${result}=    Run Process    cmd    /c    nc -z -w1 127.0.0.1 ${port}
     ELSE
         ${result}=    Run Process    nc    -z    -w1    127.0.0.1    ${port}
@@ -256,8 +256,8 @@ Start RCP Mock Application
     File Should Exist    ${AGENT_JAR}    msg=Agent JAR not found. Build with: cd agent && mvn package
 
     # Check if port is available
-    ${os}=    Get Operating System
-    IF    'Windows' in '${os}'
+    ${os}=    Get Platform System
+    IF    '${os}' == 'Windows'
         ${port_check}=    Run Process    cmd    /c    lsof -i :${port}
     ELSE
         ${port_check}=    Run Process    lsof    -i    :${port}
@@ -294,8 +294,8 @@ Start RCP Mock Application Without Connect
     File Should Exist    ${AGENT_JAR}    msg=Agent JAR not found. Build with: cd agent && mvn package
 
     # Check if port is available
-    ${os}=    Get Operating System
-    IF    'Windows' in '${os}'
+    ${os}=    Get Platform System
+    IF    '${os}' == 'Windows'
         ${port_check}=    Run Process    cmd    /c    lsof -i :${port}
     ELSE
         ${port_check}=    Run Process    lsof    -i    :${port}
@@ -356,11 +356,16 @@ Stop RCP Mock Application
 
 Get RCP JVM Arg
     [Documentation]    Return JVM args needed for RCP on this OS (macOS needs -XstartOnFirstThread).
-    ${os}=    Get Operating System
-    IF    'Darwin' in '${os}' or 'Mac' in '${os}'
+    ${os}=    Get Platform System
+    IF    '${os}' == 'Darwin'
         RETURN    -XstartOnFirstThread
     END
     RETURN    ${EMPTY}
+
+Get Platform System
+    [Documentation]    Return platform.system() value (Linux/Windows/Darwin).
+    ${os}=    Evaluate    platform.system()    modules=platform
+    RETURN    ${os}
 
 Suite Setup Start RCP App
     [Documentation]    Suite setup that starts the mock RCP application.

@@ -129,8 +129,8 @@ Start SWT Agent
 
 Get SWT JVM Arg
     [Documentation]    Return JVM args needed for SWT on this OS (macOS needs -XstartOnFirstThread).
-    ${os}=    Get Operating System
-    IF    'Darwin' in '${os}' or 'Mac' in '${os}'
+    ${os}=    Evaluate    platform.system()    modules=platform
+    IF    '${os}' == 'Darwin'
         RETURN    -XstartOnFirstThread
     END
     RETURN    ${EMPTY}
