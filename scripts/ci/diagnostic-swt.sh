@@ -36,7 +36,11 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Starting SWT app (logs: ${STDOUT_LOG}, ${STDERR_LOG})"
-nohup java -javaagent:"${AGENT_JAR}"=port="${PORT}" -jar "${SWT_APP_JAR}" \
+VMARG=""
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  VMARG="-XstartOnFirstThread"
+fi
+nohup java ${VMARG} -javaagent:"${AGENT_JAR}"=port="${PORT}" -jar "${SWT_APP_JAR}" \
   > "${STDOUT_LOG}" 2> "${STDERR_LOG}" &
 SWT_PID=$!
 

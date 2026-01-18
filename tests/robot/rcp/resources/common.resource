@@ -12,7 +12,7 @@ Library           Process
 
 *** Variables ***
 # Connection Settings
-${HOST}                       localhost
+${HOST}                       127.0.0.1
 ${PORT}                       5680
 ${APP_NAME}                   mock-rcp
 ${CONNECTION_TIMEOUT}         60
@@ -239,7 +239,12 @@ Wait For Agent To Be Ready
 Check Port Is Open
     [Documentation]    Check if a port is open and accepting connections.
     [Arguments]    ${port}
-    ${result}=    Run Process    nc    -z    -w1    localhost    ${port}
+    ${os}=    Get Operating System
+    IF    'Windows' in '${os}'
+        ${result}=    Run Process    cmd    /c    nc -z -w1 127.0.0.1 ${port}
+    ELSE
+        ${result}=    Run Process    nc    -z    -w1    127.0.0.1    ${port}
+    END
     Should Be Equal As Integers    ${result.rc}    0    msg=Port ${port} is not accepting connections yet
 
 Start RCP Mock Application
@@ -251,11 +256,17 @@ Start RCP Mock Application
     File Should Exist    ${AGENT_JAR}    msg=Agent JAR not found. Build with: cd agent && mvn package
 
     # Check if port is available
-    ${port_check}=    Run Process    lsof    -i    :${port}
+    ${os}=    Get Operating System
+    IF    'Windows' in '${os}'
+        ${port_check}=    Run Process    cmd    /c    lsof -i :${port}
+    ELSE
+        ${port_check}=    Run Process    lsof    -i    :${port}
+    END
     Should Be Equal As Integers    ${port_check.rc}    1    msg=Port ${port} is already in use. Kill the process first.
 
     # Build the command to start the mock RCP app with agent
-    ${cmd}=    Set Variable    java -javaagent:${AGENT_JAR}=port=${port} -jar ${RCP_MOCK_JAR}
+    ${vmarg}=    Get RCP JVM Arg
+    ${cmd}=    Set Variable    java ${vmarg} -javaagent:${AGENT_JAR}=port=${port} -jar ${RCP_MOCK_JAR}
     Log    Starting mock RCP application: ${cmd}
 
     # Start the process
@@ -283,11 +294,17 @@ Start RCP Mock Application Without Connect
     File Should Exist    ${AGENT_JAR}    msg=Agent JAR not found. Build with: cd agent && mvn package
 
     # Check if port is available
-    ${port_check}=    Run Process    lsof    -i    :${port}
+    ${os}=    Get Operating System
+    IF    'Windows' in '${os}'
+        ${port_check}=    Run Process    cmd    /c    lsof -i :${port}
+    ELSE
+        ${port_check}=    Run Process    lsof    -i    :${port}
+    END
     Should Be Equal As Integers    ${port_check.rc}    1    msg=Port ${port} is already in use. Kill the process first.
 
     # Build the command to start the mock RCP app with agent
-    ${cmd}=    Set Variable    java -javaagent:${AGENT_JAR}=port=${port} -jar ${RCP_MOCK_JAR}
+    ${vmarg}=    Get RCP JVM Arg
+    ${cmd}=    Set Variable    java ${vmarg} -javaagent:${AGENT_JAR}=port=${port} -jar ${RCP_MOCK_JAR}
     Log    Starting mock RCP application: ${cmd}
 
     # Start the process
@@ -320,8 +337,8 @@ Stop RCP Mock Application
             # Capture final logs before terminating
             ${alive}=    Is Process Running    ${RCP_PROCESS}
             IF    ${alive}
-                ${stdout}=    Run Process    cat    ${TEMPDIR}/rcp-mock-stdout.log
-                ${stderr}=    Run Process    cat    ${TEMPDIR}/rcp-mock-stderr.log
+                ${stdout}=    Run Process    cat    ${RCP_STDOUT_LOG}
+                ${stderr}=    Run Process    cat    ${RCP_STDERR_LOG}
                 Log    Final Application STDOUT:\n${stdout.stdout}
                 Log    Final Application STDERR:\n${stderr.stdout}
                 Terminate Process    ${RCP_PROCESS}    kill=True
@@ -336,6 +353,14 @@ Stop RCP Mock Application
         Log    No RCP process to stop
     END
     Set Suite Variable    ${RCP_PROCESS}    ${NONE}
+
+Get RCP JVM Arg
+    [Documentation]    Return JVM args needed for RCP on this OS (macOS needs -XstartOnFirstThread).
+    ${os}=    Get Operating System
+    IF    'Darwin' in '${os}' or 'Mac' in '${os}'
+        RETURN    -XstartOnFirstThread
+    END
+    RETURN    ${EMPTY}
 
 Suite Setup Start RCP App
     [Documentation]    Suite setup that starts the mock RCP application.

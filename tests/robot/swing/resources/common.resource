@@ -19,7 +19,7 @@ ${DEMO_MAIN_CLASS}        testapp.SwingTestApp
 ${DEMO_WINDOW_TITLE}      Swing Test Application
 
 # Connection configuration
-${AGENT_HOST}             localhost
+${AGENT_HOST}             127.0.0.1
 ${AGENT_PORT}             5678
 ${CONNECTION_TIMEOUT}     30
 ${SWING_STDOUT_LOG}       ${OUTPUT DIR}${/}swing-stdout.log

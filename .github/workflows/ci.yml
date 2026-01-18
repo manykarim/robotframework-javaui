@@ -128,6 +128,15 @@ jobs:
         shell: pwsh
         run: scripts/ci/diagnostic-swt.ps1
 
+      - name: Cleanup test apps (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: bash scripts/ci/cleanup-test-apps.sh
+
+      - name: Cleanup test apps (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: scripts/ci/cleanup-test-apps.ps1
+
       - name: Smoke Robot Tests (Swing/SWT/RCP)
         run: |
           uv run robot --outputdir tests/robot/output-smoke \

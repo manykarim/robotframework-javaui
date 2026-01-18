@@ -207,7 +207,8 @@ Connect With Various Timeout Values
 Start App Without Connect
     [Documentation]    Start the SWT test application without connecting.
     ...                This is used for connection tests where we test the connection itself.
-    ${cmd}=    Set Variable    java -javaagent:${SWT_AGENT_JAR}=port=${SWT_PORT} -jar ${TEST_APP_JAR}
+    ${vmarg}=    Get SWT JVM Arg
+    ${cmd}=    Set Variable    java ${vmarg} -javaagent:${SWT_AGENT_JAR}=port=${SWT_PORT} -jar ${TEST_APP_JAR}
     Log    Starting SWT Application: ${cmd}
     ${process}=    Start Process    ${cmd}    shell=True    alias=swt_test    stdout=${SWT_STDOUT_LOG}    stderr=${SWT_STDERR_LOG}
     Sleep    5s    Wait for application and agent to start (increased for SWT initialization)

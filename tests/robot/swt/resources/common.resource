@@ -12,7 +12,7 @@ Library           Process
 
 *** Variables ***
 # Connection Settings
-${SWT_HOST}                     localhost
+${SWT_HOST}                     127.0.0.1
 ${SWT_PORT}                     5679
 ${SWT_APP_NAME}                 SwtTestApp
 ${CONNECTION_TIMEOUT}           30
@@ -80,7 +80,8 @@ Start Test Application
     [Documentation]    Start the SWT test application with the agent and connect.
     ...                This starts the Java process with the SWT agent attached
     ...                and establishes a connection.
-    ${cmd}=    Set Variable    java -javaagent:${SWT_AGENT_JAR}=port=${SWT_PORT} -jar ${TEST_APP_JAR}
+    ${vmarg}=    Get SWT JVM Arg
+    ${cmd}=    Set Variable    java ${vmarg} -javaagent:${SWT_AGENT_JAR}=port=${SWT_PORT} -jar ${TEST_APP_JAR}
     Log    Starting SWT Application: ${cmd}
     ${process}=    Start Process    ${cmd}    shell=True    alias=swt_test    stdout=${SWT_STDOUT_LOG}    stderr=${SWT_STDERR_LOG}
     Sleep    3s    Wait for application and agent to start
@@ -125,6 +126,14 @@ Start SWT Agent
     # Note: In a real scenario, this would start the Java application
     # with the SWT agent attached. For now, we assume it's running.
     Log    SWT Agent should be started externally or via CI/CD pipeline
+
+Get SWT JVM Arg
+    [Documentation]    Return JVM args needed for SWT on this OS (macOS needs -XstartOnFirstThread).
+    ${os}=    Get Operating System
+    IF    'Darwin' in '${os}' or 'Mac' in '${os}'
+        RETURN    -XstartOnFirstThread
+    END
+    RETURN    ${EMPTY}
 
 Verify Connection Established
     [Documentation]    Verifies that connection to SWT application is active.
