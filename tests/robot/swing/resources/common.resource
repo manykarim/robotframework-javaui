@@ -99,7 +99,7 @@ Clear Login Form
 Start Test Application
     [Documentation]    Start the demo Swing application with the agent and connect
     ...                Returns the process handle for later cleanup.
-    ${process}=    Start Process    java    -javaagent:${AGENT_JAR}=port=${AGENT_PORT}    -jar    ${DEMO_APP_JAR}    alias=swing_demo    stdout=${SWING_STDOUT_LOG}    stderr=${SWING_STDERR_LOG}
+    ${process}=    Start Process    java    -javaagent:${AGENT_JAR}\=port\=${AGENT_PORT}    -jar    ${DEMO_APP_JAR}    alias=swing_demo    stdout=${SWING_STDOUT_LOG}    stderr=${SWING_STDERR_LOG}
     Sleep    3s    Wait for application and agent to start
     Connect To Application    main_class=${DEMO_MAIN_CLASS}    host=${AGENT_HOST}    port=${AGENT_PORT}    timeout=${CONNECTION_TIMEOUT}
     Wait Until Element Exists    ${MAIN_TABS}    timeout=${DEFAULT_TIMEOUT}
@@ -108,7 +108,7 @@ Start Test Application
 Start Test Application Without Connect
     [Documentation]    Start the demo Swing application without connecting
     ...                Useful for connection tests that need to test various connect scenarios.
-    ${process}=    Start Process    java    -javaagent:${AGENT_JAR}=port=${AGENT_PORT}    -jar    ${DEMO_APP_JAR}    alias=swing_demo    stdout=${SWING_STDOUT_LOG}    stderr=${SWING_STDERR_LOG}
+    ${process}=    Start Process    java    -javaagent:${AGENT_JAR}\=port\=${AGENT_PORT}    -jar    ${DEMO_APP_JAR}    alias=swing_demo    stdout=${SWING_STDOUT_LOG}    stderr=${SWING_STDERR_LOG}
     Sleep    3s    Wait for application and agent to start
     RETURN    ${process}
 
