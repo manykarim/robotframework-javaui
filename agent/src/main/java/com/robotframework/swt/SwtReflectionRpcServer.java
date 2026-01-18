@@ -175,12 +175,75 @@ public class SwtReflectionRpcServer implements Runnable {
                 );
                 return new JsonPrimitive(true);
 
+            case "expandTreeNode":
+                SwtReflectionBridge.expandTreeItem(
+                    getWidgetId(params),
+                    params.get("path").getAsString()
+                );
+                return new JsonPrimitive(true);
+
             case "collapseTreeItem":
                 SwtReflectionBridge.collapseTreeItem(
                     getWidgetId(params),
                     params.get("path").getAsString()
                 );
                 return new JsonPrimitive(true);
+
+            case "collapseTreeNode":
+                SwtReflectionBridge.collapseTreeItem(
+                    getWidgetId(params),
+                    params.get("path").getAsString()
+                );
+                return new JsonPrimitive(true);
+
+            case "selectTreeNode":
+                SwtReflectionBridge.selectTreeItem(
+                    getWidgetId(params),
+                    params.get("path").getAsString()
+                );
+                return new JsonPrimitive(true);
+
+            case "selectTreeNodes":
+                java.util.List<String> nodes = new java.util.ArrayList<>();
+                JsonArray nodeArray = params.getAsJsonArray("nodes");
+                if (nodeArray != null) {
+                    for (JsonElement node : nodeArray) {
+                        nodes.add(node.getAsString());
+                    }
+                }
+                SwtReflectionBridge.selectTreeNodes(getWidgetId(params), nodes);
+                return new JsonPrimitive(true);
+
+            case "deselectAllTreeNodes":
+                SwtReflectionBridge.deselectAllTreeNodes(getWidgetId(params));
+                return new JsonPrimitive(true);
+
+            case "getTreeNodeParent":
+                return new JsonPrimitive(
+                    SwtReflectionBridge.getTreeNodeParent(
+                        getWidgetId(params),
+                        params.get("nodeName").getAsString()
+                    )
+                );
+
+            case "getTreeNodeLevel":
+                return new JsonPrimitive(
+                    SwtReflectionBridge.getTreeNodeLevel(
+                        getWidgetId(params),
+                        params.get("nodeName").getAsString()
+                    )
+                );
+
+            case "treeNodeExists":
+                return new JsonPrimitive(
+                    SwtReflectionBridge.treeNodeExists(
+                        getWidgetId(params),
+                        params.get("nodeName").getAsString()
+                    )
+                );
+
+            case "getSelectedTreeNodes":
+                return SwtReflectionBridge.getSelectedTreeNodes(getWidgetId(params));
 
             case "getWidgetInfo":
                 Object widget = SwtReflectionBridge.getWidgetById(getWidgetId(params));
@@ -197,6 +260,9 @@ public class SwtReflectionRpcServer implements Runnable {
 
             case "getText":
                 return new JsonPrimitive(getWidgetText(getWidgetId(params)));
+
+            case "getWidgetProperties":
+                return SwtReflectionBridge.getWidgetProperties(getWidgetId(params));
 
             case "clearCache":
                 SwtReflectionBridge.clearCache();
@@ -220,7 +286,7 @@ public class SwtReflectionRpcServer implements Runnable {
             // Selection methods
             case "select":
             case "selectItem":
-                selectItem(getWidgetId(params), params.get("item").getAsString());
+                selectItem(getWidgetId(params), getSelectItemValue(params));
                 return new JsonPrimitive(true);
 
             case "check":
@@ -373,6 +439,10 @@ public class SwtReflectionRpcServer implements Runnable {
         Object widget = SwtReflectionBridge.getWidgetById(widgetId);
         if (widget == null) return;
 
+        if (itemText == null || itemText.trim().isEmpty()) {
+            throw new IllegalArgumentException("Item text must not be empty");
+        }
+
         SwtReflectionBridge.syncExec(() -> {
             try {
                 // Try Combo/CCombo select
@@ -387,18 +457,35 @@ public class SwtReflectionRpcServer implements Runnable {
                     // Get items and find index
                     java.lang.reflect.Method getItems = widget.getClass().getMethod("getItems");
                     String[] items = (String[]) getItems.invoke(widget);
+                    int index = -1;
                     for (int i = 0; i < items.length; i++) {
                         if (items[i].equals(itemText)) {
-                            select.invoke(widget, i);
+                            index = i;
                             break;
                         }
                     }
+                    if (index < 0) {
+                        throw new IllegalArgumentException("Item not found: " + itemText);
+                    }
+                    select.invoke(widget, index);
+                    return null;
                 }
+
+                throw new IllegalArgumentException("Widget does not support item selection");
             } catch (Exception e) {
-                System.err.println("[SwtAgent] Error selecting item: " + e.getMessage());
+                throw new RuntimeException("selectItem failed: " + e.getMessage(), e);
             }
-            return null;
         });
+    }
+
+    private String getSelectItemValue(JsonObject params) throws Exception {
+        if (params.has("item") && !params.get("item").isJsonNull()) {
+            return params.get("item").getAsString();
+        }
+        if (params.has("value") && !params.get("value").isJsonNull()) {
+            return params.get("value").getAsString();
+        }
+        throw new Exception("Missing item/value parameter for selectItem");
     }
 
     private void setButtonChecked(int widgetId, boolean checked) throws Exception {

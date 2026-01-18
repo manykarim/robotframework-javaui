@@ -239,12 +239,8 @@ Wait For Agent To Be Ready
 Check Port Is Open
     [Documentation]    Check if a port is open and accepting connections.
     [Arguments]    ${port}
-    ${os}=    Get Platform System
-    IF    '${os}' == 'Windows'
-        ${result}=    Run Process    cmd    /c    nc -z -w1 127.0.0.1 ${port}
-    ELSE
-        ${result}=    Run Process    nc    -z    -w1    127.0.0.1    ${port}
-    END
+    ${script}=    Set Variable    import socket,sys; s=socket.socket(); s.settimeout(1); r=s.connect_ex(("127.0.0.1", int(sys.argv[1]))); s.close(); sys.exit(0 if r==0 else 1)
+    ${result}=    Run Process    python    -c    ${script}    ${port}
     Should Be Equal As Integers    ${result.rc}    0    msg=Port ${port} is not accepting connections yet
 
 Start RCP Mock Application
@@ -266,11 +262,17 @@ Start RCP Mock Application
 
     # Build the command to start the mock RCP app with agent
     ${vmarg}=    Get RCP JVM Arg
-    ${cmd}=    Set Variable    java ${vmarg} -javaagent:${AGENT_JAR}=port=${port} -jar ${RCP_MOCK_JAR}
+    ${cmd}=    Create List    java
+    IF    '${vmarg}' != ''
+        Append To List    ${cmd}    ${vmarg}
+    END
+    Append To List    ${cmd}    -javaagent:${AGENT_JAR}=port=${port}
+    Append To List    ${cmd}    -jar
+    Append To List    ${cmd}    ${RCP_MOCK_JAR}
     Log    Starting mock RCP application: ${cmd}
 
     # Start the process
-    ${process}=    Start Process    ${cmd}    shell=True    stdout=${RCP_STDOUT_LOG}    stderr=${RCP_STDERR_LOG}
+    ${process}=    Start Process    @{cmd}    stdout=${RCP_STDOUT_LOG}    stderr=${RCP_STDERR_LOG}
     Set Suite Variable    ${RCP_PROCESS}    ${process}
 
     # Verify the process started
@@ -304,11 +306,17 @@ Start RCP Mock Application Without Connect
 
     # Build the command to start the mock RCP app with agent
     ${vmarg}=    Get RCP JVM Arg
-    ${cmd}=    Set Variable    java ${vmarg} -javaagent:${AGENT_JAR}=port=${port} -jar ${RCP_MOCK_JAR}
+    ${cmd}=    Create List    java
+    IF    '${vmarg}' != ''
+        Append To List    ${cmd}    ${vmarg}
+    END
+    Append To List    ${cmd}    -javaagent:${AGENT_JAR}=port=${port}
+    Append To List    ${cmd}    -jar
+    Append To List    ${cmd}    ${RCP_MOCK_JAR}
     Log    Starting mock RCP application: ${cmd}
 
     # Start the process
-    ${process}=    Start Process    ${cmd}    shell=True    stdout=${RCP_STDOUT_LOG}    stderr=${RCP_STDERR_LOG}
+    ${process}=    Start Process    @{cmd}    stdout=${RCP_STDOUT_LOG}    stderr=${RCP_STDERR_LOG}
     Set Suite Variable    ${RCP_PROCESS}    ${process}
 
     # Verify the process started

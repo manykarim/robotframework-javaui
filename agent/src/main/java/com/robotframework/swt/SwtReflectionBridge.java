@@ -1201,22 +1201,13 @@ public class SwtReflectionBridge {
             }
 
             try {
-                // Check if it's a Tree
-                Class<?> treeClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.Tree");
-                if (!treeClass.isInstance(widget)) {
-                    throw new IllegalArgumentException("Widget is not a Tree");
+                Object treeItem = findTreeItem(widget, path);
+                if (treeItem == null) {
+                    throw new IllegalArgumentException("Tree node not found: " + path);
                 }
-
-                // Get items and try to expand
-                Method getItems = treeClass.getMethod("getItems");
-                Object[] items = (Object[]) getItems.invoke(widget);
-
-                if (items.length > 0) {
-                    Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
-                    Object firstItem = items[0];
-                    Method setExpanded = treeItemClass.getMethod("setExpanded", boolean.class);
-                    setExpanded.invoke(firstItem, true);
-                }
+                Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
+                Method setExpanded = treeItemClass.getMethod("setExpanded", boolean.class);
+                setExpanded.invoke(treeItem, true);
             } catch (Exception e) {
                 throw new RuntimeException("expandTreeItem failed: " + e.getMessage(), e);
             }
@@ -1236,26 +1227,358 @@ public class SwtReflectionBridge {
             }
 
             try {
-                Class<?> treeClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.Tree");
-                if (!treeClass.isInstance(widget)) {
-                    throw new IllegalArgumentException("Widget is not a Tree");
+                Object treeItem = findTreeItem(widget, path);
+                if (treeItem == null) {
+                    throw new IllegalArgumentException("Tree node not found: " + path);
                 }
-
-                Method getItems = treeClass.getMethod("getItems");
-                Object[] items = (Object[]) getItems.invoke(widget);
-
-                if (items.length > 0) {
-                    Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
-                    Object firstItem = items[0];
-                    Method setExpanded = treeItemClass.getMethod("setExpanded", boolean.class);
-                    setExpanded.invoke(firstItem, false);
-                }
+                Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
+                Method setExpanded = treeItemClass.getMethod("setExpanded", boolean.class);
+                setExpanded.invoke(treeItem, false);
             } catch (Exception e) {
                 throw new RuntimeException("collapseTreeItem failed: " + e.getMessage(), e);
             }
 
             return null;
         });
+    }
+
+    /**
+     * Select a tree item.
+     */
+    public static void selectTreeItem(int widgetId, String pathOrName) throws Exception {
+        syncExec(() -> {
+            Object widget = getWidgetById(widgetId);
+            if (widget == null) {
+                throw new IllegalArgumentException("Widget not found: " + widgetId);
+            }
+
+            try {
+                Object treeItem = findTreeItem(widget, pathOrName);
+                if (treeItem == null) {
+                    throw new IllegalArgumentException("Tree node not found: " + pathOrName);
+                }
+                Class<?> treeClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.Tree");
+                Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
+
+                Method setSelection;
+                try {
+                    setSelection = treeClass.getMethod("setSelection", treeItemClass);
+                    setSelection.invoke(widget, treeItem);
+                } catch (NoSuchMethodException e) {
+                    setSelection = treeClass.getMethod("setSelection", java.lang.reflect.Array.newInstance(treeItemClass, 0).getClass());
+                    Object array = java.lang.reflect.Array.newInstance(treeItemClass, 1);
+                    java.lang.reflect.Array.set(array, 0, treeItem);
+                    setSelection.invoke(widget, array);
+                }
+
+                notifySelection(widget);
+            } catch (Exception e) {
+                throw new RuntimeException("selectTreeItem failed: " + e.getMessage(), e);
+            }
+
+            return null;
+        });
+    }
+
+    /**
+     * Select multiple tree items.
+     */
+    public static void selectTreeNodes(int widgetId, java.util.List<String> nodes) throws Exception {
+        syncExec(() -> {
+            Object widget = getWidgetById(widgetId);
+            if (widget == null) {
+                throw new IllegalArgumentException("Widget not found: " + widgetId);
+            }
+
+            try {
+                Class<?> treeClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.Tree");
+                Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
+                Object array = java.lang.reflect.Array.newInstance(treeItemClass, nodes.size());
+                int idx = 0;
+                for (String node : nodes) {
+                    Object item = findTreeItem(widget, node);
+                    if (item == null) {
+                        throw new IllegalArgumentException("Tree node not found: " + node);
+                    }
+                    java.lang.reflect.Array.set(array, idx++, item);
+                }
+                Method setSelection = treeClass.getMethod("setSelection", array.getClass());
+                setSelection.invoke(widget, array);
+                notifySelection(widget);
+            } catch (Exception e) {
+                throw new RuntimeException("selectTreeNodes failed: " + e.getMessage(), e);
+            }
+
+            return null;
+        });
+    }
+
+    /**
+     * Deselect all tree nodes.
+     */
+    public static void deselectAllTreeNodes(int widgetId) throws Exception {
+        syncExec(() -> {
+            Object widget = getWidgetById(widgetId);
+            if (widget == null) {
+                throw new IllegalArgumentException("Widget not found: " + widgetId);
+            }
+
+            try {
+                Class<?> treeClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.Tree");
+                if (!treeClass.isInstance(widget)) {
+                    throw new IllegalArgumentException("Widget is not a Tree");
+                }
+                Method deselectAll = treeClass.getMethod("deselectAll");
+                deselectAll.invoke(widget);
+                notifySelection(widget);
+            } catch (Exception e) {
+                throw new RuntimeException("deselectAllTreeNodes failed: " + e.getMessage(), e);
+            }
+
+            return null;
+        });
+    }
+
+    /**
+     * Get tree node parent text.
+     */
+    public static String getTreeNodeParent(int widgetId, String nodeName) throws Exception {
+        return syncExec(() -> {
+            Object widget = getWidgetById(widgetId);
+            if (widget == null) {
+                throw new IllegalArgumentException("Widget not found: " + widgetId);
+            }
+
+            Object treeItem = findTreeItem(widget, nodeName);
+            if (treeItem == null) {
+                throw new IllegalArgumentException("Tree node not found: " + nodeName);
+            }
+
+            try {
+                Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
+                Method getParentItem = treeItemClass.getMethod("getParentItem");
+                Object parent = getParentItem.invoke(treeItem);
+                if (parent == null) {
+                    return "";
+                }
+                Method getText = treeItemClass.getMethod("getText");
+                Object text = getText.invoke(parent);
+                return text == null ? "" : text.toString();
+            } catch (Exception e) {
+                throw new RuntimeException("getTreeNodeParent failed: " + e.getMessage(), e);
+            }
+        });
+    }
+
+    /**
+     * Get tree node depth level.
+     */
+    public static int getTreeNodeLevel(int widgetId, String nodeName) throws Exception {
+        return syncExec(() -> {
+            Object widget = getWidgetById(widgetId);
+            if (widget == null) {
+                throw new IllegalArgumentException("Widget not found: " + widgetId);
+            }
+
+            Object treeItem = findTreeItem(widget, nodeName);
+            if (treeItem == null) {
+                throw new IllegalArgumentException("Tree node not found: " + nodeName);
+            }
+
+            try {
+                Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
+                Method getParentItem = treeItemClass.getMethod("getParentItem");
+                int level = 0;
+                Object parent = getParentItem.invoke(treeItem);
+                while (parent != null) {
+                    level++;
+                    parent = getParentItem.invoke(parent);
+                }
+                return level;
+            } catch (Exception e) {
+                throw new RuntimeException("getTreeNodeLevel failed: " + e.getMessage(), e);
+            }
+        });
+    }
+
+    /**
+     * Check if a tree node exists.
+     */
+    public static boolean treeNodeExists(int widgetId, String nodeName) throws Exception {
+        return syncExec(() -> {
+            Object widget = getWidgetById(widgetId);
+            if (widget == null) {
+                throw new IllegalArgumentException("Widget not found: " + widgetId);
+            }
+            Object treeItem = findTreeItem(widget, nodeName);
+            return treeItem != null;
+        });
+    }
+
+    /**
+     * Get selected tree nodes.
+     */
+    public static JsonArray getSelectedTreeNodes(int widgetId) throws Exception {
+        return syncExec(() -> {
+            Object widget = getWidgetById(widgetId);
+            if (widget == null) {
+                throw new IllegalArgumentException("Widget not found: " + widgetId);
+            }
+
+            try {
+                Class<?> treeClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.Tree");
+                Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
+                if (!treeClass.isInstance(widget)) {
+                    throw new IllegalArgumentException("Widget is not a Tree");
+                }
+                Method getSelection = treeClass.getMethod("getSelection");
+                Object[] selection = (Object[]) getSelection.invoke(widget);
+                JsonArray result = new JsonArray();
+                Method getText = treeItemClass.getMethod("getText");
+                for (Object item : selection) {
+                    Object text = getText.invoke(item);
+                    if (text != null) {
+                        result.add(text.toString());
+                    }
+                }
+                return result;
+            } catch (Exception e) {
+                throw new RuntimeException("getSelectedTreeNodes failed: " + e.getMessage(), e);
+            }
+        });
+    }
+
+    /**
+     * Return widget properties.
+     */
+    public static JsonObject getWidgetProperties(int widgetId) throws Exception {
+        return syncExec(() -> {
+            Object widget = getWidgetById(widgetId);
+            if (widget == null) {
+                throw new IllegalArgumentException("Widget not found: " + widgetId);
+            }
+
+            JsonObject props = new JsonObject();
+            try {
+                Method isEnabled = widget.getClass().getMethod("isEnabled");
+                props.addProperty("enabled", (Boolean) isEnabled.invoke(widget));
+            } catch (Exception e) {
+                // ignore
+            }
+            try {
+                Method isVisible = widget.getClass().getMethod("isVisible");
+                props.addProperty("visible", (Boolean) isVisible.invoke(widget));
+            } catch (Exception e) {
+                // ignore
+            }
+            try {
+                Method getText = widget.getClass().getMethod("getText");
+                Object text = getText.invoke(widget);
+                if (text != null) {
+                    props.addProperty("text", text.toString());
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+            try {
+                Method getSelection = widget.getClass().getMethod("getSelection");
+                Object selection = getSelection.invoke(widget);
+                if (selection instanceof Boolean) {
+                    props.addProperty("selection", (Boolean) selection);
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+
+            return props;
+        });
+    }
+
+    private static void notifySelection(Object widget) throws Exception {
+        Class<?> swtClass = swtClassLoader.loadClass("org.eclipse.swt.SWT");
+        Field selectionField = swtClass.getField("Selection");
+        int selection = selectionField.getInt(null);
+
+        Class<?> eventClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.Event");
+        Object event = eventClass.getDeclaredConstructor().newInstance();
+
+        Method notifyListeners = widget.getClass().getMethod("notifyListeners", int.class, eventClass);
+        notifyListeners.invoke(widget, selection, event);
+    }
+
+    private static Object findTreeItem(Object tree, String pathOrName) throws Exception {
+        Class<?> treeClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.Tree");
+        if (!treeClass.isInstance(tree)) {
+            throw new IllegalArgumentException("Widget is not a Tree");
+        }
+
+        if (pathOrName == null) {
+            return null;
+        }
+
+        String separator = pathOrName.contains("|") ? "\\|" : "/";
+        if (pathOrName.contains("|") || pathOrName.contains("/")) {
+            return findTreeItemByPath(tree, pathOrName.split(separator));
+        }
+
+        Object[] items = (Object[]) treeClass.getMethod("getItems").invoke(tree);
+        for (Object item : items) {
+            Object found = findTreeItemByNameRecursive(item, pathOrName);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    private static Object findTreeItemByPath(Object tree, String[] parts) throws Exception {
+        if (parts == null || parts.length == 0) {
+            return null;
+        }
+        Class<?> treeClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.Tree");
+        Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
+        Method getItemsTree = treeClass.getMethod("getItems");
+        Method getItemsItem = treeItemClass.getMethod("getItems");
+        Method getText = treeItemClass.getMethod("getText");
+
+        Object[] items = (Object[]) getItemsTree.invoke(tree);
+        Object current = null;
+
+        for (String part : parts) {
+            Object[] searchItems = current == null ? items : (Object[]) getItemsItem.invoke(current);
+            Object found = null;
+            for (Object item : searchItems) {
+                Object text = getText.invoke(item);
+                if (text != null && text.toString().equals(part)) {
+                    found = item;
+                    break;
+                }
+            }
+            if (found == null) {
+                return null;
+            }
+            current = found;
+        }
+        return current;
+    }
+
+    private static Object findTreeItemByNameRecursive(Object item, String nodeName) throws Exception {
+        Class<?> treeItemClass = swtClassLoader.loadClass("org.eclipse.swt.widgets.TreeItem");
+        Method getText = treeItemClass.getMethod("getText");
+        Object text = getText.invoke(item);
+        if (text != null && text.toString().equals(nodeName)) {
+            return item;
+        }
+
+        Method getItems = treeItemClass.getMethod("getItems");
+        Object[] children = (Object[]) getItems.invoke(item);
+        for (Object child : children) {
+            Object found = findTreeItemByNameRecursive(child, nodeName);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 
     /**

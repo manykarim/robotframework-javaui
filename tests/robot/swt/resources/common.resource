@@ -81,9 +81,15 @@ Start Test Application
     ...                This starts the Java process with the SWT agent attached
     ...                and establishes a connection.
     ${vmarg}=    Get SWT JVM Arg
-    ${cmd}=    Set Variable    java ${vmarg} -javaagent:${SWT_AGENT_JAR}=port=${SWT_PORT} -jar ${TEST_APP_JAR}
+    ${cmd}=    Create List    java
+    IF    '${vmarg}' != ''
+        Append To List    ${cmd}    ${vmarg}
+    END
+    Append To List    ${cmd}    -javaagent:${SWT_AGENT_JAR}=port=${SWT_PORT}
+    Append To List    ${cmd}    -jar
+    Append To List    ${cmd}    ${TEST_APP_JAR}
     Log    Starting SWT Application: ${cmd}
-    ${process}=    Start Process    ${cmd}    shell=True    alias=swt_test    stdout=${SWT_STDOUT_LOG}    stderr=${SWT_STDERR_LOG}
+    ${process}=    Start Process    @{cmd}    alias=swt_test    stdout=${SWT_STDOUT_LOG}    stderr=${SWT_STDERR_LOG}
     Sleep    3s    Wait for application and agent to start
     Connect To SWT Application    ${SWT_APP_NAME}    ${SWT_HOST}    ${SWT_PORT}    timeout=${CONNECTION_TIMEOUT}
     # Verify connection by waiting for the main shell

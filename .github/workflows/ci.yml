@@ -95,11 +95,20 @@ jobs:
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
 
       - name: Build test apps (Swing/SWT/RCP-mock)
+        if: runner.os != 'macOS'
         run: |
           cd tests/apps
           (cd swing && mvn clean package)
           (cd swt && mvn clean package)
           (cd rcp-mock && mvn clean package)
+
+      - name: Build test apps (Swing/SWT/RCP-mock, macOS arm64)
+        if: runner.os == 'macOS'
+        run: |
+          cd tests/apps
+          (cd swing && mvn clean package)
+          (cd swt && mvn clean package -Pswt-mac-arm64)
+          (cd rcp-mock && mvn clean package -Pswt-mac-arm64)
 
       - name: Build full package (agent + wheel)
         run: uv run invoke build
