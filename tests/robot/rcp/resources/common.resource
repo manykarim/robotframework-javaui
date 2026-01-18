@@ -17,6 +17,8 @@ ${PORT}                       5680
 ${APP_NAME}                   mock-rcp
 ${CONNECTION_TIMEOUT}         60
 ${DEFAULT_TIMEOUT}            30
+${RCP_STDOUT_LOG}             ${OUTPUT DIR}${/}rcp-mock-stdout.log
+${RCP_STDERR_LOG}             ${OUTPUT DIR}${/}rcp-mock-stderr.log
 
 # Application Paths
 ${RCP_MOCK_JAR}               ${CURDIR}/../../../../tests/apps/rcp-mock/target/rcp-mock-test-app-1.0.0-all.jar
@@ -257,7 +259,7 @@ Start RCP Mock Application
     Log    Starting mock RCP application: ${cmd}
 
     # Start the process
-    ${process}=    Start Process    ${cmd}    shell=True    stdout=${TEMPDIR}/rcp-mock-stdout.log    stderr=${TEMPDIR}/rcp-mock-stderr.log
+    ${process}=    Start Process    ${cmd}    shell=True    stdout=${RCP_STDOUT_LOG}    stderr=${RCP_STDERR_LOG}
     Set Suite Variable    ${RCP_PROCESS}    ${process}
 
     # Verify the process started
@@ -289,7 +291,7 @@ Start RCP Mock Application Without Connect
     Log    Starting mock RCP application: ${cmd}
 
     # Start the process
-    ${process}=    Start Process    ${cmd}    shell=True    stdout=${TEMPDIR}/rcp-mock-stdout.log    stderr=${TEMPDIR}/rcp-mock-stderr.log
+    ${process}=    Start Process    ${cmd}    shell=True    stdout=${RCP_STDOUT_LOG}    stderr=${RCP_STDERR_LOG}
     Set Suite Variable    ${RCP_PROCESS}    ${process}
 
     # Verify the process started

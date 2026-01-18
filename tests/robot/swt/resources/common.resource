@@ -18,6 +18,8 @@ ${SWT_APP_NAME}                 SwtTestApp
 ${CONNECTION_TIMEOUT}           30
 ${SHORT_TIMEOUT}                2
 ${DEFAULT_TIMEOUT}              10
+${SWT_STDOUT_LOG}               ${OUTPUT DIR}${/}swt-stdout.log
+${SWT_STDERR_LOG}               ${OUTPUT DIR}${/}swt-stderr.log
 
 # Test Application Settings
 ${TEST_APP_CLASS}               testapp.SwtTestApp
@@ -80,7 +82,7 @@ Start Test Application
     ...                and establishes a connection.
     ${cmd}=    Set Variable    java -javaagent:${SWT_AGENT_JAR}=port=${SWT_PORT} -jar ${TEST_APP_JAR}
     Log    Starting SWT Application: ${cmd}
-    ${process}=    Start Process    ${cmd}    shell=True    alias=swt_test
+    ${process}=    Start Process    ${cmd}    shell=True    alias=swt_test    stdout=${SWT_STDOUT_LOG}    stderr=${SWT_STDERR_LOG}
     Sleep    3s    Wait for application and agent to start
     Connect To SWT Application    ${SWT_APP_NAME}    ${SWT_HOST}    ${SWT_PORT}    timeout=${CONNECTION_TIMEOUT}
     # Verify connection by waiting for the main shell

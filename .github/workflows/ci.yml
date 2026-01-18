@@ -147,6 +147,7 @@ jobs:
         with:
           name: robot-logs-${{ matrix.os }}-py${{ matrix.python }}
           path: |
+            tests/robot/output-smoke/**
             tests/robot/output/**
           if-no-files-found: warn
 

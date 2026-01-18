@@ -268,11 +268,13 @@ Suite Teardown    Stop Application
 ${APP_JAR}        path/to/myapp.jar
 ${AGENT_JAR}      path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar
 ${PORT}           5678
+${STDOUT_LOG}     ${OUTPUT DIR}${/}app-stdout.log
+${STDERR_LOG}     ${OUTPUT DIR}${/}app-stderr.log
 
 *** Keywords ***
 Start Application
     ${cmd}=    Set Variable    java -javaagent:${AGENT_JAR}=port=${PORT} -jar ${APP_JAR}
-    Start Process    ${cmd}    shell=True    alias=app
+    Start Process    ${cmd}    shell=True    alias=app    stdout=${STDOUT_LOG}    stderr=${STDERR_LOG}
     Sleep    3s
     Connect To Application    main_class=com.example.MyApp    port=${PORT}
 
