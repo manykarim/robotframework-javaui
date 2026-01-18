@@ -80,6 +80,7 @@ addopts = "-v --tb=short"
 dev = [
     "invoke>=2.2.1",
     "mypy>=1.14.1",
+    "maturin>=1.4,<2.0",
     "robotframework-robocop>=5.5.0",
     "ruff>=0.14.11",
 ]
