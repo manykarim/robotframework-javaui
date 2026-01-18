@@ -152,8 +152,11 @@ public class SwtReflectionRpcServer implements Runnable {
                 return new JsonPrimitive(true);
 
             case "setText":
-            case "typeText":
                 SwtReflectionBridge.setText(getWidgetId(params), params.get("text").getAsString());
+                return new JsonPrimitive(true);
+
+            case "typeText":
+                SwtReflectionBridge.typeText(getWidgetId(params), params.get("text").getAsString());
                 return new JsonPrimitive(true);
 
             case "clearText":
