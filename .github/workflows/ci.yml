@@ -104,6 +104,12 @@ jobs:
       - name: Build full package (agent + wheel)
         run: uv run invoke build
 
+      - name: Add Windows port tools to PATH
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Add-Content -Path $env:GITHUB_PATH -Value "$PWD\\scripts\\ci\\win-tools"
+
       - name: Diagnostic Swing app startup (Linux/macOS)
         if: runner.os != 'Windows'
         run: bash scripts/ci/diagnostic-swing.sh
@@ -121,6 +127,13 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: scripts/ci/diagnostic-swt.ps1
+
+      - name: Smoke Robot Tests (Swing/SWT/RCP)
+        run: |
+          uv run robot --outputdir tests/robot/output-smoke \
+            tests/robot/swing/01_connection.robot \
+            tests/robot/swt/01_connection.robot \
+            tests/robot/rcp/01_connection.robot
 
       - name: Run Robot Framework tests
         run: uv run robot --outputdir tests/robot/output tests/robot/
