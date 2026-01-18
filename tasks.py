@@ -18,6 +18,8 @@ from pathlib import Path
 
 from invoke import task, Context
 
+PTY = os.name != "nt"
+
 ROOT = Path(__file__).parent.absolute()
 PYTHON_SRC = ROOT / "python"
 JAVAGUI_DIR = PYTHON_SRC / "JavaGui"
@@ -44,7 +46,7 @@ def build_java(ctx: Context):
     """Build the Java agent JAR file."""
     print("Building Java agent...")
     with ctx.cd(str(AGENT_DIR)):
-        ctx.run("mvn clean package -DskipTests", pty=True)
+        ctx.run("mvn clean package -DskipTests", pty=PTY)
 
     if AGENT_JAR_SOURCE.exists():
         print(f"Agent JAR built: {AGENT_JAR_SOURCE}")
@@ -75,7 +77,7 @@ def build_rust(ctx: Context, release: bool = True):
     """Build the Rust extension (development mode)."""
     print("Building Rust extension...")
     mode = "--release" if release else ""
-    ctx.run(f"maturin develop {mode}", pty=True)
+    ctx.run(f"maturin develop {mode}", pty=PTY)
     print("Rust extension built and installed!")
 
 
@@ -83,7 +85,7 @@ def build_rust(ctx: Context, release: bool = True):
 def build_wheel(ctx: Context):
     """Build the Python wheel for distribution."""
     print("Building Python wheel...")
-    ctx.run("maturin build --release --strip", pty=True)
+    ctx.run("maturin build --release --strip", pty=PTY)
 
     if WHEELS_DIR.exists():
         wheels = list(WHEELS_DIR.glob("*.whl"))
@@ -136,7 +138,7 @@ if os.path.exists(jar_path):
 else:
     print('ERROR: Agent JAR not found!')
     exit(1)
-"''', pty=True)
+"''', pty=PTY)
 
 
 # =============================================================================
@@ -157,7 +159,7 @@ def release_test(ctx: Context):
         sys.exit(1)
 
     print(f"Uploading {len(wheels)} wheel(s) to Test PyPI...")
-    ctx.run("maturin upload --repository testpypi target/wheels/*", pty=True)
+    ctx.run("maturin upload --repository testpypi target/wheels/*", pty=PTY)
 
     print("\nTest installation:")
     print("  pip install --index-url https://test.pypi.org/simple/ robotframework-javagui")
@@ -182,7 +184,7 @@ def release_prod(ctx: Context):
         print("Release cancelled.")
         return
 
-    ctx.run("maturin upload target/wheels/*", pty=True)
+    ctx.run("maturin upload target/wheels/*", pty=PTY)
 
     print("\nInstall with:")
     print("  pip install robotframework-javagui")
@@ -243,7 +245,7 @@ def docs(ctx: Context):
     for lib_path, lib_name in libraries:
         output = KEYWORDS_DIR / f"{lib_name}.html"
         print(f"Generating documentation for {lib_name}...")
-        ctx.run(f"python -m robot.libdoc {lib_path} {output}", pty=True, warn=True)
+        ctx.run(f"python -m robot.libdoc {lib_path} {output}", pty=PTY, warn=True)
 
 
 # =============================================================================
@@ -260,7 +262,7 @@ def test(ctx: Context, suite: str = "", loglevel: str = "INFO"):
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     cmd = f"robot --loglevel {loglevel} --outputdir {OUTPUT_DIR} {test_path}"
-    ctx.run(cmd, pty=True, warn=True)
+    ctx.run(cmd, pty=PTY, warn=True)
 
 
 @task
@@ -271,7 +273,7 @@ def test_dryrun(ctx: Context):
     print("--- Swing Tests ---")
     ctx.run(
         "robot --dryrun --outputdir tests/robot/swing/results tests/robot/*.robot",
-        pty=True, warn=True
+        pty=PTY, warn=True
     )
 
     print("\n--- SWT Tests ---")
@@ -280,13 +282,13 @@ def test_dryrun(ctx: Context):
         "tests/robot/dbeaver/controls/*.robot "
         "tests/robot/dbeaver/connection/*.robot "
         "tests/robot/dbeaver/dialogs/*.robot",
-        pty=True, warn=True
+        pty=PTY, warn=True
     )
 
     print("\n--- RCP Tests ---")
     ctx.run(
         "robot --dryrun --outputdir tests/robot/rcp/output tests/robot/dbeaver/rcp/*.robot",
-        pty=True, warn=True
+        pty=PTY, warn=True
     )
 
 
@@ -299,16 +301,16 @@ def test_dryrun(ctx: Context):
 def lint(ctx: Context):
     """Run all linting checks."""
     print("Linting Python...")
-    ctx.run("ruff check python/", pty=True, warn=True)
+    ctx.run("ruff check python/", pty=PTY, warn=True)
     print("\nLinting Rust...")
-    ctx.run("cargo clippy -- -D warnings", pty=True, warn=True)
+    ctx.run("cargo clippy -- -D warnings", pty=PTY, warn=True)
 
 
 @task
 def format_all(ctx: Context):
     """Format all code (Python and Rust)."""
-    ctx.run("ruff format python/", pty=True)
-    ctx.run("cargo fmt", pty=True)
+    ctx.run("ruff format python/", pty=PTY)
+    ctx.run("cargo fmt", pty=PTY)
 
 
 # =============================================================================
@@ -382,4 +384,4 @@ def ci(ctx: Context):
 @task(default=True)
 def help(ctx: Context):
     """Show available tasks."""
-    ctx.run("invoke --list", pty=True)
+    ctx.run("invoke --list", pty=PTY)
