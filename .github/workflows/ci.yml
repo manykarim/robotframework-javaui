@@ -104,6 +104,24 @@ jobs:
       - name: Build full package (agent + wheel)
         run: uv run invoke build
 
+      - name: Diagnostic Swing app startup (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: bash scripts/ci/diagnostic-swing.sh
+
+      - name: Diagnostic Swing app startup (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: scripts/ci/diagnostic-swing.ps1
+
+      - name: Diagnostic SWT app startup (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: bash scripts/ci/diagnostic-swt.sh
+
+      - name: Diagnostic SWT app startup (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: scripts/ci/diagnostic-swt.ps1
+
       - name: Run Robot Framework tests
         run: uv run robot --outputdir tests/robot/output tests/robot/
 
