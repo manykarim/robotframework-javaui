@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Wait Tests - Testing wait_until_element_is_visible,
 ...               wait_until_element_is_enabled, wait_for_element,
 ...               and wait_until_element_contains keywords.

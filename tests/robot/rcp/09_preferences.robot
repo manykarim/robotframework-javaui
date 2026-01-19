@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for RCP Preferences operations.
 ...               Tests opening the preferences dialog and navigating
 ...               to specific preference pages in Eclipse RCP applications.

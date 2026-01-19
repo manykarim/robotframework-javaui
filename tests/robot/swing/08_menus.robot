@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Menu Tests - Testing select_menu and select_from_popup_menu keywords.
 ...
 ...               These tests verify the library's ability to interact with

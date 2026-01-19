@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Tab Tests - Testing JTabbedPane tab selection operations.
 ...
 ...               These tests verify the library's ability to interact with

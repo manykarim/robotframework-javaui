@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for RCP View operations.
 ...               Tests showing, closing, activating views, visibility checks,
 ...               and retrieving widgets from within views.

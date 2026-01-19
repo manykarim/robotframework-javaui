@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Text Input Tests - Testing input_text, clear_text, and type_text
 ...               keywords for JTextField, JTextArea, and JPasswordField components.
 ...

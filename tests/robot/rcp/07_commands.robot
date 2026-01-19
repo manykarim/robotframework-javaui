@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for RCP Command operations.
 ...               Tests executing Eclipse commands and retrieving
 ...               available commands from the command framework.

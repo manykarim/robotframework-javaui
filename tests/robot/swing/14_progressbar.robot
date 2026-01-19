@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     ProgressBar Tests - Testing JProgressBar operations.
 ...
 ...               These tests verify the library's ability to interact with

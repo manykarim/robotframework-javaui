@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for RCP Editor operations.
 ...               Tests opening, closing, saving editors, dirty state verification,
 ...               and retrieving widgets from within editors.

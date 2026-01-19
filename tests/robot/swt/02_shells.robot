@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for SWT shell management keywords.
 ...
 ...               Tests the following SwtLibrary keywords:

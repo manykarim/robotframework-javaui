@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for RCP Perspective operations.
 ...               Tests perspective switching, retrieval, reset,
 ...               and available perspectives listing.

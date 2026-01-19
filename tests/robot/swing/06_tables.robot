@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Table Tests - Testing get_table_cell_value, select_table_cell,
 ...               select_table_row, get_table_row_count, get_table_column_count,
 ...               and get_table_data keywords.

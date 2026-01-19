@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Selection Tests - Testing select_from_combobox, check_checkbox,
 ...               uncheck_checkbox, select_radio_button, and list selection keywords.
 ...

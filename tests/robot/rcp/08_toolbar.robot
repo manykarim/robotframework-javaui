@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for RCP Toolbar operations.
 ...               Tests clicking toolbar items in Eclipse RCP applications.
 

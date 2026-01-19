@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for SWT widget finding keywords.
 ...
 ...               Tests the following SwtLibrary keywords:

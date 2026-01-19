@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for SWT widget interactions.
 ...               Tests finding widgets by various locators and basic
 ...               widget operations like clicks, text input, and selection.

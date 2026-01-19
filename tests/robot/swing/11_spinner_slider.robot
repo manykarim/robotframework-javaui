@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Spinner and Slider Tests - Testing JSpinner and JSlider keywords.
 ...
 ...               These tests verify the library's ability to interact with

@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for RCP Workbench information and state.
 ...               Tests retrieval of workbench metadata, window information,
 ...               and overall workbench state.

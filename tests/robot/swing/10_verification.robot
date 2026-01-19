@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Verification Tests - Testing element_should_be_visible,
 ...               element_should_not_be_visible, element_should_be_enabled,
 ...               element_should_be_disabled, get_element_text,

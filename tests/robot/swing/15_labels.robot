@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Label Tests - Testing JLabel read operations.
 ...
 ...               These tests verify the library's ability to interact with

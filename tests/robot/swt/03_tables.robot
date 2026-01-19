@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for SWT Table widget operations.
 ...               Tests table row count, cell value retrieval, row selection,
 ...               and column header operations.

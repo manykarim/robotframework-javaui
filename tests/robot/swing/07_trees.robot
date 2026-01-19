@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Tree Tests - Testing expand_tree_node, collapse_tree_node,
 ...               select_tree_node, get_selected_tree_node, and get_tree_nodes keywords.
 ...

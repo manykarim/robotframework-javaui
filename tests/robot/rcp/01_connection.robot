@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for RCP Library connection functionality.
 ...               Tests connecting to, disconnecting from, and verifying
 ...               connection status for Eclipse RCP applications.

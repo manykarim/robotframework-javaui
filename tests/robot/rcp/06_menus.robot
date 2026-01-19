@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for RCP Menu operations.
 ...               Tests main menu bar selection and context menu handling
 ...               in Eclipse RCP applications.

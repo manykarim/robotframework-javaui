@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for delegated SWT Widget operations in RCP.
 ...               Tests all SWT widget keywords that are delegated from
 ...               RcpLibrary to the underlying SwtLibrary for widget interaction.

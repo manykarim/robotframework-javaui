@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for SWT Tree widget operations.
 ...               Tests tree expansion, collapse, item selection, and
 ...               navigation using tree paths.

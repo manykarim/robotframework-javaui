@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Connection Tests - Testing connect_to_application, disconnect,
 ...               is_connected, and get_connection_info keywords.
 ...

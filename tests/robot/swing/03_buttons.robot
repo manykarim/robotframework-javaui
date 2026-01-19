@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Button Tests - Testing click_button, click, double_click,
 ...               and right_click keywords.
 ...

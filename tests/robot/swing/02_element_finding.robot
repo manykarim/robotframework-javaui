@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Element Finding Tests - Testing find_element, find_elements,
 ...               wait_until_element_exists, and wait_until_element_does_not_exist keywords.
 ...

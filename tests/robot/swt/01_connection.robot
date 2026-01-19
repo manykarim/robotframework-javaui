@@ -1,4 +1,5 @@
 *** Settings ***
+Test Timeout       60s
 Documentation     Test suite for SWT application connection keywords.
 ...
 ...               Tests the following SwtLibrary keywords:
