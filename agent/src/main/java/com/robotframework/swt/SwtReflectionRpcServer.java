@@ -1501,7 +1501,7 @@ public class SwtReflectionRpcServer implements Runnable {
 
     private JsonElement closeEditor(String filePath, boolean save) {
         Object app = getMockRcpApp();
-        if (app != null && invokeMockVoidMethod("closeEditor", filePath, save)) {
+        if (app != null && invokeMockVoidMethod("closeEditor", filePath)) {
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             return result;

@@ -52,16 +52,33 @@
             </dependencies>
         </profile>
         <profile>
-            <id>mac</id>
+            <id>swt-mac-x86_64</id>
             <activation>
                 <os>
                     <family>mac</family>
+                    <arch>x86_64</arch>
                 </os>
             </activation>
             <dependencies>
                 <dependency>
                     <groupId>org.eclipse.platform</groupId>
                     <artifactId>org.eclipse.swt.cocoa.macosx.x86_64</artifactId>
+                    <version>${swt.version}</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>swt-mac-arm64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.cocoa.macosx.aarch64</artifactId>
                     <version>${swt.version}</version>
                 </dependency>
             </dependencies>
