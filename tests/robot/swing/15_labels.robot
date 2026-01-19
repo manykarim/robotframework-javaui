@@ -90,7 +90,12 @@ Status Label Updates On Selection
 Element Text Should Contain For Label
     [Documentation]    Verify label text contains expected substring.
     [Tags]    positive    assertion
-    Element Text Should Contain    JLabel[name='statusLabel']    Read
+    # Ensure status label is in a known state for assertion
+    Expand Tree Node    JTree[name='fileTree']    Project Root/Sources
+    Sleep    0.2s
+    Select Tree Node    JTree[name='fileTree']    Project Root/Sources
+    Sleep    0.3s
+    Element Text Should Contain    JLabel[name='statusLabel']    Selected
 
 Element Text Should Be For Label
     [Documentation]    Verify label text is exactly as expected.
