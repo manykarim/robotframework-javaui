@@ -153,8 +153,13 @@ jobs:
             tests/robot/swt/01_connection.robot \
             tests/robot/rcp/01_connection.robot
 
-      - name: Run Robot Framework tests
+      - name: Run Robot Framework tests (incl. Swing/SWT/RCP)
+        if: runner.os != 'macOS'
         run: uv run robot --outputdir tests/robot/output tests/robot/
+
+      - name: Run Robot Framework tests (macOS only, no RCP)
+        if: runner.os == 'macOS'
+        run: uv run robot --outputdir tests/robot/output tests/robot/swing tests/robot/swing tests/robot/swt
 
       - name: Run Python tests
         run: uv run pytest tests/python/
