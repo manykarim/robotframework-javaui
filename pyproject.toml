@@ -55,6 +55,7 @@ Issues = "https://github.com/robotframework/robotframework-javagui/issues"
 features = ["pyo3/extension-module"]
 python-source = "python"
 module-name = "JavaGui._core"
+include = ["JavaGui/jars/*.jar"]
 
 [tool.black]
 line-length = 100
