@@ -10,6 +10,10 @@ on:
         description: "Package version (optional)"
         required: false
 
+permissions:
+  id-token: write    # Required for OIDC token
+  contents: read     # Typical for release jobs
+  
 jobs:
   build:
     runs-on: ${{ matrix.os }}
