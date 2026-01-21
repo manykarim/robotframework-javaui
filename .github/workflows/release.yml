@@ -42,7 +42,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: java-agent
-          path: agent/target/robotframework-swing-agent-*-all.jar
+          path: agent/target/javagui-agent.jar
           if-no-files-found: error
 
   # =============================================================================
@@ -75,7 +75,7 @@ jobs:
       - name: Copy agent JAR to package
         run: |
           mkdir -p python/JavaGui/jars
-          cp agent/target/robotframework-swing-agent-*-all.jar python/JavaGui/jars/javagui-agent.jar
+          cp agent/target/javagui-agent.jar python/JavaGui/jars/javagui-agent.jar
           ls -la python/JavaGui/jars/
 
       - name: Setup uv
@@ -178,7 +178,7 @@ jobs:
             ### Downloads
 
             - **Python Wheels**: ABI3 wheels compatible with Python 3.8+ (one per platform)
-            - **Java Agent**: `robotframework-swing-agent-1.0.0-all.jar`
+            - **Java Agent**: `javagui-agent.jar`
 
             ### Changes
 

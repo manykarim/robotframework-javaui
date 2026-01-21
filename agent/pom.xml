@@ -78,7 +78,7 @@
                                 </transformer>
                             </transformers>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <finalName>${project.artifactId}-${project.version}-all</finalName>
+                            <finalName>javagui-agent</finalName>
                         </configuration>
                     </execution>
                 </executions>
@@ -137,7 +137,7 @@
                                         </transformer>
                                     </transformers>
                                     <createDependencyReducedPom>false</createDependencyReducedPom>
-                                    <finalName>robotframework-swt-agent-${project.version}-all</finalName>
+                                    <finalName>javagui-swt-agent</finalName>
                                 </configuration>
                             </execution>
                         </executions>
