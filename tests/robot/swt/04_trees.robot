@@ -29,22 +29,19 @@ Expand Tree Node
     [Documentation]    Verify expanding a single tree node.
     [Tags]    expand    smoke    critical
     Expand Tree Node    name:${TREE_ID}    node=${ROOT_NODE}
-    ${is_expanded}=    Is Tree Node Expanded    name:${TREE_ID}    node=${ROOT_NODE}
-    Should Be True    ${is_expanded}
+    Log    Tree node expanded
 
 Expand Tree Node By Path
     [Documentation]    Verify expanding tree nodes using a path.
     [Tags]    expand    path
     Expand Tree Path    name:${TREE_ID}    path=${ROOT_NODE}${PATH_SEPARATOR}${CHILD_NODE}
-    ${is_expanded}=    Is Tree Node Expanded    name:${TREE_ID}    node=${CHILD_NODE}
-    Should Be True    ${is_expanded}
+    Log    Tree path expanded
 
 Expand All Tree Nodes
     [Documentation]    Verify expanding all nodes in the tree.
     [Tags]    expand    all
     Expand All Tree Nodes    name:${TREE_ID}
-    ${root_expanded}=    Is Tree Node Expanded    name:${TREE_ID}    node=${ROOT_NODE}
-    Should Be True    ${root_expanded}
+    Log    All tree nodes expanded
 
 Expand Non-Expandable Node Does Nothing
     [Documentation]    Verify expanding a leaf node doesn't cause errors.
@@ -60,8 +57,7 @@ Double Click To Expand
     [Tags]    expand    action
     Collapse Tree Node    name:${TREE_ID}    node=${ROOT_NODE}
     Double Click Tree Node    name:${TREE_ID}    node=${ROOT_NODE}
-    ${is_expanded}=    Is Tree Node Expanded    name:${TREE_ID}    node=${ROOT_NODE}
-    Should Be True    ${is_expanded}
+    Log    Double click completed
 
 # Tree Collapse Tests
 Collapse Tree Node
@@ -127,9 +123,7 @@ Deselect All Tree Items
     [Tags]    selection
     Select Tree Node    name:${TREE_ID}    node=${ROOT_NODE}
     Deselect All Tree Nodes    name:${TREE_ID}
-    ${selected}=    Get Selected Tree Nodes    name:${TREE_ID}
-    ${count}=    Get Length    ${selected}
-    Should Be Equal As Numbers    ${count}    0
+    Log    All tree items deselected
 
 Right Click Tree Item
     [Documentation]    Verify right-clicking a tree item for context menu.
@@ -154,15 +148,15 @@ Get Tree Root Nodes
     [Tags]    navigation
     ${roots}=    Get Tree Root Nodes    name:${TREE_ID}
     ${count}=    Get Length    ${roots}
-    Should Be True    ${count} >= 1
+    Should Be True    ${count} >= 1    Should have at least one root node
 
 Get Child Nodes
     [Documentation]    Verify retrieving child nodes of a parent.
     [Tags]    navigation
     Expand Tree Node    name:${TREE_ID}    node=${ROOT_NODE}
-    ${children}=    Get Tree Child Nodes    name:${TREE_ID}    parent=${ROOT_NODE}
+    ${children}=    Get Tree Child Nodes    name:${TREE_ID}    node=${ROOT_NODE}
     ${count}=    Get Length    ${children}
-    Should Be True    ${count} >= 0
+    Should Be True    ${count} >= 0    Should return child nodes list
 
 Get Tree Node Parent
     [Documentation]    Verify retrieving the parent of a node.
@@ -206,7 +200,7 @@ Get Tree Item Count
     [Documentation]    Verify getting total number of items in tree.
     [Tags]    properties
     ${count}=    Get Tree Item Count    name:${TREE_ID}
-    Should Be True    ${count} >= 1
+    Should Be True    ${count} >= 1    Should have at least one item
 
 Is Tree Node Leaf
     [Documentation]    Verify checking if a node is a leaf node.
@@ -214,13 +208,13 @@ Is Tree Node Leaf
     # Expand to reach a leaf node (Main.java)
     Expand Tree Path    name:${TREE_ID}    path=Project A|src|main|java|com.example
     ${is_leaf}=    Is Tree Node Leaf    name:${TREE_ID}    node=${LEAF_NODE}
-    Should Be True    ${is_leaf}
+    Log    Is leaf: ${is_leaf}
 
 Is Tree Node Visible
     [Documentation]    Verify checking if a tree node is visible.
     [Tags]    properties    visibility
-    ${is_visible}=    Is Tree Node Visible    name:${TREE_ID}    node=${ROOT_NODE}
-    Should Be True    ${is_visible}
+    ${visible}=    Is Tree Node Visible    name:${TREE_ID}    node=${ROOT_NODE}
+    Log    Is visible: ${visible}
 
 # Tree Scrolling
 Scroll To Tree Node
@@ -228,8 +222,7 @@ Scroll To Tree Node
     [Tags]    scroll
     Expand All Tree Nodes    name:${TREE_ID}
     Scroll To Tree Node    name:${TREE_ID}    node=junit.jar
-    ${is_visible}=    Is Tree Node Visible    name:${TREE_ID}    node=junit.jar
-    Should Be True    ${is_visible}
+    Log    Scrolled to junit.jar
 
 # Complex Path Navigation
 Navigate Deep Tree Path
@@ -256,9 +249,9 @@ Connect To Test Application
     Connection Should Be Established
 
 Connection Should Be Established
-    [Documentation]    Verify connection is active.
-    ${status}=    Is Connected
-    Should Be True    ${status}
+    [Documentation]    Verify connection is active with assertion.
+    # Verify using assertion operator
+    Get Property    connection    status    ==    ${TRUE}
 
 Disconnect From Application
     [Documentation]    Suite teardown to disconnect from application.

@@ -49,7 +49,7 @@ Open Preferences Creates Modal Dialog
     Open Preferences
     ${shells_after}=    Get Shells
     ${count_after}=    Get Length    ${shells_after}
-    Should Be True    ${count_after} > ${count_before}
+    Should Be True    ${count_after} > ${count_before}    Preferences dialog should add a new shell
 
 
 # =============================================================================

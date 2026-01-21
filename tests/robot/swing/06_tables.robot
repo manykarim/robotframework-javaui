@@ -1,11 +1,11 @@
 *** Settings ***
 Test Timeout       60s
-Documentation     Table Tests - Testing get_table_cell_value, select_table_cell,
-...               select_table_row, get_table_row_count, get_table_column_count,
-...               and get_table_data keywords.
+Documentation     Table Tests - Testing AssertionEngine-based table keywords:
+...               Get Table Cell Value, Get Table Row Count, Get Table Column Count,
+...               Get Table Row Values, Get Table Column Values with assertion operators.
 ...
 ...               These tests verify the library's ability to interact with
-...               JTable components for data inspection and selection.
+...               JTable components with Browser Library-style assertions.
 
 Resource          resources/common.resource
 
@@ -13,7 +13,7 @@ Suite Setup       Start Test Application
 Suite Teardown    Stop Test Application
 Test Setup        Ensure Data View Tab
 
-Force Tags        tables    regression
+Force Tags        tables    regression    assertion-engine
 
 *** Keywords ***
 Ensure Data View Tab
@@ -23,22 +23,18 @@ Ensure Data View Tab
 
 *** Test Cases ***
 # =============================================================================
-# GET TABLE CELL VALUE
+# GET TABLE CELL VALUE WITH ASSERTION OPERATORS
 # =============================================================================
 
 Get Table Cell Value By Row And Column Index
-    [Documentation]    Get value from table cell using row and column indices.
-    [Tags]    smoke    positive
-    ${value}=    Get Table Cell Value    JTable[name='dataTable']    0    0
-    Should Not Be Empty    ${value}
-    Log    Cell value at (0,0): ${value}
+    [Documentation]    Get value from table cell with assertion operator.
+    [Tags]    smoke    positive    assertion-operator
+    Get Table Cell Value    JTable[name='dataTable']    0    0    !=    ${EMPTY}
 
 Get Table Cell Value By Row And Column Name
-    [Documentation]    Get value using row index and column name.
-    [Tags]    positive
-    ${value}=    Get Table Cell Value    JTable[name='dataTable']    0    Name
-    Should Not Be Empty    ${value}
-    Log    Cell value at Name column: ${value}
+    [Documentation]    Get value using row index and column name with assertion.
+    [Tags]    positive    assertion-operator
+    Get Table Cell Value    JTable[name='dataTable']    0    Name    !=    ${EMPTY}
 
 Get Multiple Cell Values
     [Documentation]    Get values from multiple cells.
@@ -49,10 +45,9 @@ Get Multiple Cell Values
     Log    Values: ${val1}, ${val2}, ${val3}
 
 Get Table Cell Value Using XPath
-    [Documentation]    Get cell value using XPath selector.
-    [Tags]    positive    xpath-locator
-    ${value}=    Get Table Cell Value    //JTable[@name='dataTable']    0    0
-    Should Not Be Empty    ${value}
+    [Documentation]    Get cell value using XPath selector with assertion.
+    [Tags]    positive    xpath-locator    assertion-operator
+    Get Table Cell Value    //JTable[@name='dataTable']    0    0    !=    ${EMPTY}
 
 Get Table Cell Value From Last Row
     [Documentation]    Get cell value from the last row.
@@ -69,6 +64,20 @@ Get Table Cell Value From Last Column
     ${last_col}=    Evaluate    ${col_count} - 1
     ${value}=    Get Table Cell Value    [name='dataTable']    0    ${last_col}
     Log    Last column value: ${value}
+
+Get Table Cell Value With Contains Assertion
+    [Documentation]    Verify cell value contains expected substring.
+    [Tags]    positive    assertion-operator
+    ${status}=    Run Keyword And Return Status
+    ...    Get Table Cell Value    JTable[name='dataTable']    0    0    *=    ${EMPTY}
+    # Note: This tests the contains operator, result depends on actual data
+    Log    Contains check: ${status}
+
+Get Table Cell Value With Exact Match
+    [Documentation]    Verify cell value matches exactly.
+    [Tags]    positive    assertion-operator
+    ${expected}=    Get Table Cell Value    JTable[name='dataTable']    0    0
+    Get Table Cell Value    JTable[name='dataTable']    0    0    ==    ${expected}
 
 # =============================================================================
 # SELECT TABLE CELL
@@ -155,50 +164,59 @@ Select Same Row Multiple Times
     Element Should Exist    [name='dataTable']
 
 # =============================================================================
-# GET TABLE ROW COUNT
+# GET TABLE ROW COUNT WITH ASSERTION OPERATORS
 # =============================================================================
 
 Get Table Row Count By Name
-    [Documentation]    Get the number of rows in a table.
-    [Tags]    smoke    positive
-    ${count}=    Get Table Row Count    JTable[name='dataTable']
-    Should Be True    ${count} > 0
-    Log    Table has ${count} rows
+    [Documentation]    Get the number of rows with assertion operator.
+    [Tags]    smoke    positive    assertion-operator
+    Get Table Row Count    JTable[name='dataTable']    >    0
 
 Get Table Row Count Using ID Selector
-    [Documentation]    Get row count using ID-style selector.
-    [Tags]    positive
-    ${count}=    Get Table Row Count    \#dataTable
-    Should Be True    ${count} > 0
+    [Documentation]    Get row count using ID-style selector with assertion.
+    [Tags]    positive    assertion-operator
+    Get Table Row Count    \#dataTable    >    0
 
 Get Table Row Count Using XPath
-    [Documentation]    Get row count using XPath selector.
-    [Tags]    positive    xpath-locator
-    ${count}=    Get Table Row Count    //JTable[@name='dataTable']
-    Should Be True    ${count} > 0
+    [Documentation]    Get row count using XPath selector with assertion.
+    [Tags]    positive    xpath-locator    assertion-operator
+    Get Table Row Count    //JTable[@name='dataTable']    >    0
+
+Get Table Row Count With Exact Value
+    [Documentation]    Get row count and verify exact value.
+    [Tags]    positive    assertion-operator
+    ${count}=    Get Table Row Count    [name='dataTable']
+    Get Table Row Count    [name='dataTable']    ==    ${count}
+
+Get Table Row Count Greater Or Equal
+    [Documentation]    Verify row count is at least a certain value.
+    [Tags]    positive    assertion-operator
+    Get Table Row Count    [name='dataTable']    >=    1
 
 # =============================================================================
-# GET TABLE COLUMN COUNT
+# GET TABLE COLUMN COUNT WITH ASSERTION OPERATORS
 # =============================================================================
 
 Get Table Column Count By Name
-    [Documentation]    Get the number of columns in a table.
-    [Tags]    smoke    positive
-    ${count}=    Get Table Column Count    JTable[name='dataTable']
-    Should Be True    ${count} > 0
-    Log    Table has ${count} columns
+    [Documentation]    Get the number of columns with assertion operator.
+    [Tags]    smoke    positive    assertion-operator
+    Get Table Column Count    JTable[name='dataTable']    >    0
 
 Get Table Column Count Using ID Selector
-    [Documentation]    Get column count using ID-style selector.
-    [Tags]    positive
-    ${count}=    Get Table Column Count    \#dataTable
-    Should Be True    ${count} > 0
+    [Documentation]    Get column count using ID-style selector with assertion.
+    [Tags]    positive    assertion-operator
+    Get Table Column Count    \#dataTable    >    0
 
 Get Table Column Count Using XPath
-    [Documentation]    Get column count using XPath selector.
-    [Tags]    positive    xpath-locator
-    ${count}=    Get Table Column Count    //JTable[@name='dataTable']
-    Should Be True    ${count} > 0
+    [Documentation]    Get column count using XPath selector with assertion.
+    [Tags]    positive    xpath-locator    assertion-operator
+    Get Table Column Count    //JTable[@name='dataTable']    >    0
+
+Get Table Column Count With Exact Value
+    [Documentation]    Get column count and verify exact value.
+    [Tags]    positive    assertion-operator
+    ${count}=    Get Table Column Count    [name='dataTable']
+    Get Table Column Count    [name='dataTable']    ==    ${count}
 
 # =============================================================================
 # GET TABLE DATA
@@ -241,6 +259,28 @@ Access Specific Cell From Table Data
     Log    First cell value: ${first_cell}
 
 # =============================================================================
+# GET TABLE ROW VALUES WITH ASSERTION
+# =============================================================================
+
+Get Row Values
+    [Documentation]    Get all values from a table row.
+    [Tags]    positive    assertion-operator
+    ${values}=    Get Table Row Values    [name='dataTable']    0
+    Should Not Be Empty    ${values}
+    Log    Row values: ${values}
+
+# =============================================================================
+# GET TABLE COLUMN VALUES WITH ASSERTION
+# =============================================================================
+
+Get Column Values
+    [Documentation]    Get all values from a table column.
+    [Tags]    positive    assertion-operator
+    ${values}=    Get Table Column Values    [name='dataTable']    0
+    Should Not Be Empty    ${values}
+    Log    Column values: ${values}
+
+# =============================================================================
 # TABLE WORKFLOWS
 # =============================================================================
 
@@ -274,20 +314,20 @@ Table Data Processing Workflow
     END
 
 # =============================================================================
-# TABLE STATE VERIFICATION
+# TABLE STATE VERIFICATION WITH ASSERTION OPERATORS
 # =============================================================================
 
-Verify Table Is Enabled
-    [Documentation]    Verify table is enabled before interaction.
-    [Tags]    positive    verification
+Verify Table Is Enabled With Get Property
+    [Documentation]    Verify table is enabled using Get Property assertion.
+    [Tags]    positive    verification    assertion-operator
     Select Data View Tab
-    Element Should Be Enabled    JTable[name='dataTable']
+    Get Property    JTable[name='dataTable']    enabled    ==    ${TRUE}
 
-Verify Table Is Visible
-    [Documentation]    Verify table is visible.
-    [Tags]    positive    verification
+Verify Table Is Visible With Get Property
+    [Documentation]    Verify table is visible using Get Property assertion.
+    [Tags]    positive    verification    assertion-operator
     Select Data View Tab
-    Element Should Be Visible    JTable[name='dataTable']
+    Get Property    JTable[name='dataTable']    visible    ==    ${TRUE}
 
 Verify Table Exists
     [Documentation]    Verify table exists in the UI.
@@ -382,6 +422,20 @@ Get Invalid Cell Value Fails
     [Tags]    negative    error-handling
     ${status}=    Run Keyword And Return Status
     ...    Get Table Cell Value    [name='dataTable']    9999    9999
+    Should Be Equal    ${status}    ${FALSE}
+
+Get Cell Value Assertion Fails For Wrong Value
+    [Documentation]    Cell value assertion fails for wrong expected value.
+    [Tags]    negative    error-handling    assertion-operator
+    ${status}=    Run Keyword And Return Status
+    ...    Get Table Cell Value    JTable[name='dataTable']    0    0    ==    DEFINITELY_NOT_THIS_VALUE_12345
+    Should Be Equal    ${status}    ${FALSE}
+
+Get Row Count Assertion Fails For Wrong Count
+    [Documentation]    Row count assertion fails for wrong count.
+    [Tags]    negative    error-handling    assertion-operator
+    ${status}=    Run Keyword And Return Status
+    ...    Get Table Row Count    JTable[name='dataTable']    ==    99999
     Should Be Equal    ${status}    ${FALSE}
 
 # =============================================================================

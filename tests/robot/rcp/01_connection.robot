@@ -46,16 +46,16 @@ Verify Is Connected Returns True When Connected
     ...                Tests the connection status check keyword.
     [Tags]    smoke    positive
     Connect To SWT Application    ${APP_NAME}    ${HOST}    ${PORT}
-    ${result}=    Is Connected
-    Should Be True    ${result}    Is Connected should return True when connected
+    ${is_connected}=    Is Connected
+    Should Be True    ${is_connected}    Connection should be active
     [Teardown]    Disconnect From RCP App
 
 Verify Is Connected Returns False Before Connection
     [Documentation]    Verify Is Connected returns False before any connection.
     ...                Tests initial connection status.
     [Tags]    positive
-    ${result}=    Is Connected
-    Should Not Be True    ${result}    Is Connected should return False before connection
+    ${is_connected}=    Is Connected
+    Should Not Be True    ${is_connected}    Connection should not be active
 
 
 # =============================================================================
@@ -88,8 +88,8 @@ Verify Is Connected Returns False After Disconnect
     [Tags]    positive
     Connect To SWT Application    ${APP_NAME}    ${HOST}    ${PORT}
     Disconnect
-    ${result}=    Is Connected
-    Should Not Be True    ${result}    Is Connected should return False after disconnect
+    ${is_connected}=    Is Connected
+    Should Not Be True    ${is_connected}    Connection should not be active after disconnect
 
 
 # =============================================================================
@@ -183,15 +183,15 @@ Connection Status During Operations
     [Tags]    positive    edge-case
     # Before connection
     ${before}=    Is Connected
-    Should Not Be True    ${before}
+    Should Not Be True    ${before}    Should not be connected initially
     # During connection
     Connect To SWT Application    ${APP_NAME}    ${HOST}    ${PORT}
     ${during}=    Is Connected
-    Should Be True    ${during}
+    Should Be True    ${during}    Should be connected
     # After disconnect
     Disconnect
     ${after}=    Is Connected
-    Should Not Be True    ${after}
+    Should Not Be True    ${after}    Should not be connected after disconnect
 
 
 *** Keywords ***

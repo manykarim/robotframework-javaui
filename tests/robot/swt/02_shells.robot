@@ -40,8 +40,8 @@ Get Shells Contains Main Shell
     [Documentation]    Verify get_shells includes the main application shell.
     [Tags]    positive    smoke
     ${shells}=    Get Shells
-    ${shell_count}=    Get Length    ${shells}
-    Should Be True    ${shell_count} >= 1    Should have at least the main shell
+    ${count}=    Get Length    ${shells}
+    Should Be True    ${count} >= 1    Should have at least one shell
 
 Get Shells Updates After Opening New Shell
     [Documentation]    Verify get_shells returns updated list after opening a new shell.

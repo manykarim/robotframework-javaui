@@ -72,8 +72,7 @@ Find Widgets Successfully
     [Tags]    smoke    positive
     ${widgets}=    Find Widgets    Button
     ${count}=    Get Length    ${widgets}
-    Log    Found ${count} buttons
-    Should Be True    ${count} >= 0
+    Should Be True    ${count} >= 0    Should return a list of widgets
 
 Find Widgets Returns Empty When None
     [Documentation]    Verify empty list when no widgets match.
@@ -81,7 +80,7 @@ Find Widgets Returns Empty When None
     [Tags]    positive
     ${widgets}=    Find Widgets    name:nonExistentWidget
     ${count}=    Get Length    ${widgets}
-    Should Be Equal As Numbers    ${count}    0
+    Should Be Equal As Integers    ${count}    0    Should return empty list
 
 
 # =============================================================================
@@ -379,8 +378,7 @@ Get Shells Successfully
     [Tags]    smoke    positive
     ${shells}=    Get Shells
     ${count}=    Get Length    ${shells}
-    Should Be True    ${count} >= 1
-    Log    Found ${count} shells
+    Should Be True    ${count} >= 1    Should have at least one shell
 
 Activate Shell Successfully
     [Documentation]    Verify activating a shell.

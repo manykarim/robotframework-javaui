@@ -18,16 +18,14 @@ Force Tags        labels    regression
 # =============================================================================
 
 Get Label Text
-    [Documentation]    Get the text of a label.
-    [Tags]    smoke    positive
-    ${text}=    Get Element Text    JLabel[name='statusLabel']
-    Should Not Be Empty    ${text}
+    [Documentation]    Get the text of a label with assertion.
+    [Tags]    smoke    positive    assertion-operator
+    Get Text    JLabel[name='statusLabel']    !=    ${EMPTY}
 
 Verify Status Label Initial Value
-    [Documentation]    Verify the initial status label value.
-    [Tags]    positive    verification
-    ${text}=    Get Element Text    JLabel[name='statusLabel']
-    Should Be Equal    ${text}    Ready
+    [Documentation]    Verify the initial status label value with assertion.
+    [Tags]    positive    verification    assertion-operator
+    Get Text    JLabel[name='statusLabel']    ==    Ready
 
 # =============================================================================
 # LABEL STATE VERIFICATION
@@ -74,15 +72,14 @@ Verify Selections Tab Labels
 # =============================================================================
 
 Status Label Updates On Selection
-    [Documentation]    Verify status label updates when tree node is selected.
-    [Tags]    positive    dynamic
+    [Documentation]    Verify status label updates when tree node is selected with assertion.
+    [Tags]    positive    dynamic    assertion-operator
     # Select a tree node to update status
     Expand Tree Node    JTree[name='fileTree']    Project Root/Sources
     Sleep    0.2s
     Select Tree Node    JTree[name='fileTree']    Project Root/Sources
     Sleep    0.3s
-    ${text}=    Get Element Text    JLabel[name='statusLabel']
-    Should Contain    ${text}    Sources
+    Get Text    JLabel[name='statusLabel']    *=    Sources
 
 # =============================================================================
 # LABEL TEXT ASSERTIONS
@@ -99,14 +96,13 @@ Element Text Should Contain For Label
     Element Text Should Contain    JLabel[name='statusLabel']    Selected
 
 Element Text Should Be For Label
-    [Documentation]    Verify label text is exactly as expected.
-    [Tags]    positive    assertion
-    ${text}=    Get Element Text    JLabel[name='statusLabel']
+    [Documentation]    Verify label text is exactly as expected with assertion.
+    [Tags]    positive    assertion    assertion-operator
+    ${text}=    Get Text    JLabel[name='statusLabel']
     # Reset to known state first
     Select Form Input Tab
     Sleep    0.3s
-    ${text_after}=    Get Element Text    JLabel[name='statusLabel']
-    Should Not Be Empty    ${text_after}
+    Get Text    JLabel[name='statusLabel']    !=    ${EMPTY}
 
 # =============================================================================
 # FINDING LABELS
