@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SWT_APP_JAR="${SWT_APP_JAR:-tests/apps/swt/target/swt-test-app-1.0.0-all.jar}"
-AGENT_JAR="${AGENT_JAR:-agent/target/robotframework-swing-agent-1.0.0-all.jar}"
+AGENT_JAR="${AGENT_JAR:-agent/target/javagui-agent.jar}"
 PORT="${SWT_PORT:-5679}"
 LOG_DIR="${SWT_LOG_DIR:-/tmp}"
 STDOUT_LOG="${LOG_DIR}/swt-app-stdout.log"

@@ -85,7 +85,7 @@ cd agent
 mvn package
 ```
 
-This creates `agent/target/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar`.
+This creates `agent/target/javagui-agent.jar`.
 
 ### Build the Demo Application (Optional)
 
@@ -102,13 +102,13 @@ mvn package
 
 ```bash
 # For Swing applications
-java -javaagent:path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar=port=5678 -jar your-swing-app.jar
+java -javaagent:path/to/javagui-agent.jar=port=5678 -jar your-swing-app.jar
 
 # For SWT applications
-java -javaagent:path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar=port=5678 -jar your-swt-app.jar
+java -javaagent:path/to/javagui-agent.jar=port=5678 -jar your-swt-app.jar
 
 # For Eclipse RCP applications
-eclipse -vmargs -javaagent:path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar=port=5678
+eclipse -vmargs -javaagent:path/to/javagui-agent.jar=port=5678
 ```
 
 ### 2. Create a Robot Framework Test
@@ -540,7 +540,7 @@ Suite Teardown    Stop Application
 
 *** Variables ***
 ${APP_JAR}        path/to/myapp.jar
-${AGENT_JAR}      path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar
+${AGENT_JAR}      path/to/javagui-agent.jar
 ${PORT}           5678
 
 *** Keywords ***

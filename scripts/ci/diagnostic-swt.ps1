@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $SwtAppJar = if ($env:SWT_APP_JAR) { $env:SWT_APP_JAR } else { "tests/apps/swt/target/swt-test-app-1.0.0-all.jar" }
-$AgentJar = if ($env:SWT_AGENT_JAR) { $env:SWT_AGENT_JAR } else { "agent/target/robotframework-swing-agent-1.0.0-all.jar" }
+$AgentJar = if ($env:SWT_AGENT_JAR) { $env:SWT_AGENT_JAR } else { "agent/target/javagui-agent.jar" }
 $Port = if ($env:SWT_PORT) { [int]$env:SWT_PORT } else { 5679 }
 $LogDir = if ($env:SWT_LOG_DIR) { $env:SWT_LOG_DIR } else { $env:TEMP }
 $StdoutLog = Join-Path $LogDir "swt-app-stdout.log"

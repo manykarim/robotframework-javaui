@@ -32,7 +32,7 @@ OUTPUT_DIR = TESTS_DIR / "robot" / "output"
 WHEELS_DIR = ROOT / "target" / "wheels"
 
 # JAR files
-AGENT_JAR_SOURCE = AGENT_DIR / "target" / "robotframework-swing-agent-1.0.0-all.jar"
+AGENT_JAR_SOURCE = AGENT_DIR / "target" / "javagui-agent.jar"
 AGENT_JAR_DEST = JARS_DIR / "javagui-agent.jar"
 
 

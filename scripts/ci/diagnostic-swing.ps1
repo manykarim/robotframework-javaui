@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $SwingAppJar = if ($env:SWING_APP_JAR) { $env:SWING_APP_JAR } else { "tests/apps/swing/target/swing-test-app-1.0.0.jar" }
-$AgentJar = if ($env:SWING_AGENT_JAR) { $env:SWING_AGENT_JAR } else { "agent/target/robotframework-swing-agent-1.0.0-all.jar" }
+$AgentJar = if ($env:SWING_AGENT_JAR) { $env:SWING_AGENT_JAR } else { "agent/target/javagui-agent.jar" }
 $Port = if ($env:SWING_PORT) { [int]$env:SWING_PORT } else { 5678 }
 $LogDir = if ($env:SWING_LOG_DIR) { $env:SWING_LOG_DIR } else { $env:TEMP }
 $StdoutLog = Join-Path $LogDir "swing-app-stdout.log"

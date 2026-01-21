@@ -22,7 +22,7 @@ ${RCP_STDERR_LOG}             ${OUTPUT DIR}${/}rcp-mock-stderr.log
 
 # Application Paths
 ${RCP_MOCK_JAR}               ${CURDIR}/../../../../tests/apps/rcp-mock/target/rcp-mock-test-app-1.0.0-all.jar
-${AGENT_JAR}                  ${CURDIR}/../../../../agent/target/robotframework-swing-agent-1.0.0-all.jar
+${AGENT_JAR}                  ${CURDIR}/../../../../agent/target/javagui-agent.jar
 ${RCP_PROCESS}                ${NONE}
 
 # Common Perspective IDs
