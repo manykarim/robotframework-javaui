@@ -7,16 +7,55 @@ on:
         description: "Tag to release (e.g. v0.1.0)"
         required: true
       version:
-        description: "Package version (optional)"
-        required: false  
+        description: "Package version (optional, defaults to tag without 'v' prefix)"
+        required: false
+      publish_pypi:
+        description: "Publish to PyPI"
+        required: false
+        default: "false"
+        type: boolean
+
 jobs:
-  build:
+  # =============================================================================
+  # Build Java Agent (single build, shared across all platforms)
+  # =============================================================================
+  build-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Build Java Agent
+        run: |
+          cd agent
+          mvn clean package -DskipTests
+          ls -la target/*.jar
+
+      - name: Upload Java Agent
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-agent
+          path: agent/target/robotframework-swing-agent-*-all.jar
+          if-no-files-found: error
+
+  # =============================================================================
+  # Build Python Wheels (per OS and Python version)
+  # =============================================================================
+  build-wheels:
+    needs: build-agent
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-14]
-        python: ["3.10", "3.12", "3.14"]
+        python: ["3.10", "3.12", "3.13"]
     defaults:
       run:
         shell: bash
@@ -28,31 +67,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Download Java Agent
+        uses: actions/download-artifact@v4
+        with:
+          name: java-agent
+          path: agent/target/
+
+      - name: Copy agent JAR to package
+        run: |
+          mkdir -p python/JavaGui/jars
+          cp agent/target/robotframework-swing-agent-*-all.jar python/JavaGui/jars/javagui-agent.jar
+          ls -la python/JavaGui/jars/
+
       - name: Setup uv
         uses: astral-sh/setup-uv@v2
         with:
           version: latest
 
-      - name: Setup Python (primary, via uv)
-        id: setup_python_primary
+      - name: Setup Python
         run: uv python install ${{ matrix.python }}
-        continue-on-error: ${{ matrix.python == '3.14' }}
-
-      - name: Setup Python (fallback to 3.13, via uv)
-        if: ${{ matrix.python == '3.14' && steps.setup_python_primary.outcome == 'failure' }}
-        run: uv python install 3.13
-
-      - name: Show uv and Python versions
-        run: |
-          uv --version
-          uv run python --version
-
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: maven
 
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -68,38 +101,108 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install dependencies (dev)
-        run: uv sync --all-extras --group dev
-
-      - name: Install build tools
+      - name: Install maturin
         run: uv tool install maturin
 
-      - name: Build full package (agent + wheel)
-        run: uv run invoke build
+      - name: Build wheel
+        run: |
+          uv tool run maturin build --release --strip
+          ls -la target/wheels/
 
-      - name: Upload build artifacts
-        if: always()
+      - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.os }}-py${{ matrix.python }}
-          path: |
-            target/wheels/*.whl
-            agent/target/*.jar
-            python/JavaGui/jars/*.jar
-          if-no-files-found: warn
+          name: wheel-${{ matrix.os }}-py${{ matrix.python }}
+          path: target/wheels/*.whl
+          if-no-files-found: error
 
+  # =============================================================================
+  # Create Draft GitHub Release
+  # =============================================================================
   release:
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build-agent, build-wheels]
     permissions:
       contents: write
-      id-token: write
-      
+
     steps:
-      - name: Download build artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: build-*
+          path: dist-artifacts
+
+      - name: Organize release files
+        run: |
+          mkdir -p release-files/wheels
+          mkdir -p release-files/agent
+
+          # Collect all wheels (deduplicate by keeping unique filenames)
+          find dist-artifacts -name "*.whl" -exec cp {} release-files/wheels/ \;
+
+          # Collect agent JAR
+          find dist-artifacts -name "*.jar" -exec cp {} release-files/agent/ \;
+
+          echo "=== Wheels ==="
+          ls -la release-files/wheels/
+          echo "=== Agent ==="
+          ls -la release-files/agent/
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # Strip 'v' prefix from tag
+            echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+          fi
+        env:
+          TAG: ${{ inputs.tag }}
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          tag_name: ${{ inputs.tag }}
+          name: "Release ${{ inputs.tag }}"
+          generate_release_notes: true
+          body: |
+            ## robotframework-javagui ${{ steps.version.outputs.version }}
+
+            ### Installation
+
+            ```bash
+            pip install robotframework-javagui==${{ steps.version.outputs.version }}
+            ```
+
+            ### Downloads
+
+            - **Python Wheels**: Platform-specific wheels for Python 3.10, 3.12, 3.13
+            - **Java Agent**: `robotframework-swing-agent-1.0.0-all.jar`
+
+            ### Changes
+
+            See below for auto-generated release notes.
+          files: |
+            release-files/wheels/*.whl
+            release-files/agent/*.jar
+
+  # =============================================================================
+  # Publish to PyPI (optional, triggered by input)
+  # =============================================================================
+  publish-pypi:
+    runs-on: ubuntu-latest
+    needs: [build-wheels]
+    if: ${{ inputs.publish_pypi == true }}
+    environment: release  # GitHub Environment for trusted publishing
+    permissions:
+      id-token: write  # Required for trusted publishing
+
+    steps:
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
           path: dist-artifacts
           merge-multiple: true
 
@@ -107,22 +210,21 @@ jobs:
         run: |
           mkdir -p dist/pypi
           find dist-artifacts -name "*.whl" -exec cp {} dist/pypi/ \;
-          ls -la dist/pypi
 
-      - name: Publish to PyPI
+          echo "=== Wheels to publish ==="
+          ls -la dist/pypi/
+
+          # Show wheel count
+          WHEEL_COUNT=$(ls -1 dist/pypi/*.whl 2>/dev/null | wc -l)
+          echo "Total wheels: $WHEEL_COUNT"
+
+      - name: Publish to PyPI (Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          packages-dir: dist/pypi
-
-      - name: Create draft GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          tag_name: ${{ inputs.tag }}
-          name: ${{ inputs.tag }}
-          body: |
-            Release version: ${{ inputs.version }}
-          files: |
-            dist-artifacts/**/*.whl
-            dist-artifacts/**/*.jar
+          packages-dir: dist/pypi/
+          # No password needed - uses OIDC trusted publishing
+          # Requires PyPI trusted publisher configured for:
+          #   - Owner: manykarim
+          #   - Repo: robotframework-javaui
+          #   - Workflow: release.yml
+          #   - Environment: release
