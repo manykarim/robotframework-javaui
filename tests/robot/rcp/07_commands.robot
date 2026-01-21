@@ -134,8 +134,7 @@ Get Available Commands Successfully
     ${commands}=    Get Available Commands
     Should Not Be Empty    ${commands}
     ${count}=    Get Length    ${commands}
-    Should Be True    ${count} >= 1
-    Log    Found ${count} available commands
+    Should Be True    ${count} >= 1    Should have at least one command
 
 Get Available Commands Returns Command Info
     [Documentation]    Verify available commands contain command information.
@@ -157,10 +156,9 @@ Get Available Commands Without Category
     [Documentation]    Verify getting all commands without category filter.
     ...                Should return all available commands.
     [Tags]    positive
-    ${all_commands}=    Get Available Commands
-    ${count}=    Get Length    ${all_commands}
-    Should Be True    ${count} >= 1
-    Log    Total commands available: ${count}
+    ${commands}=    Get Available Commands
+    ${count}=    Get Length    ${commands}
+    Should Be True    ${count} >= 1    Should have at least one command
 
 Get Available Commands Multiple Times
     [Documentation]    Verify getting available commands is consistent.
@@ -222,10 +220,9 @@ Command Execution Workflow
     [Tags]    integration    positive    mock-limitation
     # Open a file
     Open Editor    ${TEST_FILE_JAVA}
-    # Verify editor is open
     ${editors}=    Get Open Editors
     ${count}=    Get Length    ${editors}
-    Should Be True    ${count} >= 1
+    Should Be True    ${count} >= 1    Should have at least one open editor
     # Execute save command (mock just accepts, doesn't actually save)
     Execute Command    ${CMD_SAVE}
     # Execute close command (mock just accepts, doesn't actually close)
@@ -235,7 +232,7 @@ Command Execution Workflow
     Close Editor    Test.java
     ${editors_after}=    Get Open Editors
     ${count_after}=    Get Length    ${editors_after}
-    Should Be True    ${count_after} < ${count}
+    Should Be Equal As Integers    ${count_after}    0    All editors should be closed
 
 Get And Execute Commands
     [Documentation]    Get available commands and execute one.

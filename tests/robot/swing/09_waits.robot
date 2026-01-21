@@ -365,9 +365,9 @@ Wait And Complete Form
     Sleep    0.5s
 
 Wait For Dynamic Content
-    [Documentation]    Wait for dynamically appearing content.
-    [Tags]    integration
+    [Documentation]    Wait for dynamically appearing content with assertion.
+    [Tags]    integration    assertion-operator
     # This simulates waiting for dynamic content
     Wait Until Element Is Visible    JLabel[name='statusLabel']    timeout=${DEFAULT_TIMEOUT}
-    ${text}=    Get Element Text    JLabel[name='statusLabel']
-    Log    Status label: ${text}
+    # Verify status label has content using assertion operator
+    Get Text    JLabel[name='statusLabel']    !=    ${EMPTY}

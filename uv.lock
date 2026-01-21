@@ -1,6 +1,6 @@
 version = 1
 revision = 3
-requires-python = ">=3.8"
+requires-python = ">=3.8.1"
 resolution-markers = [
     "python_full_version >= '3.10'",
     "python_full_version == '3.9.*'",
@@ -1330,6 +1330,19 @@ wheels = [
 ]
 
 [[package]]
+name = "robotframework-assertion-engine"
+version = "3.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "robotframework" },
+    { name = "robotframework-pythonlibcore" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/82/6a/64caaaff181a6f56847124a98e029bd91e3479c56f2db2803e3f5e19a8d8/robotframework_assertion_engine-3.0.3.tar.gz", hash = "sha256:1c608d4c69d96520986a1ddc6def0fc7f7e849520f1e6882a633b51dbb98fd88", size = 11901, upload-time = "2023-11-21T19:20:22.752Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/5d/b160d9a55db18f9847e0cc680012dfab03e9efcebae0a09280d57ae8a6ee/robotframework_assertion_engine-3.0.3-py3-none-any.whl", hash = "sha256:3cd8962744ea4f307feadd596266c1d563e87b586ed61803c9445295ab15a0cd", size = 12944, upload-time = "2023-11-21T19:20:20.251Z" },
+]
+
+[[package]]
 name = "robotframework-javagui"
 version = "0.1.0"
 source = { editable = "." }
@@ -1337,6 +1350,7 @@ dependencies = [
     { name = "docutils", version = "0.20.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "docutils", version = "0.22.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9'" },
     { name = "robotframework" },
+    { name = "robotframework-assertion-engine" },
 ]
 
 [package.optional-dependencies]
@@ -1373,6 +1387,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0" },
     { name = "robotframework", specifier = ">=4.0" },
+    { name = "robotframework-assertion-engine", specifier = ">=3.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1" },
 ]
 provides-extras = ["dev"]
@@ -1384,6 +1399,15 @@ dev = [
     { name = "mypy", specifier = ">=1.14.1" },
     { name = "robotframework-robocop", specifier = ">=5.5.0" },
     { name = "ruff", specifier = ">=0.14.11" },
+]
+
+[[package]]
+name = "robotframework-pythonlibcore"
+version = "4.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/24/f85366679f4ee63d5534cad009ad466f0d038a72dad4ffd91802004c2758/robotframework_pythonlibcore-4.5.0.tar.gz", hash = "sha256:54ad47c592b2959bffe865e006fd4517f3c46dfb9df5b68a3f335ab842ab065e", size = 14254, upload-time = "2026-01-16T14:42:40.311Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/1d/3d14b45ff63b8c710bda8ad6b7c9e7e55272e38ce890a4442804fd768ca1/robotframework_pythonlibcore-4.5.0-py3-none-any.whl", hash = "sha256:4c220c5b890e754747d780c1ea32d056dbaf4045fd0dbacca508b5b4f6761daf", size = 19970, upload-time = "2026-01-16T14:42:38.927Z" },
 ]
 
 [[package]]

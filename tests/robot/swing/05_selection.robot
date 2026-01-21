@@ -19,53 +19,48 @@ Force Tags        selection    regression
 # =============================================================================
 
 Select Item From ComboBox By Name
-    [Documentation]    Select an item from a combo box using name selector.
-    [Tags]    smoke    positive
+    [Documentation]    Select an item from a combo box using name selector with assertion.
+    [Tags]    smoke    positive    assertion-operator
     Select Selections Tab
     Select From Combobox    JComboBox[name='categoryComboBox']    Electronics
-    # Verify selection was applied
-    ${text}=    Get Element Text    JComboBox[name='categoryComboBox']
-    Should Contain    ${text}    Electronics    Combo selection should be visible
+    # Verify selection was applied using assertion operator
+    Get Text    JComboBox[name='categoryComboBox']    *=    Electronics
 
 Select Item From ComboBox By ID
-    [Documentation]    Select an item using ID-style selector.
-    [Tags]    positive
+    [Documentation]    Select an item using ID-style selector with assertion.
+    [Tags]    positive    assertion-operator
     Select Selections Tab
     Select From Combobox    \#categoryComboBox    Clothing
-    ${text}=    Get Element Text    \#categoryComboBox
-    Should Contain    ${text}    Clothing    ID selector combo selection should work
+    Get Text    \#categoryComboBox    *=    Clothing
 
 Select Multiple Items From ComboBox
-    [Documentation]    Select different items sequentially.
-    [Tags]    positive
+    [Documentation]    Select different items sequentially with assertion.
+    [Tags]    positive    assertion-operator
     Select Selections Tab
     Select From Combobox    [name='categoryComboBox']    Books
     Select From Combobox    [name='categoryComboBox']    Sports
     Select From Combobox    [name='categoryComboBox']    Toys
-    ${text}=    Get Element Text    [name='categoryComboBox']
-    Should Contain    ${text}    Toys    Final selection should be Toys
+    Get Text    [name='categoryComboBox']    *=    Toys
 
 Select Item From ComboBox Using XPath
-    [Documentation]    Select item using XPath selector.
-    [Tags]    positive    xpath-locator
+    [Documentation]    Select item using XPath selector with assertion.
+    [Tags]    positive    xpath-locator    assertion-operator
     Select Selections Tab
     Select From Combobox    //JComboBox[@name='categoryComboBox']    Home & Garden
-    ${text}=    Get Element Text    //JComboBox[@name='categoryComboBox']
-    Should Contain    ${text}    Home & Garden    XPath combo selection should work
+    Get Text    //JComboBox[@name='categoryComboBox']    *=    Home & Garden
 
 # =============================================================================
 # CHECKBOX OPERATIONS
 # =============================================================================
 
 Check Checkbox By Name
-    [Documentation]    Check a checkbox using name selector.
-    [Tags]    smoke    positive
+    [Documentation]    Check a checkbox using name selector with assertion.
+    [Tags]    smoke    positive    assertion-operator
     Select Selections Tab
     Check Checkbox    JCheckBox[name='enabledCheckBox']
     Sleep    0.3s    Wait for UI update
-    # Verify checkbox is now selected
-    ${selected}=    Get Element Property    JCheckBox[name='enabledCheckBox']    selected
-    Should Be True    ${selected}    Checkbox should be selected after check
+    # Verify checkbox is now selected using assertion operator
+    Get Property    JCheckBox[name='enabledCheckBox']    selected    ==    ${TRUE}
 
 Check Checkbox By ID
     [Documentation]    Check a checkbox using ID-style selector.

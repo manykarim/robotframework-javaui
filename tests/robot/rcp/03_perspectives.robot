@@ -180,8 +180,7 @@ Get Available Perspectives Successfully
     ${perspectives}=    Get Available Perspectives
     Should Not Be Empty    ${perspectives}
     ${count}=    Get Length    ${perspectives}
-    Should Be True    ${count} >= 1
-    Log    Found ${count} available perspectives
+    Should Be True    ${count} >= 1    Should have at least one perspective
 
 Get Available Perspectives Returns List
     [Documentation]    Verify available perspectives is returned as a list.
@@ -211,7 +210,7 @@ Get Available Perspectives Multiple Times
     ${perspectives2}=    Get Available Perspectives
     ${count1}=    Get Length    ${perspectives1}
     ${count2}=    Get Length    ${perspectives2}
-    Should Be Equal    ${count1}    ${count2}
+    Should Be Equal    ${count1}    ${count2}    Should return consistent results
 
 Get Available Perspectives Without Connection Fails
     [Documentation]    Verify getting perspectives fails without connection.

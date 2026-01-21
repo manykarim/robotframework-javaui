@@ -1,10 +1,12 @@
-# Robot Framework Swing Library
+# Robot Framework Java GUI Library
 
-A high-performance Robot Framework library for automating Java Swing applications. Built with Rust and PyO3 for optimal performance, this library provides comprehensive support for testing Swing-based desktop applications.
+A high-performance Robot Framework library for automating Java **Swing**, **SWT**, and **Eclipse RCP** applications. Built with Rust and PyO3 for optimal performance, this library provides comprehensive support for testing Java desktop applications with modern inline assertions.
 
 ## Features
 
 - **High Performance**: Core library written in Rust with PyO3 bindings for Python
+- **Multi-Framework Support**: Java Swing, SWT (Standard Widget Toolkit), and Eclipse RCP
+- **Inline Assertions**: Browser Library-style assertions with automatic retry (via `robotframework-assertion-engine`)
 - **CSS-like Selectors**: Intuitive element locators similar to web testing
 - **XPath Support**: Full XPath-style locator syntax for complex queries
 - **Comprehensive Component Support**: Buttons, text fields, tables, trees, lists, menus, and more
@@ -15,11 +17,20 @@ A high-performance Robot Framework library for automating Java Swing application
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Libraries](#libraries)
 - [Locator Syntax](#locator-syntax)
+- [Assertion Engine](#assertion-engine)
 - [Keywords Reference](#keywords-reference)
+  - [Swing Keywords](#swing-keywords)
+  - [SWT Keywords](#swt-keywords)
+  - [RCP Keywords](#rcp-keywords)
 - [Examples](#examples)
+  - [Swing Examples](#swing-examples)
+  - [SWT Examples](#swt-examples)
+  - [RCP Examples](#rcp-examples)
 - [Architecture](#architecture)
 - [Development](#development)
+- [Troubleshooting](#troubleshooting)
 - [License](#license)
 
 ## Installation
@@ -27,8 +38,19 @@ A high-performance Robot Framework library for automating Java Swing application
 ### Prerequisites
 
 - Python 3.8 or higher
-- Java 11 or higher (for running Swing applications)
+- Java 11 or higher (for running Java applications)
 - Rust toolchain (for building from source)
+- Maven (for building the Java agent)
+
+### Install from PyPI
+
+```bash
+# Install the library with pip
+pip install robotframework-javagui
+
+# Or install with uv (recommended)
+uv pip install robotframework-javagui
+```
 
 ### Install from Source
 
@@ -44,9 +66,19 @@ uv pip install -e .
 pip install -e .
 ```
 
+### Dependencies
+
+The library automatically installs these dependencies:
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `robotframework` | >=4.0 | Test automation framework |
+| `robotframework-assertion-engine` | >=3.0.0 | Inline assertions with retry |
+| `docutils` | >=0.20.1 | Documentation generation |
+
 ### Build the Java Agent
 
-The Java agent is required for instrumenting Swing applications:
+The Java agent is required for instrumenting Java applications:
 
 ```bash
 cd agent
@@ -66,17 +98,26 @@ mvn package
 
 ## Quick Start
 
-### 1. Start Your Swing Application with the Agent
+### 1. Start Your Java Application with the Agent
 
 ```bash
-java -javaagent:path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar=port=5678 -jar your-app.jar
+# For Swing applications
+java -javaagent:path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar=port=5678 -jar your-swing-app.jar
+
+# For SWT applications
+java -javaagent:path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar=port=5678 -jar your-swt-app.jar
+
+# For Eclipse RCP applications
+eclipse -vmargs -javaagent:path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar=port=5678
 ```
 
 ### 2. Create a Robot Framework Test
 
 ```robotframework
 *** Settings ***
-Library    swing_library.SwingLibrary
+Library    JavaGui.Swing    # For Swing applications
+# Library    JavaGui.Swt    # For SWT applications
+# Library    JavaGui.Rcp    # For Eclipse RCP applications
 
 *** Test Cases ***
 Example Login Test
@@ -84,7 +125,8 @@ Example Login Test
     Input Text    [name='username']    admin
     Input Text    [name='password']    secret
     Click    JButton[text='Login']
-    Element Should Exist    JLabel[text='Welcome']
+    # Using inline assertion with retry
+    Get Text    JLabel[name='status']    ==    Welcome
     [Teardown]    Disconnect
 ```
 
@@ -92,6 +134,31 @@ Example Login Test
 
 ```bash
 robot my_test.robot
+```
+
+## Libraries
+
+This package provides three libraries for different Java GUI frameworks:
+
+| Library | Import | Use Case |
+|---------|--------|----------|
+| **Swing** | `Library    JavaGui.Swing` | Java Swing applications (JButton, JTable, etc.) |
+| **Swt** | `Library    JavaGui.Swt` | SWT applications (Eclipse widgets) |
+| **Rcp** | `Library    JavaGui.Rcp` | Eclipse RCP applications (views, editors, perspectives) |
+
+### Library Import Options
+
+```robotframework
+*** Settings ***
+# Basic import
+Library    JavaGui.Swing
+
+# With options
+Library    JavaGui.Swing    timeout=30    screenshot_dir=screenshots
+
+# Multiple libraries (if needed)
+Library    JavaGui.Swing    WITH NAME    Swing
+Library    JavaGui.Rcp    WITH NAME    Rcp
 ```
 
 ## Locator Syntax
@@ -136,7 +203,212 @@ JPanel[name='form'] JTextField:visible
 //JTable[@name='data']//JButton[@text='Edit']
 ```
 
+## Assertion Engine
+
+This library integrates `robotframework-assertion-engine` (v3.0.0+) to provide **inline assertions with automatic retry**, following the Browser Library pattern. This enables more concise and readable tests.
+
+### Basic Usage
+
+Get keywords can optionally perform assertions with automatic retry:
+
+```robotframework
+*** Test Cases ***
+Example With Assertions
+    # Without assertion - returns value
+    ${text}=    Get Text    JLabel[name='status']
+
+    # With assertion - asserts with automatic retry (5s default)
+    Get Text    JLabel[name='status']    ==    Ready
+
+    # With custom timeout
+    Get Text    JLabel[name='status']    ==    Ready    timeout=10
+
+    # With custom message
+    Get Text    JLabel[name='status']    ==    Ready    message=Status not ready
+```
+
+### Assertion Operators
+
+| Operator | Aliases | Description | Example |
+|----------|---------|-------------|---------|
+| `==` | `equal`, `equals`, `should be` | Exact equality | `Get Text    loc    ==    Hello` |
+| `!=` | `inequal`, `should not be` | Not equal | `Get Text    loc    !=    Error` |
+| `<` | `less than` | Less than (numeric) | `Get Element Count    JButton    <    10` |
+| `>` | `greater than` | Greater than (numeric) | `Get Table Row Count    loc    >    0` |
+| `<=` | | Less or equal | `Get Element Count    loc    <=    5` |
+| `>=` | | Greater or equal | `Get Table Row Count    loc    >=    1` |
+| `*=` | `contains` | Contains substring/item | `Get Text    loc    contains    success` |
+| `^=` | `starts` | Starts with | `Get Text    loc    starts    Hello` |
+| `$=` | `ends` | Ends with | `Get Text    loc    ends    world` |
+| `matches` | | Regex match | `Get Text    loc    matches    \\d{3}-\\d{4}` |
+| `validate` | | Custom expression | `Get Text    loc    validate    len(value) > 5` |
+| `then` | | Return value only (no assert) | `${v}=    Get Text    loc    then    ` |
+
+### Formatters
+
+Apply text transformations before assertion:
+
+```robotframework
+*** Test Cases ***
+Using Formatters
+    # Normalize spaces and strip whitespace
+    Get Text    JLabel[name='title']    ==    Hello World    formatters=['normalize_spaces', 'strip']
+
+    # Case-insensitive comparison
+    Get Text    JLabel[name='status']    ==    ready    formatters=['lowercase']
+```
+
+| Formatter | Description |
+|-----------|-------------|
+| `normalize_spaces` | Collapse multiple whitespace to single space |
+| `strip` | Remove leading/trailing whitespace |
+| `lowercase` | Convert to lowercase |
+| `uppercase` | Convert to uppercase |
+
+### Element States
+
+The `Get Element States` keyword returns element states that can be asserted:
+
+```robotframework
+*** Test Cases ***
+Assert Element States
+    # Check element is visible and enabled
+    Get Element States    JButton[name='submit']    contains    enabled
+    Get Element States    JButton[name='submit']    contains    visible
+
+    # Check multiple states
+    ${states}=    Get Element States    JButton[name='submit']
+    Should Contain    ${states}    enabled
+    Should Contain    ${states}    visible
+```
+
+**Available States**: `visible`, `hidden`, `enabled`, `disabled`, `focused`, `unfocused`, `selected`, `unselected`, `checked`, `unchecked`, `editable`, `readonly`, `expanded`, `collapsed`, `attached`, `detached`
+
+### Configuration
+
+Configure assertion behavior globally or per-keyword:
+
+```robotframework
+*** Test Cases ***
+Configure Assertions
+    # Set default timeout for all assertions
+    Set Assertion Timeout    10
+
+    # Set retry interval
+    Set Assertion Interval    0.2
+
+    # Override per keyword call
+    Get Text    JLabel[name='status']    ==    Ready    timeout=30
+```
+
+### Validate Operator (Custom Expressions)
+
+The `validate` operator allows custom Python expressions:
+
+```robotframework
+*** Test Cases ***
+Custom Validation
+    # Validate with custom expression (value is the retrieved value)
+    Get Text    JLabel[name='count']    validate    int(value) > 10
+    Get Text    JLabel[name='email']    validate    '@' in value and '.' in value
+    Get Element Count    JButton    validate    value % 2 == 0    # Even number
+```
+
+**Security Note**: The `validate` operator uses a secure expression evaluator that blocks dangerous operations like `eval`, `exec`, file access, and attribute manipulation.
+
 ## Keywords Reference
+
+### Swing Keywords
+
+#### Assertion-Enabled Get Keywords
+
+These keywords support inline assertions with automatic retry:
+
+| Keyword | Arguments | Description |
+|---------|-----------|-------------|
+| `Get Text` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=`, `formatters=` | Get element text with optional assertion |
+| `Get Value` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get input field value with optional assertion |
+| `Get Element Count` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Count matching elements with optional numeric assertion |
+| `Get Element States` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get element states (visible, enabled, etc.) with optional assertion |
+| `Get Property` | `locator`, `property_name`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get element property with optional assertion |
+| `Get Properties` | `locator`, `assertion_operator=`, `expected=`, `message=` | Get dict of common properties |
+
+#### Table Keywords with Assertions
+
+| Keyword | Arguments | Description |
+|---------|-----------|-------------|
+| `Get Table Cell Value` | `locator`, `row`, `column`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get cell value with optional assertion |
+| `Get Table Row Count` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get row count with optional numeric assertion |
+| `Get Table Column Count` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get column count with optional numeric assertion |
+| `Get Table Row Values` | `locator`, `row`, `assertion_operator=`, `expected=`, `message=` | Get all values from a row |
+| `Get Table Column Values` | `locator`, `column`, `assertion_operator=`, `expected=`, `message=` | Get all values from a column |
+
+#### Tree Keywords with Assertions
+
+| Keyword | Arguments | Description |
+|---------|-----------|-------------|
+| `Get Tree Node Count` | `locator`, `path`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get child node count with optional assertion |
+| `Get Tree Node Children` | `locator`, `path`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get child nodes with optional assertion |
+
+#### List Keywords with Assertions
+
+| Keyword | Arguments | Description |
+|---------|-----------|-------------|
+| `Get List Items` | `locator`, `assertion_operator=`, `expected=`, `message=` | Get list items with optional assertion |
+| `Get List Item Count` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get item count with optional numeric assertion |
+
+#### Configuration Keywords
+
+| Keyword | Arguments | Description |
+|---------|-----------|-------------|
+| `Set Assertion Timeout` | `timeout` | Set default assertion retry timeout (seconds) |
+| `Set Assertion Interval` | `interval` | Set retry interval between attempts (seconds) |
+
+### SWT Keywords
+
+#### Assertion-Enabled Get Keywords
+
+| Keyword | Arguments | Description |
+|---------|-----------|-------------|
+| `Get Widget Text` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get SWT widget text with optional assertion |
+| `Get Widget Count` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Count SWT widgets with optional assertion |
+| `Get Widget Property` | `locator`, `property_name`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get SWT property with optional assertion |
+| `Is Widget Enabled` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Check widget enabled state |
+
+#### SWT Table Keywords with Assertions
+
+| Keyword | Arguments | Description |
+|---------|-----------|-------------|
+| `Get SWT Table Cell Value` | `locator`, `row`, `column`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get SWT table cell value |
+| `Get SWT Table Row Count` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get SWT table row count |
+| `Get SWT Table Column Count` | `locator`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get SWT table column count |
+
+#### SWT Tree Keywords with Assertions
+
+| Keyword | Arguments | Description |
+|---------|-----------|-------------|
+| `Get SWT Tree Node Count` | `locator`, `path`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get SWT tree node count |
+| `Get SWT Tree Node Children` | `locator`, `path`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get SWT tree node children |
+
+#### SWT Configuration Keywords
+
+| Keyword | Arguments | Description |
+|---------|-----------|-------------|
+| `Set SWT Assertion Timeout` | `timeout` | Set SWT assertion retry timeout |
+| `Set SWT Assertion Interval` | `interval` | Set SWT retry interval |
+
+### RCP Keywords
+
+#### Assertion-Enabled RCP Keywords
+
+| Keyword | Arguments | Description |
+|---------|-----------|-------------|
+| `Get Open View Count` | `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get count of open views with optional assertion |
+| `Get Open Editor Count` | `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get count of open editors with optional assertion |
+| `Get Active Perspective Id` | `assertion_operator=`, `expected=`, `message=`, `timeout=` | Get active perspective ID with optional assertion |
+| `Get Editor Dirty State` | `title`, `assertion_operator=`, `expected=`, `message=`, `timeout=` | Check if editor has unsaved changes |
+
+### Common Keywords (All Libraries)
 
 ### Connection Keywords
 
@@ -254,12 +526,14 @@ JPanel[name='form'] JTextField:visible
 
 ## Examples
 
-### Complete Login Test Suite
+### Swing Examples
+
+#### Login Test with Assertions
 
 ```robotframework
 *** Settings ***
-Documentation     Login functionality test suite
-Library           swing_library.SwingLibrary
+Documentation     Login functionality test suite with assertion engine
+Library           JavaGui.Swing
 Library           Process
 Suite Setup       Start Application
 Suite Teardown    Stop Application
@@ -268,13 +542,11 @@ Suite Teardown    Stop Application
 ${APP_JAR}        path/to/myapp.jar
 ${AGENT_JAR}      path/to/robotframework-swing-agent-1.0.0-jar-with-dependencies.jar
 ${PORT}           5678
-${STDOUT_LOG}     ${OUTPUT DIR}${/}app-stdout.log
-${STDERR_LOG}     ${OUTPUT DIR}${/}app-stderr.log
 
 *** Keywords ***
 Start Application
     ${cmd}=    Set Variable    java -javaagent:${AGENT_JAR}=port=${PORT} -jar ${APP_JAR}
-    Start Process    ${cmd}    shell=True    alias=app    stdout=${STDOUT_LOG}    stderr=${STDERR_LOG}
+    Start Process    ${cmd}    shell=True    alias=app
     Sleep    3s
     Connect To Application    main_class=com.example.MyApp    port=${PORT}
 
@@ -284,182 +556,274 @@ Stop Application
 
 *** Test Cases ***
 Valid Login Should Succeed
-    [Documentation]    Test successful login with valid credentials
-    Clear Text    JTextField[name='username']
-    Clear Text    JPasswordField[name='password']
+    [Documentation]    Test login with inline assertions
     Input Text    JTextField[name='username']    admin
     Input Text    JPasswordField[name='password']    password123
     Click    JButton[text='Login']
-    Wait Until Element Visible    JLabel[text*='Welcome']    timeout=5
+    # Inline assertion with automatic retry
+    Get Text    JLabel[name='status']    ==    Welcome, admin!    timeout=5
 
 Invalid Login Should Show Error
-    [Documentation]    Test error message with invalid credentials
-    Clear Text    [name='username']
-    Clear Text    [name='password']
+    [Documentation]    Test error handling with assertions
     Input Text    [name='username']    invalid
     Input Text    [name='password']    wrong
     Click    JButton[text='Login']
-    Wait Until Element Contains    JLabel[name='status']    Invalid    timeout=5
+    # Assert text contains with retry
+    Get Text    JLabel[name='status']    contains    Invalid credentials
 
-Empty Fields Should Be Rejected
-    [Documentation]    Test validation for empty fields
-    Clear Text    [name='username']
-    Clear Text    [name='password']
-    Click    JButton[text='Login']
-    Element Should Exist    JLabel[text*='required']
+Verify Button States
+    [Documentation]    Test element states with assertions
+    # Check submit button is enabled
+    Get Element States    JButton[name='submit']    contains    enabled
+    # Check login form is visible
+    Get Element States    JPanel[name='loginForm']    contains    visible
 ```
 
-### Table Data Verification
+#### Table Operations with Assertions
 
 ```robotframework
 *** Test Cases ***
-Verify Table Contains Expected Data
-    [Documentation]    Verify table displays correct data
-    ${row_count}=    Get Table Row Count    JTable[name='dataTable']
-    Should Be True    ${row_count} >= 5
+Verify Table Data With Assertions
+    [Documentation]    Table verification using assertion engine
+    # Assert minimum row count
+    Get Table Row Count    JTable[name='dataTable']    >=    5
 
-    # Verify first row
-    ${name}=    Get Table Cell Value    JTable[name='dataTable']    0    1
-    Should Be Equal    ${name}    John Doe
+    # Assert cell values with retry
+    Get Table Cell Value    JTable[name='dataTable']    0    1    ==    John Doe
+    Get Table Cell Value    JTable[name='dataTable']    0    2    contains    @example.com
 
-    ${email}=    Get Table Cell Value    JTable[name='dataTable']    0    2
-    Should Be Equal    ${email}    john@example.com
+    # Assert column count
+    Get Table Column Count    JTable[name='dataTable']    ==    5
 
-Iterate Through Table Rows
-    [Documentation]    Process all table rows
-    ${data}=    Get Table Data    JTable[name='dataTable']
-    FOR    ${row}    IN    @{data}
-        Log    Processing: ${row}
-    END
+Process Table Rows With Validation
+    [Documentation]    Iterate and validate table rows
+    # First verify we have data
+    Get Table Row Count    JTable[name='users']    >    0
 
-Navigate Table With Loops
-    [Documentation]    Navigate through table cells
-    FOR    ${row}    IN RANGE    0    3
-        FOR    ${col}    IN RANGE    0    5
-            ${value}=    Get Table Cell Value    [name='dataTable']    ${row}    ${col}
-            Log    Cell [${row}][${col}] = ${value}
-        END
-    END
+    # Get row values and validate
+    ${row}=    Get Table Row Values    JTable[name='users']    0
+    Should Not Be Empty    ${row}
 ```
 
-### Tree Navigation
+#### Tree Navigation with Assertions
 
 ```robotframework
 *** Test Cases ***
-Navigate File Tree
-    [Documentation]    Navigate through tree structure
-    Element Should Exist    JTree[name='fileTree']
-
-    # Expand nodes
+Navigate And Validate Tree
+    [Documentation]    Tree operations with assertion engine
+    # Expand and verify node count
     Expand Tree Node    JTree[name='fileTree']    Root
-    Expand Tree Node    JTree[name='fileTree']    Root/Documents
+    Get Tree Node Count    JTree[name='fileTree']    Root    >    0
 
-    # Select a node
-    Select Tree Node    JTree[name='fileTree']    Root/Documents/Reports
-
-    # Verify selection
-    ${nodes}=    Get Tree Nodes    JTree[name='fileTree']
-    Should Not Be Empty    ${nodes}
+    # Verify children exist
+    Get Tree Node Children    JTree[name='fileTree']    Root    contains    Documents
 ```
 
-### Menu Operations
+### SWT Examples
+
+#### SWT Application Testing
+
+```robotframework
+*** Settings ***
+Documentation     SWT application test suite
+Library           JavaGui.Swt
+Suite Setup       Connect To SWT Application
+Suite Teardown    Disconnect
+
+*** Keywords ***
+Connect To SWT Application
+    Connect To Application    main_class=com.example.SwtApp    port=5678
+
+*** Test Cases ***
+Verify SWT Widget Text
+    [Documentation]    Test SWT text retrieval with assertions
+    # Assert label text
+    Get Widget Text    Label[name='status']    ==    Ready
+
+    # Assert with formatters
+    Get Widget Text    Label[name='title']    ==    application name    formatters=['lowercase', 'strip']
+
+    # Assert text contains
+    Get Widget Text    Text[name='description']    contains    Welcome
+
+Verify SWT Widget States
+    [Documentation]    Test SWT widget states
+    # Check widget is enabled
+    Is Widget Enabled    Button[name='submit']    ==    ${True}
+
+    # Get widget count
+    Get Widget Count    Button    >    5
+
+SWT Table Verification
+    [Documentation]    SWT table testing with assertions
+    # Assert table has data
+    Get SWT Table Row Count    Table[name='data']    >=    1
+
+    # Assert cell value
+    Get SWT Table Cell Value    Table[name='data']    0    0    ==    First Row
+
+SWT Tree Navigation
+    [Documentation]    SWT tree testing
+    # Verify tree has children
+    Get SWT Tree Node Count    Tree[name='nav']    Root    >    0
+
+    # Verify specific children exist
+    Get SWT Tree Node Children    Tree[name='nav']    Root    contains    Settings
+
+SWT Property Assertions
+    [Documentation]    Assert widget properties
+    # Check specific property
+    Get Widget Property    Button[name='submit']    enabled    ==    true
+    Get Widget Property    Text[name='input']    editable    ==    true
+```
+
+### RCP Examples
+
+#### Eclipse RCP Application Testing
+
+```robotframework
+*** Settings ***
+Documentation     Eclipse RCP application test suite
+Library           JavaGui.Rcp
+Suite Setup       Connect To RCP Application
+Suite Teardown    Disconnect
+
+*** Keywords ***
+Connect To RCP Application
+    # Start Eclipse with agent
+    # eclipse -vmargs -javaagent:path/to/agent.jar=port=5678
+    Connect To Application    main_class=org.eclipse.ui.PlatformUI    port=5678
+
+*** Test Cases ***
+Verify Perspective
+    [Documentation]    Test RCP perspective with assertions
+    # Assert active perspective
+    Get Active Perspective Id    ==    org.eclipse.ui.resourcePerspective
+
+    # Or use contains for partial match
+    Get Active Perspective Id    contains    resource
+
+Verify Open Views
+    [Documentation]    Test RCP views with assertions
+    # Assert at least one view is open
+    Get Open View Count    >=    1
+
+    # Assert specific number of views
+    Get Open View Count    ==    3    message=Expected 3 views to be open
+
+Verify Open Editors
+    [Documentation]    Test RCP editors with assertions
+    # Assert editors are open
+    Get Open Editor Count    >    0
+
+    # After opening specific file
+    Get Open Editor Count    ==    2
+
+Test Editor Dirty State
+    [Documentation]    Test unsaved changes detection
+    # Verify editor has no unsaved changes
+    Get Editor Dirty State    MyFile.java    ==    ${False}
+
+    # After making changes
+    Input Text    StyledText[name='editor']    // new code
+    Get Editor Dirty State    MyFile.java    ==    ${True}
+
+Complete RCP Workflow
+    [Documentation]    Full RCP workflow with assertions
+    # Verify starting state
+    Get Active Perspective Id    contains    Java
+
+    # Open a view and verify count increases
+    ${initial_views}=    Get Open View Count
+    Click    JMenuItem[text='Show View']
+    Click    JMenuItem[text='Console']
+    Get Open View Count    >    ${initial_views}
+
+    # Open editor and verify
+    Double Click    TreeItem[text='MyProject/src/Main.java']
+    Get Open Editor Count    >=    1
+    Get Editor Dirty State    Main.java    ==    ${False}
+```
+
+### Advanced Examples
+
+#### Using Formatters
 
 ```robotframework
 *** Test Cases ***
-Navigate Application Menu
-    [Documentation]    Test menu navigation
-    Element Should Exist    JMenu[text='File']
-    Element Should Exist    JMenu[text='Edit']
-    Element Should Exist    JMenu[text='Help']
+Text Formatting Examples
+    [Documentation]    Using formatters for flexible assertions
+    # Normalize whitespace before comparison
+    Get Text    JLabel[name='formatted']    ==    Hello World    formatters=['normalize_spaces']
 
-    # Click menu
-    Click    JMenu[text='File']
-    Sleep    0.3s
-    Element Should Be Visible    JMenuItem[name='menuNew']
+    # Case-insensitive comparison
+    Get Text    JLabel[name='status']    ==    success    formatters=['lowercase']
+
+    # Chain multiple formatters
+    Get Text    JLabel[name='message']    ==    hello    formatters=['strip', 'lowercase']
 ```
 
-### Form Control Interactions
+#### Custom Validation
 
 ```robotframework
 *** Test Cases ***
-Fill Complete Form
-    [Documentation]    Test various form controls
-    # Text fields
-    Input Text    JTextField[name='firstName']    John
-    Input Text    JTextField[name='lastName']    Doe
+Custom Validation Examples
+    [Documentation]    Using validate operator for complex assertions
+    # Validate numeric range
+    Get Text    JLabel[name='count']    validate    10 <= int(value) <= 100
 
-    # Combo box (dropdown)
-    Select From Combobox    JComboBox[name='country']    United States
+    # Validate email format
+    Get Text    JTextField[name='email']    validate    '@' in value and '.' in value
 
-    # Checkbox
-    Check Checkbox    JCheckBox[name='subscribe']
+    # Validate string length
+    Get Text    JTextField[name='code']    validate    len(value) == 6
 
-    # Radio buttons
-    Select Radio Button    JRadioButton[name='optionA']
-
-    # Text area
-    Input Text    JTextArea[name='comments']    This is a comment.
-
-    # Submit
-    Click    JButton[text='Submit']
+    # Validate with regex
+    Get Text    JLabel[name='phone']    matches    ^\\d{3}-\\d{3}-\\d{4}$
 ```
 
-### Wait and Synchronization
+#### Handling Dynamic Content
 
 ```robotframework
 *** Test Cases ***
-Wait For Dynamic Content
-    [Documentation]    Handle asynchronous updates
+Dynamic Content With Assertions
+    [Documentation]    Handle async updates with assertion retry
     Click    JButton[name='loadData']
 
-    # Wait for loading indicator to disappear
-    Wait Until Element Not Visible    JLabel[name='loading']    timeout=10
-
-    # Wait for data to appear
-    Wait Until Element Visible    JTable[name='results']    timeout=10
-
-    # Verify data loaded
-    ${count}=    Get Table Row Count    JTable[name='results']
-    Should Be True    ${count} > 0
-```
-
-### UI Tree Debugging
-
-```robotframework
-*** Test Cases ***
-Debug UI Structure
-    [Documentation]    Inspect application UI structure
-    # Log full UI tree
-    Log Ui Tree
-
-    # Get tree as text
-    ${tree}=    Get Ui Tree    format=text
-    Should Contain    ${tree}    JButton
-    Should Contain    ${tree}    JTextField
-
-    # Find all buttons
-    ${buttons}=    Find Elements    JButton
-    ${count}=    Get Length    ${buttons}
-    Log    Found ${count} buttons
+    # Assertions auto-retry until timeout
+    Get Element States    JLabel[name='loading']    contains    hidden    timeout=10
+    Get Table Row Count    JTable[name='results']    >    0    timeout=10
+    Get Text    JLabel[name='status']    ==    Data loaded    timeout=15
 ```
 
 ## Architecture
 
 ```
-robotframework-javaui/
-├── python/                 # Python package
-│   └── swing_library/      # Robot Framework library
-│       └── __init__.py     # SwingLibrary class
-├── src/                    # Rust source code
-│   ├── lib.rs              # PyO3 bindings
-│   ├── locator/            # Locator parsing (pest grammar)
-│   ├── connection/         # RPC client
-│   └── element/            # Element operations
-├── agent/                  # Java agent
-│   └── src/                # Agent source
-├── demo/                   # Demo Swing application
-└── tests/                  # Test suites
-    └── robot/              # Robot Framework tests
+robotframework-javagui/
+├── python/                     # Python package
+│   └── JavaGui/                # Robot Framework library
+│       ├── __init__.py         # Library exports (Swing, Swt, Rcp)
+│       ├── assertions/         # Assertion engine integration
+│       │   ├── __init__.py     # Retry wrappers, ElementState
+│       │   ├── formatters.py   # Text formatters
+│       │   └── security.py     # Secure expression evaluator
+│       └── keywords/           # Keyword implementations
+│           ├── getters.py      # Swing Get* keywords
+│           ├── tables.py       # Swing Table/Tree/List keywords
+│           ├── swt_getters.py  # SWT Get* keywords
+│           ├── swt_tables.py   # SWT Table keywords
+│           ├── swt_trees.py    # SWT Tree keywords
+│           └── rcp_keywords.py # RCP-specific keywords
+├── src/                        # Rust source code
+│   ├── lib.rs                  # PyO3 bindings
+│   ├── locator/                # Locator parsing (pest grammar)
+│   ├── connection/             # RPC client
+│   └── element/                # Element operations
+├── agent/                      # Java agent
+│   └── src/                    # Agent source
+├── demo/                       # Demo Swing application
+└── tests/                      # Test suites
+    └── robot/                  # Robot Framework tests
 ```
 
 ### How It Works
@@ -467,7 +831,24 @@ robotframework-javaui/
 1. **Java Agent**: Attaches to the JVM and provides RPC endpoints for UI inspection and control
 2. **Rust Core**: High-performance element matching, locator parsing, and RPC communication
 3. **Python Bindings**: PyO3-based interface exposing Robot Framework keywords
-4. **Robot Framework**: Test execution and reporting
+4. **Assertion Engine**: Integration with `robotframework-assertion-engine` for inline assertions with retry
+5. **Robot Framework**: Test execution and reporting
+
+### Assertion Flow
+
+```
+Get Text keyword called with assertion operator
+    ↓
+Retry wrapper starts (default 5s timeout, 0.1s interval)
+    ↓
+Get value from Java agent via Rust core
+    ↓
+Apply formatters (if specified)
+    ↓
+AssertionEngine.verify_assertion() checks condition
+    ↓
+Pass: Return value | Fail: Retry until timeout
+```
 
 ## Development
 
@@ -532,13 +913,48 @@ java -javaagent:swing-agent.jar=port=5678,debug=true -jar app.jar
 
 ```robotframework
 *** Settings ***
-Library    swing_library.SwingLibrary    timeout=30    screenshot_dir=screenshots
+# Swing library with options
+Library    JavaGui.Swing    timeout=30    screenshot_dir=screenshots
+
+# SWT library
+Library    JavaGui.Swt    timeout=30
+
+# RCP library
+Library    JavaGui.Rcp    timeout=30
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `timeout` | 10 | Default wait timeout (seconds) |
 | `screenshot_dir` | . | Screenshot output directory |
+
+### Assertion Configuration
+
+Configure assertion behavior in your test:
+
+```robotframework
+*** Test Cases ***
+Configure Assertion Defaults
+    # Set default assertion retry timeout (seconds)
+    Set Assertion Timeout    10
+
+    # Set retry interval between attempts (seconds)
+    Set Assertion Interval    0.2
+
+    # For SWT library
+    Set SWT Assertion Timeout    10
+    Set SWT Assertion Interval    0.2
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Assertion Timeout | 5.0 | How long to retry assertion before failing |
+| Assertion Interval | 0.1 | Time between retry attempts |
+
+**Timeout Priority** (highest to lowest):
+1. Keyword argument: `Get Text    loc    ==    value    timeout=30`
+2. Library configuration: `Set Assertion Timeout    10`
+3. Global default: 5.0 seconds
 
 ## Troubleshooting
 
@@ -572,6 +988,55 @@ SwingConnectionError: EDT callable failed
 - Use wait keywords before interacting
 - Ensure proper tab/window focus
 
+### Assertion Timeout Errors
+
+```
+AssertionError: Get Text: Timeout 5.0s exceeded
+```
+
+- Increase timeout: `Get Text    loc    ==    value    timeout=30`
+- Check if element exists and has the expected value
+- Use `Log Ui Tree` to verify element state
+- Consider if the value changes dynamically (use longer timeout)
+
+### Assertion Value Mismatch
+
+```
+AssertionError: Get Text: 'Actual Value' should be 'Expected Value'
+```
+
+- Check for whitespace issues - use `formatters=['strip', 'normalize_spaces']`
+- Check for case sensitivity - use `formatters=['lowercase']`
+- Verify the expected value matches exactly (or use `contains` operator)
+
+### Validate Expression Errors
+
+```
+SecurityError: Expression contains blocked operation
+```
+
+- The `validate` operator blocks dangerous operations for security
+- Only use allowed builtins: `len`, `int`, `str`, `bool`, `float`, etc.
+- Avoid: `eval`, `exec`, `open`, `__import__`, attribute access like `__class__`
+
+### SWT/RCP Specific Issues
+
+```
+SWTException: Widget is disposed
+```
+
+- The widget was destroyed before the operation completed
+- Add wait for the widget to be ready
+- Check if a dialog or view was closed unexpectedly
+
+```
+WorkbenchException: View not found
+```
+
+- Verify the view ID is correct
+- Ensure the perspective allows the view
+- Check if the view is available in the current product
+
 ## Contributing
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -583,5 +1048,7 @@ Apache License 2.0. See [LICENSE](LICENSE) for details.
 ## Acknowledgments
 
 - [Robot Framework](https://robotframework.org/) - Test automation framework
+- [robotframework-assertion-engine](https://github.com/MarketSquare/robotframework-assertion-engine) - Inline assertion library
+- [Browser Library](https://robotframework-browser.org/) - Inspiration for inline assertion pattern
 - [PyO3](https://pyo3.rs/) - Rust bindings for Python
 - [pest](https://pest.rs/) - Parser library for Rust

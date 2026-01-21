@@ -1,20 +1,17 @@
 *** Settings ***
 Test Timeout       60s
-Documentation     Verification Tests - Testing element_should_be_visible,
-...               element_should_not_be_visible, element_should_be_enabled,
-...               element_should_be_disabled, get_element_text,
-...               element_text_should_be, element_text_should_contain,
-...               get_element_property, and selection verification keywords.
+Documentation     Verification Tests - Testing new AssertionEngine-based keywords:
+...               Get Text, Get Property, Get Properties, Get Element States
+...               with assertion operators (==, !=, *=, ^=, $=, ~=, validate).
 ...
-...               These tests verify the library's ability to assert
-...               various element states and properties.
+...               These tests demonstrate the Browser Library-style assertion syntax.
 
 Resource          resources/common.resource
 
 Suite Setup       Start Test Application
 Suite Teardown    Stop Test Application
 
-Force Tags        verification    regression
+Force Tags        verification    regression    assertion-engine
 
 *** Test Cases ***
 # =============================================================================
@@ -103,164 +100,185 @@ Element Should Be Disabled For Disabled Element
     Log    Disabled check: ${status}
 
 # =============================================================================
-# GET ELEMENT TEXT
+# GET TEXT WITH ASSERTION OPERATORS (NEW SYNTAX)
 # =============================================================================
 
-Get Element Text From Label
-    [Documentation]    Get text from a label element.
-    [Tags]    smoke    positive
-    ${text}=    Get Element Text    JLabel[text='Name:']
-    Should Not Be Empty    ${text}
-    Log    Label text: ${text}
+Get Text From Label
+    [Documentation]    Get text from a label with assertion operator.
+    [Tags]    smoke    positive    assertion-operator
+    Get Text    JLabel[text='Name:']    !=    ${EMPTY}
 
-Get Element Text From Button
-    [Documentation]    Get text from a button element.
-    [Tags]    positive
-    ${text}=    Get Element Text    JButton[name='submitButton']
-    Should Not Be Empty    ${text}
-    Log    Button text: ${text}
+Get Text From Button
+    [Documentation]    Get text from a button with assertion operator.
+    [Tags]    positive    assertion-operator
+    Get Text    JButton[name='submitButton']    !=    ${EMPTY}
 
-Get Element Text Using ID Selector
-    [Documentation]    Get text using ID-style selector.
-    [Tags]    positive
-    ${text}=    Get Element Text    \#statusLabel
+Get Text Using ID Selector
+    [Documentation]    Get text using ID-style selector with assertion.
+    [Tags]    positive    assertion-operator
+    ${text}=    Get Text    \#statusLabel
     Log    Status text: ${text}
 
-Get Element Text Using XPath
-    [Documentation]    Get text using XPath selector.
-    [Tags]    positive    xpath-locator
-    ${text}=    Get Element Text    //JLabel[@name='statusLabel']
+Get Text Using XPath
+    [Documentation]    Get text using XPath selector with assertion.
+    [Tags]    positive    xpath-locator    assertion-operator
+    ${text}=    Get Text    //JLabel[@name='statusLabel']
     Log    XPath text: ${text}
 
-Get Element Text From TextField
-    [Documentation]    Get text from a text field.
-    [Tags]    positive
+Get Text From TextField With Contains
+    [Documentation]    Get text from a text field with contains assertion.
+    [Tags]    positive    assertion-operator
     Input Text    [name='nameTextField']    testtext
-    ${text}=    Get Element Text    JTextField[name='nameTextField']
-    Should Contain    ${text}    testtext
+    Get Text    JTextField[name='nameTextField']    *=    testtext
     Clear Text    [name='nameTextField']
 
 # =============================================================================
-# ELEMENT TEXT SHOULD BE
+# TEXT EXACT MATCH WITH ASSERTION OPERATORS
 # =============================================================================
 
-Element Text Should Be Exact Match
-    [Documentation]    Verify element text matches exactly.
-    [Tags]    smoke    positive
-    Element Text Should Be    JLabel[text='Name:']    Name:
+Text Should Be Exact Match
+    [Documentation]    Verify element text matches exactly using == operator.
+    [Tags]    smoke    positive    assertion-operator
+    Get Text    JLabel[text='Name:']    ==    Name:
 
-Element Text Should Be Using ID
-    [Documentation]    Verify using ID-style selector.
-    [Tags]    positive
+Text Match Using ID
+    [Documentation]    Verify using ID-style selector with == operator.
+    [Tags]    positive    assertion-operator
     ${status}=    Run Keyword And Return Status
-    ...    Element Text Should Be    \#statusLabel    Ready
+    ...    Get Text    \#statusLabel    ==    Ready
     Log    Text match: ${status}
 
-Element Text Should Be Using XPath
-    [Documentation]    Verify using XPath selector.
-    [Tags]    positive    xpath-locator
+Text Match Using XPath
+    [Documentation]    Verify using XPath selector with == operator.
+    [Tags]    positive    xpath-locator    assertion-operator
     ${status}=    Run Keyword And Return Status
-    ...    Element Text Should Be    //JButton[@name='submitButton']    Login
+    ...    Get Text    //JButton[@name='submitButton']    ==    Login
     Log    XPath text match: ${status}
 
-Element Text Should Be For Button
-    [Documentation]    Verify button text.
-    [Tags]    positive
+Text Match For Button
+    [Documentation]    Verify button text with == operator.
+    [Tags]    positive    assertion-operator
     ${status}=    Run Keyword And Return Status
-    ...    Element Text Should Be    JButton[name='clearButton']    Clear
+    ...    Get Text    JButton[name='clearButton']    ==    Clear
     Log    Button text match: ${status}
 
 # =============================================================================
-# ELEMENT TEXT SHOULD CONTAIN
+# TEXT CONTAINS WITH ASSERTION OPERATORS
 # =============================================================================
 
-Element Text Should Contain Substring
-    [Documentation]    Verify element text contains substring.
-    [Tags]    smoke    positive
-    Element Text Should Contain    JLabel[text='Name:']    Nam
+Text Should Contain Substring
+    [Documentation]    Verify element text contains substring using *= operator.
+    [Tags]    smoke    positive    assertion-operator
+    Get Text    JLabel[text='Name:']    *=    Nam
 
-Element Text Should Contain Using ID
-    [Documentation]    Verify using ID-style selector.
-    [Tags]    positive
+Text Contains Using ID
+    [Documentation]    Verify using ID-style selector with *= operator.
+    [Tags]    positive    assertion-operator
     ${status}=    Run Keyword And Return Status
-    ...    Element Text Should Contain    \#statusLabel    Ready
+    ...    Get Text    \#statusLabel    *=    Ready
     Log    Contains match: ${status}
 
-Element Text Should Contain Using XPath
-    [Documentation]    Verify using XPath selector.
-    [Tags]    positive    xpath-locator
+Text Contains Using XPath
+    [Documentation]    Verify using XPath selector with *= operator.
+    [Tags]    positive    xpath-locator    assertion-operator
     ${status}=    Run Keyword And Return Status
-    ...    Element Text Should Contain    //JButton[@name='submitButton']    Log
+    ...    Get Text    //JButton[@name='submitButton']    *=    Log
     Log    XPath contains: ${status}
 
-Element Text Should Contain Partial
-    [Documentation]    Verify partial text match.
-    [Tags]    positive
-    Element Text Should Contain    JLabel[text='Name:']    ame
+Text Contains Partial
+    [Documentation]    Verify partial text match with *= operator.
+    [Tags]    positive    assertion-operator
+    Get Text    JLabel[text='Name:']    *=    ame
 
 # =============================================================================
-# GET ELEMENT PROPERTY
+# TEXT STARTS/ENDS WITH ASSERTION OPERATORS
 # =============================================================================
 
-Get Element Property Name
-    [Documentation]    Get name property from element.
-    [Tags]    smoke    positive
-    ${name}=    Get Element Property    JButton[name='submitButton']    name
-    Should Be Equal    ${name}    submitButton
+Text Should Start With
+    [Documentation]    Verify element text starts with string using ^= operator.
+    [Tags]    positive    assertion-operator
+    Get Text    JLabel[text='Name:']    ^=    Nam
 
-Get Element Property Enabled
-    [Documentation]    Get enabled property from element.
-    [Tags]    positive
-    ${enabled}=    Get Element Property    JButton[name='submitButton']    enabled
-    Should Be True    ${enabled}
-
-Get Element Property Visible
-    [Documentation]    Get visible property from element.
-    [Tags]    positive
-    ${visible}=    Get Element Property    JButton[name='submitButton']    visible
-    Should Be True    ${visible}
-
-Get Element Property Text
-    [Documentation]    Get text property from element.
-    [Tags]    positive
-    ${text}=    Get Element Property    JButton[name='submitButton']    text
-    Should Not Be Empty    ${text}
-
-Get Element Property Using XPath
-    [Documentation]    Get property using XPath selector.
-    [Tags]    positive    xpath-locator
-    ${name}=    Get Element Property    //JButton[@name='submitButton']    name
-    Should Be Equal    ${name}    submitButton
+Text Should End With
+    [Documentation]    Verify element text ends with string using $= operator.
+    [Tags]    positive    assertion-operator
+    Get Text    JLabel[text='Name:']    $=    :
 
 # =============================================================================
-# GET ELEMENT PROPERTIES (ALL)
+# GET PROPERTY WITH ASSERTION OPERATORS (NEW SYNTAX)
+# =============================================================================
+
+Get Property Name With Assertion
+    [Documentation]    Get name property with assertion operator.
+    [Tags]    smoke    positive    assertion-operator
+    Get Property    JButton[name='submitButton']    name    ==    submitButton
+
+Get Property Enabled With Assertion
+    [Documentation]    Get enabled property with assertion operator.
+    [Tags]    positive    assertion-operator
+    Get Property    JButton[name='submitButton']    enabled    ==    ${TRUE}
+
+Get Property Visible With Assertion
+    [Documentation]    Get visible property with assertion operator.
+    [Tags]    positive    assertion-operator
+    Get Property    JButton[name='submitButton']    visible    ==    ${TRUE}
+
+Get Property Text With Assertion
+    [Documentation]    Get text property with assertion operator.
+    [Tags]    positive    assertion-operator
+    Get Property    JButton[name='submitButton']    text    !=    ${EMPTY}
+
+Get Property Using XPath With Assertion
+    [Documentation]    Get property using XPath selector with assertion.
+    [Tags]    positive    xpath-locator    assertion-operator
+    Get Property    //JButton[@name='submitButton']    name    ==    submitButton
+
+# =============================================================================
+# GET PROPERTIES (ALL)
 # =============================================================================
 
 Get All Element Properties
     [Documentation]    Get all common properties from element.
     [Tags]    smoke    positive
-    ${props}=    Get Element Properties    JButton[name='submitButton']
+    ${props}=    Get Properties    JButton[name='submitButton']
     Should Not Be Empty    ${props}
     Log    Properties: ${props}
 
-Get All Element Properties Using ID
+Get All Properties Using ID
     [Documentation]    Get all properties using ID selector.
     [Tags]    positive
-    ${props}=    Get Element Properties    \#submitButton
+    ${props}=    Get Properties    \#submitButton
     Log    Properties: ${props}
 
-Get All Element Properties Using XPath
+Get All Properties Using XPath
     [Documentation]    Get all properties using XPath selector.
     [Tags]    positive    xpath-locator
-    ${props}=    Get Element Properties    //JButton[@name='submitButton']
+    ${props}=    Get Properties    //JButton[@name='submitButton']
     Log    Properties: ${props}
 
 Verify Properties Structure
     [Documentation]    Verify returned properties structure.
     [Tags]    positive
-    ${props}=    Get Element Properties    JButton[name='submitButton']
+    ${props}=    Get Properties    JButton[name='submitButton']
     Dictionary Should Contain Key    ${props}    name
     Dictionary Should Contain Key    ${props}    enabled
+
+# =============================================================================
+# GET ELEMENT STATES WITH ASSERTION OPERATORS (NEW SYNTAX)
+# =============================================================================
+
+Get Element States With Contains
+    [Documentation]    Get element states and verify with contains.
+    [Tags]    smoke    positive    assertion-operator
+    ${states}=    Get Element States    JButton[name='submitButton']
+    Should Contain    ${states}    visible
+    Should Contain    ${states}    enabled
+
+Verify Button States
+    [Documentation]    Verify button has visible and enabled states.
+    [Tags]    positive    assertion-operator
+    ${states}=    Get Element States    JButton[name='submitButton']
+    Log    Button states: ${states}
 
 # =============================================================================
 # ELEMENT SELECTION STATE
@@ -317,7 +335,7 @@ Element Should Not Exist For Missing
     Element Should Not Exist    JButton[name='nonexistent_element']
 
 # =============================================================================
-# VERIFICATION WORKFLOWS
+# VERIFICATION WORKFLOWS WITH ASSERTION OPERATORS
 # =============================================================================
 
 Verify Form Before Interaction Workflow
@@ -332,13 +350,12 @@ Verify Form Before Interaction Workflow
     Element Should Be Enabled    JTextField[name='nameTextField']
     Element Should Be Enabled    JButton[name='submitButton']
 
-Verify After Input Workflow
-    [Documentation]    Verify state after input operations.
-    [Tags]    workflow
+Verify After Input Workflow With Assertion
+    [Documentation]    Verify state after input operations with assertion operators.
+    [Tags]    workflow    assertion-operator
     Select Form Input Tab
     Input Text    [name='nameTextField']    verifyuser
-    ${text}=    Get Element Text    JTextField[name='nameTextField']
-    Should Contain    ${text}    verifyuser
+    Get Text    JTextField[name='nameTextField']    *=    verifyuser
     Clear Text    [name='nameTextField']
 
 Verify Selection State Workflow
@@ -352,16 +369,33 @@ Verify Selection State Workflow
     Uncheck Checkbox    [name='enabledCheckBox']
     Element Should Not Be Selected    JCheckBox[name='enabledCheckBox']
 
-Comprehensive Element Verification
-    [Documentation]    Comprehensive verification of element properties.
-    [Tags]    workflow
+Comprehensive Element Verification With Assertions
+    [Documentation]    Comprehensive verification using assertion operators.
+    [Tags]    workflow    assertion-operator
     Select Form Input Tab
-    ${props}=    Get Element Properties    JButton[name='submitButton']
+    ${props}=    Get Properties    JButton[name='submitButton']
     Should Be True    ${props}[enabled]
-    ${text}=    Get Element Text    JButton[name='submitButton']
-    Should Not Be Empty    ${text}
+    Get Text    JButton[name='submitButton']    !=    ${EMPTY}
     Element Should Be Visible    JButton[name='submitButton']
     Element Should Be Enabled    JButton[name='submitButton']
+
+# =============================================================================
+# VALIDATE OPERATOR (CUSTOM EXPRESSIONS)
+# =============================================================================
+
+Validate Expression For Text Length
+    [Documentation]    Use validate operator for custom expression.
+    [Tags]    positive    assertion-operator    validate
+    ${status}=    Run Keyword And Return Status
+    ...    Get Text    JLabel[text='Name:']    validate    len(value) > 0
+    Log    Validate result: ${status}
+
+Validate Expression For Numeric Check
+    [Documentation]    Use validate operator for numeric validation.
+    [Tags]    positive    assertion-operator    validate
+    ${status}=    Run Keyword And Return Status
+    ...    Get Text    JLabel[text='Name:']    validate    len(value) >= 3 and len(value) <= 10
+    Log    Numeric validate result: ${status}
 
 # =============================================================================
 # NEGATIVE TESTS
@@ -381,32 +415,32 @@ Element Should Be Enabled Fails For Nonexistent
     ...    Element Should Be Enabled    JButton[name='nonexistent']
     Should Be Equal    ${status}    ${FALSE}
 
-Get Element Text Fails For Nonexistent
-    [Documentation]    Get text fails for non-existent element.
-    [Tags]    negative    error-handling
+Get Text Fails For Nonexistent
+    [Documentation]    Get Text fails for non-existent element.
+    [Tags]    negative    error-handling    assertion-operator
     ${status}=    Run Keyword And Return Status
-    ...    Get Element Text    JButton[name='nonexistent']
+    ...    Get Text    JButton[name='nonexistent']
     Should Be Equal    ${status}    ${FALSE}
 
-Element Text Should Be Fails For Wrong Text
-    [Documentation]    Text match fails for wrong text.
-    [Tags]    negative    error-handling
+Get Text Assertion Fails For Wrong Text
+    [Documentation]    Text assertion fails for wrong expected value.
+    [Tags]    negative    error-handling    assertion-operator
     ${status}=    Run Keyword And Return Status
-    ...    Element Text Should Be    JLabel[text='Name:']    WrongText
+    ...    Get Text    JLabel[text='Name:']    ==    WrongText
     Should Be Equal    ${status}    ${FALSE}
 
-Element Text Should Contain Fails For Missing Text
-    [Documentation]    Contains check fails for missing substring.
-    [Tags]    negative    error-handling
+Get Text Contains Fails For Missing Text
+    [Documentation]    Contains assertion fails for missing substring.
+    [Tags]    negative    error-handling    assertion-operator
     ${status}=    Run Keyword And Return Status
-    ...    Element Text Should Contain    JLabel[text='Name:']    NonExistent
+    ...    Get Text    JLabel[text='Name:']    *=    NonExistent
     Should Be Equal    ${status}    ${FALSE}
 
-Get Element Property Fails For Nonexistent
-    [Documentation]    Get property fails for non-existent element.
-    [Tags]    negative    error-handling
+Get Property Fails For Nonexistent
+    [Documentation]    Get Property fails for non-existent element.
+    [Tags]    negative    error-handling    assertion-operator
     ${status}=    Run Keyword And Return Status
-    ...    Get Element Property    JButton[name='nonexistent']    name
+    ...    Get Property    JButton[name='nonexistent']    name
     Should Be Equal    ${status}    ${FALSE}
 
 Element Should Exist Fails For Nonexistent
@@ -432,22 +466,20 @@ Verify Empty Text Element
     [Tags]    edge-case
     Select Form Input Tab
     Clear Text    [name='nameTextField']
-    ${text}=    Get Element Text    JTextField[name='nameTextField']
-    Should Be Empty    ${text}
+    Get Text    JTextField[name='nameTextField']    ==    ${EMPTY}
 
 Verify Multiple Properties In Sequence
-    [Documentation]    Get multiple properties in sequence.
-    [Tags]    edge-case
+    [Documentation]    Get multiple properties in sequence with assertions.
+    [Tags]    edge-case    assertion-operator
     Select Form Input Tab
-    ${name}=    Get Element Property    JButton[name='submitButton']    name
-    ${enabled}=    Get Element Property    JButton[name='submitButton']    enabled
-    ${visible}=    Get Element Property    JButton[name='submitButton']    visible
-    ${text}=    Get Element Property    JButton[name='submitButton']    text
-    Log    Name: ${name}, Enabled: ${enabled}, Visible: ${visible}, Text: ${text}
+    Get Property    JButton[name='submitButton']    name    ==    submitButton
+    Get Property    JButton[name='submitButton']    enabled    ==    ${TRUE}
+    Get Property    JButton[name='submitButton']    visible    ==    ${TRUE}
+    Get Property    JButton[name='submitButton']    text    !=    ${EMPTY}
 
-Rapid Verification Calls
-    [Documentation]    Test rapid verification calls.
-    [Tags]    edge-case    stress
+Rapid Verification Calls With Assertions
+    [Documentation]    Test rapid verification calls with assertions.
+    [Tags]    edge-case    stress    assertion-operator
     Select Form Input Tab
     FOR    ${i}    IN RANGE    10
         Element Should Exist    JButton[name='submitButton']
@@ -455,15 +487,15 @@ Rapid Verification Calls
         Element Should Be Enabled    JButton[name='submitButton']
     END
 
-Verify All Form Elements
-    [Documentation]    Verify all elements in a form.
-    [Tags]    edge-case
+Verify All Form Elements With Assertions
+    [Documentation]    Verify all elements in a form with assertion operators.
+    [Tags]    edge-case    assertion-operator
     Select Form Input Tab
     Element Should Exist    JTextField[name='nameTextField']
     Element Should Exist    JPasswordField[name='passwordField']
     Element Should Exist    JButton[name='submitButton']
     Element Should Exist    JButton[name='clearButton']
-    Element Should Be Enabled    JTextField[name='nameTextField']
-    Element Should Be Enabled    JPasswordField[name='passwordField']
-    Element Should Be Enabled    JButton[name='submitButton']
-    Element Should Be Enabled    JButton[name='clearButton']
+    Get Property    JTextField[name='nameTextField']    enabled    ==    ${TRUE}
+    Get Property    JPasswordField[name='passwordField']    enabled    ==    ${TRUE}
+    Get Property    JButton[name='submitButton']    enabled    ==    ${TRUE}
+    Get Property    JButton[name='clearButton']    enabled    ==    ${TRUE}

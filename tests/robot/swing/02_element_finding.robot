@@ -231,12 +231,10 @@ Find Element With Combinator And Attribute
 # =============================================================================
 
 Find All Buttons
-    [Documentation]    Find all button elements in the application.
-    [Tags]    smoke    positive
-    ${elements}=    Find Elements    JButton
-    ${count}=    Get Length    ${elements}
-    Should Be True    ${count} > 5    Should find multiple buttons
-    Log    Found ${count} buttons
+    [Documentation]    Find all button elements in the application with assertion.
+    [Tags]    smoke    positive    assertion-operator
+    # Verify count using assertion operator - should find multiple buttons
+    Get Element Count    JButton    >    5
 
 Find All Text Fields
     [Documentation]    Find all text field elements in the application.
@@ -245,11 +243,10 @@ Find All Text Fields
     Should Not Be Empty    ${elements}
 
 Find All Labels
-    [Documentation]    Find all label elements in the application.
-    [Tags]    positive
-    ${elements}=    Find Elements    JLabel
-    ${count}=    Get Length    ${elements}
-    Should Be True    ${count} > 3    Should find multiple labels
+    [Documentation]    Find all label elements in the application with assertion.
+    [Tags]    positive    assertion-operator
+    # Verify count using assertion operator - should find multiple labels
+    Get Element Count    JLabel    >    3
 
 Find Elements With Attribute
     [Documentation]    Find multiple elements matching an attribute pattern.
@@ -265,11 +262,10 @@ Find Elements Returns Empty For No Match
     Should Be Equal As Integers    ${count}    0
 
 Find Elements Using XPath
-    [Documentation]    Find multiple elements using XPath selector.
-    [Tags]    positive    xpath-locator
-    ${elements}=    Find Elements    //JButton
-    ${count}=    Get Length    ${elements}
-    Should Be True    ${count} > 0
+    [Documentation]    Find multiple elements using XPath selector with assertion.
+    [Tags]    positive    xpath-locator    assertion-operator
+    # Verify count using assertion operator
+    Get Element Count    //JButton    >    0
 
 # =============================================================================
 # WAIT UNTIL ELEMENT EXISTS
@@ -364,9 +360,7 @@ Find Element With Special Characters In Text
     Should Not Be Equal    ${element}    ${NONE}
 
 Find Elements With Locator Matching Many
-    [Documentation]    Find elements handles large result sets.
-    [Tags]    edge-case    performance
-    ${elements}=    Find Elements    *
-    ${count}=    Get Length    ${elements}
-    Log    Found ${count} total elements
-    Should Be True    ${count} > 20    Should find many elements
+    [Documentation]    Find elements handles large result sets with assertion.
+    [Tags]    edge-case    performance    assertion-operator
+    # Verify count using assertion operator - should find many elements
+    Get Element Count    *    >    20

@@ -277,12 +277,10 @@ Verify Button Exists Before Click
 # =============================================================================
 
 Find All Buttons In Application
-    [Documentation]    Find all button elements in the application.
-    [Tags]    positive
-    ${buttons}=    Find Elements    JButton
-    ${count}=    Get Length    ${buttons}
-    Should Be True    ${count} > 5
-    Log    Found ${count} buttons in the application
+    [Documentation]    Find all button elements in the application with assertion.
+    [Tags]    positive    assertion-operator
+    # Verify count using assertion operator
+    Get Element Count    JButton    >    5
 
 Find Buttons In Panel
     [Documentation]    Find buttons within a specific panel.

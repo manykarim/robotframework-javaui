@@ -101,42 +101,42 @@ Find Button By Label Text
 # ============================================================================
 
 Find Widget By Class Prefix
-    [Documentation]    Verify finding widgets using class: locator with find_widgets.
+    [Documentation]    Verify finding widgets using class: locator.
     [Tags]    positive    class-locator
     # class: locator with find_widgets returns all matching widgets
     ${widgets}=    Find Widgets    class:Button
     ${count}=    Get Length    ${widgets}
-    Should Be True    ${count} > 0    At least one Button should be found by class:
+    Should Be True    ${count} > 0    Should find Button widgets
 
 Find Widget By Simple Class Name
-    [Documentation]    Verify finding widgets using simple class name with find_widgets.
+    [Documentation]    Verify finding widgets using simple class name.
     [Tags]    positive    class-locator
     # Simple class name locator finds all matching widgets
     ${widgets}=    Find Widgets    class:Text
     ${count}=    Get Length    ${widgets}
-    Should Be True    ${count} > 0    At least one Text widget should be found by class name
+    Should Be True    ${count} > 0    Should find Text widgets
 
 Find Widget By Full Class Name
-    [Documentation]    Verify finding widgets using class name with find_widgets.
+    [Documentation]    Verify finding widgets using class name.
     [Tags]    positive    class-locator
     # Class name locator with find_widgets
     ${widgets}=    Find Widgets    class:Combo
     ${count}=    Get Length    ${widgets}
-    Should Be True    ${count} > 0    At least one Combo widget should be found
+    Should Be True    ${count} > 0    Should find Combo widgets
 
 Find Different Widget Classes
-    [Documentation]    Verify finding various SWT widget classes with find_widgets.
+    [Documentation]    Verify finding various SWT widget classes.
     [Tags]    positive    class-locator
-    # class: locator with find_widgets finds all matching widgets
+    # Verify can find different widget classes
     ${buttons}=    Find Widgets    class:Button
     ${texts}=    Find Widgets    class:Text
     ${combos}=    Find Widgets    class:Combo
     ${button_count}=    Get Length    ${buttons}
     ${text_count}=    Get Length    ${texts}
     ${combo_count}=    Get Length    ${combos}
-    Should Be True    ${button_count} > 0    Buttons should be found
-    Should Be True    ${text_count} > 0    Text widgets should be found
-    Should Be True    ${combo_count} > 0    Combos should be found
+    Should Be True    ${button_count} > 0    Should find Button widgets
+    Should Be True    ${text_count} > 0    Should find Text widgets
+    Should Be True    ${combo_count} > 0    Should find Combo widgets
 
 # ============================================================================
 # find_widget - id: and index: Locator Strategies
@@ -192,22 +192,21 @@ Find Widgets Returns List Of All Matches
     [Tags]    smoke    positive    multiple
     ${widgets}=    Find Widgets    Button
     ${count}=    Get Length    ${widgets}
-    Should Be True    ${count} > 0    Should find at least one button
-    Log    Found ${count} button widgets
+    Should Be True    ${count} > 0    Should find Button widgets
 
 Find Widgets By Class Returns Multiple
     [Documentation]    Verify finding multiple widgets of the same class.
     [Tags]    positive    multiple
-    ${buttons}=    Find Widgets    class:Button
-    ${count}=    Get Length    ${buttons}
-    Log    Found ${count} buttons
+    ${widgets}=    Find Widgets    class:Button
+    ${count}=    Get Length    ${widgets}
+    Should Be True    ${count} > 0    Should find Button widgets
 
 Find Widgets By Name Returns Single Or Multiple
     [Documentation]    Verify find_widgets works with name locator.
     [Tags]    positive
     ${widgets}=    Find Widgets    name:${BUTTON_NAME}
     ${count}=    Get Length    ${widgets}
-    Should Be True    ${count} >= 1    Should find at least one widget
+    Should Be True    ${count} >= 1    Should find at least one widget by name
 
 Find Widgets Returns Empty List When None Match
     [Documentation]    Verify find_widgets returns empty list for no matches.
@@ -217,18 +216,18 @@ Find Widgets Returns Empty List When None Match
     Should Be Equal As Integers    ${count}    0    Should find no widgets
 
 Find All Text Widgets
-    [Documentation]    Verify finding all Text widgets in the application.
+    [Documentation]    Verify finding all Text widgets.
     [Tags]    positive    multiple
-    ${text_widgets}=    Find Widgets    class:Text
-    ${count}=    Get Length    ${text_widgets}
-    Log    Found ${count} Text widgets
+    ${widgets}=    Find Widgets    class:Text
+    ${count}=    Get Length    ${widgets}
+    Should Be True    ${count} > 0    Should find Text widgets
 
 Find All Labels
-    [Documentation]    Verify finding all Label widgets in the application.
+    [Documentation]    Verify finding all Label widgets.
     [Tags]    positive    multiple
-    ${labels}=    Find Widgets    class:Label
-    ${count}=    Get Length    ${labels}
-    Log    Found ${count} Label widgets
+    ${widgets}=    Find Widgets    class:Label
+    ${count}=    Get Length    ${widgets}
+    Should Be True    ${count} > 0    Should find Label widgets
 
 # ============================================================================
 # Locator Format Variations

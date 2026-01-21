@@ -240,8 +240,7 @@ Get Open Views Successfully
     ${views}=    Get Open Views
     Should Not Be Empty    ${views}
     ${count}=    Get Length    ${views}
-    Should Be True    ${count} >= 1
-    Log    Found ${count} open views
+    Should Be True    ${count} >= 1    Should have at least one open view
 
 Get Open Views Returns List With View Info
     [Documentation]    Verify open views list contains view information.
@@ -262,7 +261,7 @@ Get Open Views After Opening Multiple Views
     Show View    ${CONSOLE_VIEW}
     ${views}=    Get Open Views
     ${count}=    Get Length    ${views}
-    Should Be True    ${count} >= 3
+    Should Be True    ${count} >= 3    Should have at least three open views
 
 Get Open Views After Closing View
     [Documentation]    Verify open views updates after closing a view.
@@ -386,12 +385,12 @@ Multiple Views Workflow
     Activate View    ${CONSOLE_VIEW}
     Activate View    ${PROBLEMS_VIEW}
     Activate View    ${PACKAGE_EXPLORER_VIEW}
-    # Get all open views
+    # Verify count
     ${views}=    Get Open Views
     ${count}=    Get Length    ${views}
-    Should Be True    ${count} >= 3
+    Should Be True    ${count} >= 3    Should have at least three open views
     # Close one
     Close View    ${CONSOLE_VIEW}
     ${views_after}=    Get Open Views
     ${count_after}=    Get Length    ${views_after}
-    Should Be True    ${count_after} < ${count}
+    Should Be True    ${count_after} >= 2

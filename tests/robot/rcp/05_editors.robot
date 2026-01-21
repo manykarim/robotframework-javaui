@@ -80,7 +80,7 @@ Open Editor Successfully
     Open Editor    ${TEST_FILE_JAVA}
     ${editors}=    Get Open Editors
     ${count}=    Get Length    ${editors}
-    Should Be True    ${count} >= 1
+    Should Be True    ${count} >= 1    Should have at least one open editor
 
 Open Editor With Different Files
     [Documentation]    Verify opening editors for different file types.
@@ -90,7 +90,7 @@ Open Editor With Different Files
     Open Editor    ${TEST_FILE_XML}
     ${editors}=    Get Open Editors
     ${count}=    Get Length    ${editors}
-    Should Be True    ${count} >= 2
+    Should Be True    ${count} >= 2    Should have at least two open editors
 
 Open Same File Multiple Times
     [Documentation]    Verify opening the same file reuses the editor.
@@ -200,7 +200,7 @@ Close All Editors Successfully
     ${result}=    Close All Editors
     ${editors}=    Get Open Editors
     ${count}=    Get Length    ${editors}
-    Should Be Equal As Numbers    ${count}    0
+    Should Be Equal As Integers    ${count}    0    All editors should be closed
 
 Close All Editors Without Saving
     [Documentation]    Verify closing all editors without saving.
@@ -211,7 +211,7 @@ Close All Editors Without Saving
     ${result}=    Close All Editors    save=${FALSE}
     ${editors}=    Get Open Editors
     ${count}=    Get Length    ${editors}
-    Should Be Equal As Numbers    ${count}    0
+    Should Be Equal As Integers    ${count}    0    All editors should be closed
 
 Close All Editors With Save
     [Documentation]    Verify closing all editors with saving.
@@ -219,10 +219,9 @@ Close All Editors With Save
     [Tags]    positive
     Open Editor    ${TEST_FILE_JAVA}
     Close All Editors    save=${TRUE}
-    # Verify editors were actually closed
     ${editors}=    Get Open Editors
     ${count}=    Get Length    ${editors}
-    Should Be Equal As Numbers    ${count}    0
+    Should Be Equal As Integers    ${count}    0    All editors should be closed
 
 Close All Editors When None Open
     [Documentation]    Verify closing all editors when none are open.
@@ -409,7 +408,7 @@ Get Open Editors Successfully
     ${editors}=    Get Open Editors
     Should Not Be Empty    ${editors}
     ${count}=    Get Length    ${editors}
-    Should Be True    ${count} >= 1
+    Should Be True    ${count} >= 1    Should have at least one open editor
 
 Get Open Editors Returns Empty When None
     [Documentation]    Verify open editors returns empty list when none.
@@ -418,7 +417,7 @@ Get Open Editors Returns Empty When None
     Close All Editors    save=${FALSE}
     ${editors}=    Get Open Editors
     ${count}=    Get Length    ${editors}
-    Should Be Equal As Numbers    ${count}    0
+    Should Be Equal As Integers    ${count}    0    No editors should be open
 
 Get Open Editors With Multiple Files
     [Documentation]    Verify open editors reflects all opened files.
@@ -428,10 +427,7 @@ Get Open Editors With Multiple Files
     Open Editor    ${TEST_FILE_XML}
     ${editors}=    Get Open Editors
     ${count}=    Get Length    ${editors}
-    Should Be True    ${count} >= 2
-    FOR    ${editor}    IN    @{editors}
-        Log    Editor: ${editor}
-    END
+    Should Be True    ${count} >= 2    Should have at least two open editors
 
 Get Open Editors Without Connection Fails
     [Documentation]    Verify getting open editors fails without connection.
@@ -498,7 +494,7 @@ Full Editor Lifecycle
     Open Editor    ${TEST_FILE_JAVA}
     ${editors}=    Get Open Editors
     ${count}=    Get Length    ${editors}
-    Should Be True    ${count} >= 1
+    Should Be True    ${count} >= 1    Should have at least one open editor
     # Get active editor
     ${active}=    Get Active Editor
     Should Not Be Empty    ${active}
@@ -507,9 +503,10 @@ Full Editor Lifecycle
     Editor Should Not Be Dirty    Test.java
     # Close editor
     Close Editor    Test.java
+    # Verify editor count decreased
     ${editors_after}=    Get Open Editors
     ${count_after}=    Get Length    ${editors_after}
-    Should Be True    ${count_after} < ${count}
+    Should Be Equal As Integers    ${count_after}    0    All editors should be closed
 
 Multiple Editors Workflow
     [Documentation]    Test working with multiple editors.
@@ -518,10 +515,9 @@ Multiple Editors Workflow
     # Open multiple editors
     Open Editor    ${TEST_FILE_JAVA}
     Open Editor    ${TEST_FILE_XML}
-    # Get all open editors
     ${editors}=    Get Open Editors
     ${count}=    Get Length    ${editors}
-    Should Be True    ${count} >= 2
+    Should Be True    ${count} >= 2    Should have at least two open editors
     # Switch between editors
     Activate Editor    Test.java
     Activate Editor    config.xml
@@ -531,4 +527,4 @@ Multiple Editors Workflow
     ${result}=    Close All Editors    save=${FALSE}
     ${editors_after}=    Get Open Editors
     ${count_after}=    Get Length    ${editors_after}
-    Should Be Equal As Numbers    ${count_after}    0
+    Should Be Equal As Integers    ${count_after}    0    All editors should be closed

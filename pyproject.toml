@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "High-performance Robot Framework library for Java GUI automation (Swing, SWT, Eclipse RCP)"
 readme = "README.md"
 license = { text = "Apache-2.0" }
-requires-python = ">=3.8"
+requires-python = ">=3.8.1"
 authors = [
     { name = "robotframework-javagui contributors" }
 ]
@@ -33,6 +33,7 @@ keywords = ["robotframework", "swing", "swt", "rcp", "eclipse", "java", "automat
 dependencies = [
     "docutils>=0.20.1",
     "robotframework>=4.0",
+    "robotframework-assertion-engine>=3.0.0",
 ]
 
 [project.optional-dependencies]

@@ -20,73 +20,64 @@ Force Tags        text-input    regression
 # =============================================================================
 
 Input Text Into TextField By Name
-    [Documentation]    Input text into a JTextField using name selector.
-    [Tags]    smoke    positive
+    [Documentation]    Input text into a JTextField using name selector with assertion.
+    [Tags]    smoke    positive    assertion-operator
     Input Text    JTextField[name='nameTextField']    testuser
-    # Verify text was entered and is visible
-    ${text}=    Get Element Text    JTextField[name='nameTextField']
-    Should Be Equal    ${text}    testuser    Text should be visible in field
+    # Verify text was entered and is visible using assertion operator
+    Get Text    JTextField[name='nameTextField']    ==    testuser
 
 Input Text Into TextField By ID
-    [Documentation]    Input text using ID-style selector.
-    [Tags]    positive
+    [Documentation]    Input text using ID-style selector with assertion.
+    [Tags]    positive    assertion-operator
     Input Text    \#nameTextField    testuser
-    ${text}=    Get Element Text    \#nameTextField
-    Should Be Equal    ${text}    testuser    ID selector input should work
+    Get Text    \#nameTextField    ==    testuser
 
 Input Text Into TextField Using XPath
-    [Documentation]    Input text using XPath selector.
-    [Tags]    positive    xpath-locator
+    [Documentation]    Input text using XPath selector with assertion.
+    [Tags]    positive    xpath-locator    assertion-operator
     Input Text    //JTextField[@name='nameTextField']    xpathuser
-    ${text}=    Get Element Text    //JTextField[@name='nameTextField']
-    Should Be Equal    ${text}    xpathuser    XPath input should work
+    Get Text    //JTextField[@name='nameTextField']    ==    xpathuser
 
 Input Text With Special Characters
-    [Documentation]    Input text containing special characters.
-    [Tags]    positive    edge-case
+    [Documentation]    Input text containing special characters with assertion.
+    [Tags]    positive    edge-case    assertion-operator
     Input Text    [name='nameTextField']    test@user.com
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Equal    ${text}    test@user.com    Special characters should be preserved
+    Get Text    [name='nameTextField']    ==    test@user.com
 
 Input Text With Numbers
-    [Documentation]    Input text containing numeric characters.
-    [Tags]    positive
+    [Documentation]    Input text containing numeric characters with assertion.
+    [Tags]    positive    assertion-operator
     Input Text    [name='nameTextField']    user12345
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Equal    ${text}    user12345    Numeric characters should be preserved
+    Get Text    [name='nameTextField']    ==    user12345
 
 Input Text With Spaces
-    [Documentation]    Input text containing spaces.
-    [Tags]    positive    edge-case
+    [Documentation]    Input text containing spaces with assertion.
+    [Tags]    positive    edge-case    assertion-operator
     Input Text    [name='nameTextField']    first last name
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Equal    ${text}    first last name    Spaces should be preserved
+    Get Text    [name='nameTextField']    ==    first last name
 
 Input Text Overwrites Existing Content
-    [Documentation]    Verify input_text clears existing text by default.
-    [Tags]    positive
+    [Documentation]    Verify input_text clears existing text by default with assertion.
+    [Tags]    positive    assertion-operator
     Input Text    [name='nameTextField']    firsttext
     Input Text    [name='nameTextField']    secondtext
     # The second input should overwrite the first
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Equal    ${text}    secondtext    Second input should overwrite first
+    Get Text    [name='nameTextField']    ==    secondtext
 
 Input Text Without Clear
-    [Documentation]    Input text without clearing existing content.
-    [Tags]    positive
+    [Documentation]    Input text without clearing existing content with assertion.
+    [Tags]    positive    assertion-operator
     Input Text    [name='nameTextField']    first
     Input Text    [name='nameTextField']    second    clear=False
     # Should append to existing text
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Equal    ${text}    firstsecond    Text should be appended when clear=False
+    Get Text    [name='nameTextField']    ==    firstsecond
 
 Input Text Empty String
-    [Documentation]    Input empty string into text field.
-    [Tags]    positive    edge-case
+    [Documentation]    Input empty string into text field with assertion.
+    [Tags]    positive    edge-case    assertion-operator
     Input Text    [name='nameTextField']    test
     Input Text    [name='nameTextField']    ${EMPTY}
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Empty    ${text}    Field should be empty after inputting empty string
+    Get Text    [name='nameTextField']    ==    ${EMPTY}
 
 Input Text Long String
     [Documentation]    Input a very long string into text field.
@@ -102,29 +93,26 @@ Input Text Long String
 # =============================================================================
 
 Input Text Into TextArea
-    [Documentation]    Input text into a JTextArea component.
-    [Tags]    positive
+    [Documentation]    Input text into a JTextArea component with assertion.
+    [Tags]    positive    assertion-operator
     Input Text    JTextArea[name='descriptionTextArea']    This is a note.
-    ${text}=    Get Element Text    JTextArea[name='descriptionTextArea']
-    Should Be Equal    ${text}    This is a note.    TextArea should contain entered text
+    Get Text    JTextArea[name='descriptionTextArea']    ==    This is a note.
 
 Input Multiline Text Into TextArea
-    [Documentation]    Input multiline text into a JTextArea.
-    [Tags]    positive    edge-case
+    [Documentation]    Input multiline text into a JTextArea with assertions.
+    [Tags]    positive    edge-case    assertion-operator
     Input Text    [name='descriptionTextArea']    Line 1\nLine 2\nLine 3
-    ${text}=    Get Element Text    [name='descriptionTextArea']
-    Should Contain    ${text}    Line 1    Multiline text should contain Line 1
-    Should Contain    ${text}    Line 2    Multiline text should contain Line 2
-    Should Contain    ${text}    Line 3    Multiline text should contain Line 3
+    Get Text    [name='descriptionTextArea']    *=    Line 1
+    Get Text    [name='descriptionTextArea']    *=    Line 2
+    Get Text    [name='descriptionTextArea']    *=    Line 3
 
 Input Text Append To TextArea
-    [Documentation]    Append text to existing TextArea content.
-    [Tags]    positive
+    [Documentation]    Append text to existing TextArea content with assertion.
+    [Tags]    positive    assertion-operator
     Input Text    [name='descriptionTextArea']    First line
     Input Text    [name='descriptionTextArea']    Second line    clear=False
-    ${text}=    Get Element Text    [name='descriptionTextArea']
-    Should Contain    ${text}    First line    Original text should be preserved
-    Should Contain    ${text}    Second line    Appended text should be present
+    Get Text    [name='descriptionTextArea']    *=    First line
+    Get Text    [name='descriptionTextArea']    *=    Second line
 
 # =============================================================================
 # INPUT TEXT - JPASSWORDFIELD
@@ -159,12 +147,11 @@ Input Complex Password
 # =============================================================================
 
 Clear Text From TextField
-    [Documentation]    Clear text from a JTextField.
-    [Tags]    smoke    positive
+    [Documentation]    Clear text from a JTextField with assertion.
+    [Tags]    smoke    positive    assertion-operator
     Input Text    [name='nameTextField']    texttoremove
     Clear Text    [name='nameTextField']
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Empty    ${text}    TextField should be empty after clear
+    Get Text    [name='nameTextField']    ==    ${EMPTY}
 
 Clear Text From PasswordField
     [Documentation]    Clear text from a JPasswordField.
@@ -175,57 +162,51 @@ Clear Text From PasswordField
     Element Should Exist    [name='passwordField']
 
 Clear Text From TextArea
-    [Documentation]    Clear text from a JTextArea.
-    [Tags]    positive
+    [Documentation]    Clear text from a JTextArea with assertion.
+    [Tags]    positive    assertion-operator
     Input Text    [name='descriptionTextArea']    notes to remove
     Clear Text    [name='descriptionTextArea']
-    ${text}=    Get Element Text    [name='descriptionTextArea']
-    Should Be Empty    ${text}    TextArea should be empty after clear
+    Get Text    [name='descriptionTextArea']    ==    ${EMPTY}
 
 Clear Already Empty TextField
-    [Documentation]    Clear an already empty text field.
-    [Tags]    positive    edge-case
+    [Documentation]    Clear an already empty text field with assertion.
+    [Tags]    positive    edge-case    assertion-operator
     Clear Text    [name='nameTextField']
     Clear Text    [name='nameTextField']
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Empty    ${text}    Field should remain empty
+    Get Text    [name='nameTextField']    ==    ${EMPTY}
 
 Clear Text Using XPath
-    [Documentation]    Clear text using XPath selector.
-    [Tags]    positive    xpath-locator
+    [Documentation]    Clear text using XPath selector with assertion.
+    [Tags]    positive    xpath-locator    assertion-operator
     Input Text    //JTextField[@name='nameTextField']    texttoremove
     Clear Text    //JTextField[@name='nameTextField']
-    ${text}=    Get Element Text    //JTextField[@name='nameTextField']
-    Should Be Empty    ${text}    Field should be empty after XPath clear
+    Get Text    //JTextField[@name='nameTextField']    ==    ${EMPTY}
 
 Clear Text Using ID Selector
-    [Documentation]    Clear text using ID-style selector.
-    [Tags]    positive
+    [Documentation]    Clear text using ID-style selector with assertion.
+    [Tags]    positive    assertion-operator
     Input Text    \#nameTextField    texttoremove
     Clear Text    \#nameTextField
-    ${text}=    Get Element Text    \#nameTextField
-    Should Be Empty    ${text}    Field should be empty after ID selector clear
+    Get Text    \#nameTextField    ==    ${EMPTY}
 
 # =============================================================================
 # TYPE TEXT
 # =============================================================================
 
 Type Text Into TextField
-    [Documentation]    Type text character by character into a text field.
-    [Tags]    positive
+    [Documentation]    Type text character by character into a text field with assertion.
+    [Tags]    positive    assertion-operator
     Clear Text    [name='nameTextField']
     Type Text    [name='nameTextField']    typedtext
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Equal    ${text}    typedtext    Typed text should appear in field
+    Get Text    [name='nameTextField']    ==    typedtext
 
 Type Text Does Not Clear
-    [Documentation]    Verify type_text appends to existing content.
-    [Tags]    positive
+    [Documentation]    Verify type_text appends to existing content with assertion.
+    [Tags]    positive    assertion-operator
     Input Text    [name='nameTextField']    existing
     Type Text    [name='nameTextField']    appended
     # Should have both texts
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Equal    ${text}    existingappended    Type should append to existing text
+    Get Text    [name='nameTextField']    ==    existingappended
 
 Type Text Into PasswordField
     [Documentation]    Type text into a password field.
@@ -235,28 +216,25 @@ Type Text Into PasswordField
     Element Should Exist    [name='passwordField']
 
 Type Text Into TextArea
-    [Documentation]    Type text into a text area.
-    [Tags]    positive
+    [Documentation]    Type text into a text area with assertion.
+    [Tags]    positive    assertion-operator
     Clear Text    [name='descriptionTextArea']
     Type Text    [name='descriptionTextArea']    typed note content
-    ${text}=    Get Element Text    [name='descriptionTextArea']
-    Should Be Equal    ${text}    typed note content    Typed text should appear in TextArea
+    Get Text    [name='descriptionTextArea']    ==    typed note content
 
 Type Text Using XPath
-    [Documentation]    Type text using XPath selector.
-    [Tags]    positive    xpath-locator
+    [Documentation]    Type text using XPath selector with assertion.
+    [Tags]    positive    xpath-locator    assertion-operator
     Clear Text    //JTextField[@name='nameTextField']
     Type Text    //JTextField[@name='nameTextField']    xpathtypedtext
-    ${text}=    Get Element Text    //JTextField[@name='nameTextField']
-    Should Be Equal    ${text}    xpathtypedtext    XPath typed text should work
+    Get Text    //JTextField[@name='nameTextField']    ==    xpathtypedtext
 
 Type Text With Special Characters
-    [Documentation]    Type text containing special characters.
-    [Tags]    positive    edge-case
+    [Documentation]    Type text containing special characters with assertion.
+    [Tags]    positive    edge-case    assertion-operator
     Clear Text    [name='nameTextField']
     Type Text    [name='nameTextField']    user@domain.com
-    ${text}=    Get Element Text    [name='nameTextField']
-    Should Be Equal    ${text}    user@domain.com    Special characters should be typed correctly
+    Get Text    [name='nameTextField']    ==    user@domain.com
 
 # =============================================================================
 # TEXT INPUT WORKFLOWS
