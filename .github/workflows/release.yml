@@ -46,7 +46,7 @@ jobs:
           if-no-files-found: error
 
   # =============================================================================
-  # Build Python Wheels (per OS and Python version)
+  # Build Python Wheels (ABI3 - one wheel per OS works for all Python versions)
   # =============================================================================
   build-wheels:
     needs: build-agent
@@ -55,7 +55,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-14]
-        python: ["3.10", "3.12", "3.13"]
     defaults:
       run:
         shell: bash
@@ -85,7 +84,7 @@ jobs:
           version: latest
 
       - name: Setup Python
-        run: uv python install ${{ matrix.python }}
+        run: uv python install 3.12
 
       - name: Setup Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -104,15 +103,16 @@ jobs:
       - name: Install maturin
         run: uv tool install maturin
 
-      - name: Build wheel
+      - name: Build wheel (ABI3 - compatible with Python 3.8+)
         run: |
           uv tool run maturin build --release --strip
           ls -la target/wheels/
+          echo "ABI3 wheel works for all Python versions 3.8+"
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{ matrix.os }}-py${{ matrix.python }}
+          name: wheel-${{ matrix.os }}
           path: target/wheels/*.whl
           if-no-files-found: error
 
@@ -177,7 +177,7 @@ jobs:
 
             ### Downloads
 
-            - **Python Wheels**: Platform-specific wheels for Python 3.10, 3.12, 3.13
+            - **Python Wheels**: ABI3 wheels compatible with Python 3.8+ (one per platform)
             - **Java Agent**: `robotframework-swing-agent-1.0.0-all.jar`
 
             ### Changes
