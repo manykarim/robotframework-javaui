@@ -199,6 +199,10 @@ impl CssSelectorSegment {
         let element = match &compound.type_selector {
             Some(TypeSelector::TypeName(name)) => name.clone(),
             Some(TypeSelector::Universal) => "*".to_string(),
+            Some(TypeSelector::PrefixSelector { key, value }) => {
+                // Format prefix selectors as CSS-style for display
+                format!("{}={}", key, value)
+            }
             None => String::new(),
         };
 
@@ -419,6 +423,10 @@ impl XPathStep {
         let node_test = match &compound.type_selector {
             Some(TypeSelector::TypeName(name)) => name.clone(),
             Some(TypeSelector::Universal) => "*".to_string(),
+            Some(TypeSelector::PrefixSelector { key, value }) => {
+                // For XPath, represent prefix selectors as predicates
+                format!("*[@{}='{}']", key, value)
+            }
             None => "*".to_string(),
         };
 

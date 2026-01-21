@@ -12,7 +12,13 @@ locator = _{ SOI ~ (xpath_expr | css_selector_list) ~ EOI }
 css_selector_list = { complex_selector ~ ("," ~ explicit_ws* ~ complex_selector)* }
 
 /// A complex selector consists of compound selectors with combinators
-complex_selector = { compound_selector ~ (combinator ~ compound_selector)* }
+complex_selector = { compound_selector_with_capture ~ (combinator ~ compound_selector_with_capture)* }
+
+/// Compound selector with optional capture prefix
+compound_selector_with_capture = { capture_prefix? ~ compound_selector }
+
+/// Capture prefix: * marks this segment to be returned instead of final element
+capture_prefix = { "*" }
 
 /// Compound selector = type + modifiers (no combinator inside)
 compound_selector = {
@@ -24,11 +30,32 @@ compound_selector = {
 // Type Selectors
 // =============================================================================
 
-/// Type selector: element name or universal selector
-type_selector = { universal_selector | type_name }
+/// Type selector: element name, universal selector, or prefix-style selector
+type_selector = { universal_selector | prefix_selector | type_name }
 
 /// Universal selector matches any element
 universal_selector = { "*" }
+
+/// Prefix-style selector: class=JButton, name=myButton, text=Click Me, etc.
+/// These are legacy formats that need to be supported alongside CSS-style
+prefix_selector = { prefix_key ~ "=" ~ prefix_value }
+
+/// Prefix keys for prefix-style selectors
+prefix_key = @{
+    "class" |
+    "name" |
+    "text" |
+    "id" |
+    "tooltip" |
+    "index" |
+    "accessible"
+}
+
+/// Prefix value: can be quoted or unquoted
+prefix_value = { quoted_string | prefix_value_unquoted }
+
+/// Unquoted prefix value (allows more chars than normal type names, but not leading/trailing whitespace)
+prefix_value_unquoted = @{ (ASCII_ALPHANUMERIC | "_" | "-" | ".")+ }
 
 /// Type name: Java class simple name (e.g., JButton, JTextField)
 type_name = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }

@@ -61,11 +61,52 @@ impl fmt::Display for Locator {
     }
 }
 
+/// A single segment in a cascaded locator chain
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CascadedSegment {
+    /// Whether this segment should be captured (marked with *)
+    pub capture: bool,
+
+    /// The compound selector for this segment
+    pub compound: CompoundSelector,
+
+    /// Combinator to next segment (if any)
+    pub combinator: Option<Combinator>,
+
+    /// Original raw text of this segment (for error messages)
+    pub raw: String,
+}
+
+impl CascadedSegment {
+    /// Create a new cascaded segment
+    pub fn new(
+        capture: bool,
+        compound: CompoundSelector,
+        combinator: Option<Combinator>,
+        raw: String,
+    ) -> Self {
+        Self {
+            capture,
+            compound,
+            combinator,
+            raw,
+        }
+    }
+
+    /// Check if this segment has the capture flag
+    pub fn is_captured(&self) -> bool {
+        self.capture
+    }
+}
+
 /// Complex selector: chain of compound selectors connected by combinators
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ComplexSelector {
     /// All compound selectors in this chain
     pub compounds: Vec<CompoundSelector>,
+
+    /// For cascaded selectors: structured segments with capture flags
+    pub cascaded_segments: Option<Vec<CascadedSegment>>,
 }
 
 impl ComplexSelector {
@@ -73,12 +114,43 @@ impl ComplexSelector {
     pub fn simple(compound: CompoundSelector) -> Self {
         Self {
             compounds: vec![compound],
+            cascaded_segments: None,
         }
     }
 
     /// Create from a list of compounds
     pub fn from_compounds(compounds: Vec<CompoundSelector>) -> Self {
-        Self { compounds }
+        Self {
+            compounds,
+            cascaded_segments: None,
+        }
+    }
+
+    /// Check if this is a cascaded selector (contains >> combinator)
+    pub fn is_cascaded(&self) -> bool {
+        self.compounds
+            .iter()
+            .any(|c| matches!(c.combinator, Some(Combinator::Cascaded)))
+    }
+
+    /// Get cascaded segments if this is a cascaded selector
+    pub fn get_cascaded_segments(&self) -> Option<&Vec<CascadedSegment>> {
+        self.cascaded_segments.as_ref()
+    }
+
+    /// Check if any segment has capture flag
+    pub fn has_capture(&self) -> bool {
+        self.cascaded_segments
+            .as_ref()
+            .map(|segs| segs.iter().any(|s| s.capture))
+            .unwrap_or(false)
+    }
+
+    /// Get index of first captured segment (0-based)
+    pub fn get_capture_index(&self) -> Option<usize> {
+        self.cascaded_segments
+            .as_ref()
+            .and_then(|segs| segs.iter().position(|s| s.capture))
     }
 }
 
@@ -163,13 +235,15 @@ impl fmt::Display for CompoundSelector {
     }
 }
 
-/// Type selector: element type name or universal (*)
+/// Type selector: element type name, universal, or prefix-style selector
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TypeSelector {
     /// Named type (e.g., JButton)
     TypeName(String),
     /// Universal selector (*)
     Universal,
+    /// Prefix-style selector (e.g., class=JButton, name=myButton)
+    PrefixSelector { key: String, value: String },
 }
 
 impl fmt::Display for TypeSelector {
@@ -177,6 +251,7 @@ impl fmt::Display for TypeSelector {
         match self {
             TypeSelector::TypeName(name) => write!(f, "{}", name),
             TypeSelector::Universal => write!(f, "*"),
+            TypeSelector::PrefixSelector { key, value } => write!(f, "{}={}", key, value),
         }
     }
 }

@@ -187,18 +187,29 @@ pub fn parse_locator(input: &str) -> Result<Locator, ParseError> {
 /// Parse a complex selector (chain of compound selectors with combinators)
 fn parse_complex_selector(pair: pest::iterators::Pair<Rule>) -> Result<ComplexSelector, ParseError> {
     let mut compounds: Vec<CompoundSelector> = Vec::new();
+    let mut temp_segments: Vec<(bool, CompoundSelector, String)> = Vec::new();
     let mut current_combinator: Option<Combinator> = None;
+    let mut has_cascaded_combinator = false;
 
+    // First pass: collect all compounds and check for cascaded combinators
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::compound_selector => {
-                let compound = parse_compound_selector(inner)?;
+            Rule::compound_selector_with_capture => {
+                let (capture, compound, raw) = parse_compound_selector_with_capture(inner)?;
+
                 if let Some(comb) = current_combinator.take() {
                     // Set the combinator on the previous compound
                     if let Some(prev) = compounds.last_mut() {
                         prev.combinator = Some(comb);
                     }
+
+                    // Check if this is a cascaded combinator
+                    if matches!(comb, Combinator::Cascaded) {
+                        has_cascaded_combinator = true;
+                    }
                 }
+
+                temp_segments.push((capture, compound.clone(), raw));
                 compounds.push(compound);
             }
             Rule::combinator => {
@@ -208,7 +219,51 @@ fn parse_complex_selector(pair: pest::iterators::Pair<Rule>) -> Result<ComplexSe
         }
     }
 
-    Ok(ComplexSelector::from_compounds(compounds))
+    // Second pass: build cascaded segments if we have cascaded combinators
+    let cascaded_segments = if has_cascaded_combinator {
+        let mut segments = Vec::new();
+        for (idx, (capture, compound, raw)) in temp_segments.into_iter().enumerate() {
+            let combinator = if idx < compounds.len() {
+                compounds[idx].combinator
+            } else {
+                None
+            };
+            segments.push(CascadedSegment::new(capture, compound, combinator, raw));
+        }
+        Some(segments)
+    } else {
+        None
+    };
+
+    Ok(ComplexSelector {
+        compounds,
+        cascaded_segments,
+    })
+}
+
+/// Parse a compound selector with optional capture prefix
+fn parse_compound_selector_with_capture(
+    pair: pest::iterators::Pair<Rule>,
+) -> Result<(bool, CompoundSelector, String), ParseError> {
+    let mut capture = false;
+    let mut compound = CompoundSelector::new();
+    let mut raw = String::new();
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::capture_prefix => {
+                capture = true;
+                raw.push('*');
+            }
+            Rule::compound_selector => {
+                compound = parse_compound_selector(inner.clone())?;
+                raw.push_str(inner.as_str());
+            }
+            _ => {}
+        }
+    }
+
+    Ok((capture, compound, raw))
 }
 
 /// Parse a compound selector
@@ -245,6 +300,7 @@ fn parse_type_selector(pair: pest::iterators::Pair<Rule>) -> Result<TypeSelector
         match inner.as_rule() {
             Rule::universal_selector => return Ok(TypeSelector::Universal),
             Rule::type_name => return Ok(TypeSelector::TypeName(inner.as_str().to_string())),
+            Rule::prefix_selector => return parse_prefix_selector(inner),
             _ => {}
         }
     }
@@ -253,6 +309,53 @@ fn parse_type_selector(pair: pest::iterators::Pair<Rule>) -> Result<TypeSelector
         ParseErrorKind::InvalidSelector,
         0,
     ))
+}
+
+/// Parse a prefix-style selector (e.g., class=JButton, name=myButton)
+fn parse_prefix_selector(pair: pest::iterators::Pair<Rule>) -> Result<TypeSelector, ParseError> {
+    let mut key = String::new();
+    let mut value = String::new();
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::prefix_key => {
+                key = inner.as_str().to_string();
+            }
+            Rule::prefix_value => {
+                // Try to extract the value from inner rules first
+                let mut found_value = false;
+                let inners: Vec<_> = inner.clone().into_inner().collect();
+                for value_inner in inners {
+                    match value_inner.as_rule() {
+                        Rule::quoted_string => {
+                            value = parse_quoted_string(value_inner)?;
+                            found_value = true;
+                        }
+                        Rule::prefix_value_unquoted => {
+                            value = value_inner.as_str().to_string();
+                            found_value = true;
+                        }
+                        _ => {}
+                    }
+                }
+                // If no inner rule matched, use the raw value
+                if !found_value {
+                    value = inner.as_str().to_string();
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if key.is_empty() || value.is_empty() {
+        return Err(ParseError::new(
+            "Invalid prefix selector format".to_string(),
+            ParseErrorKind::InvalidSelector,
+            0,
+        ));
+    }
+
+    Ok(TypeSelector::PrefixSelector { key, value })
 }
 
 /// Parse an ID selector
@@ -1152,4 +1255,115 @@ mod tests {
         assert_eq!(button.attribute_selectors.len(), 1);
         assert_eq!(button.pseudo_selectors.len(), 2);
     }
+
+    #[test]
+    fn test_parse_capture_prefix() {
+        let result = parse_locator("*JPanel >> JButton");
+        assert!(result.is_ok());
+        let locator = result.unwrap();
+        let selector = &locator.selectors[0];
+
+        // Should have cascaded segments with capture flag
+        assert!(selector.is_cascaded());
+        assert!(selector.has_capture());
+
+        let segments = selector.get_cascaded_segments().unwrap();
+        assert_eq!(segments.len(), 2);
+
+        // First segment should have capture flag
+        assert!(segments[0].is_captured());
+        assert!(!segments[1].is_captured());
+
+        // Check capture index
+        assert_eq!(selector.get_capture_index(), Some(0));
+    }
+
+    #[test]
+    fn test_parse_capture_middle_segment() {
+        let result = parse_locator("JDialog >> *JPanel >> JButton");
+        assert!(result.is_ok());
+        let locator = result.unwrap();
+        let selector = &locator.selectors[0];
+
+        assert!(selector.is_cascaded());
+        assert!(selector.has_capture());
+
+        let segments = selector.get_cascaded_segments().unwrap();
+        assert_eq!(segments.len(), 3);
+
+        // Second segment should have capture flag
+        assert!(!segments[0].is_captured());
+        assert!(segments[1].is_captured());
+        assert!(!segments[2].is_captured());
+
+        // Check capture index
+        assert_eq!(selector.get_capture_index(), Some(1));
+    }
+
+    #[test]
+    fn test_parse_multiple_captures_first_wins() {
+        let result = parse_locator("*JDialog >> *JPanel >> JButton");
+        assert!(result.is_ok());
+        let locator = result.unwrap();
+        let selector = &locator.selectors[0];
+
+        let segments = selector.get_cascaded_segments().unwrap();
+
+        // Both first and second should have capture flag parsed
+        assert!(segments[0].is_captured());
+        assert!(segments[1].is_captured());
+
+        // But get_capture_index should return first one
+        assert_eq!(selector.get_capture_index(), Some(0));
+    }
 }
+
+    #[test]
+    fn test_parse_class_prefix() {
+        let result = parse_locator("class=JButton");
+        assert!(result.is_ok(), "Failed to parse class=JButton");
+        let locator = result.unwrap();
+        assert_eq!(locator.selectors.len(), 1);
+        let compound = &locator.selectors[0].compounds[0];
+        assert!(matches!(
+            &compound.type_selector,
+            Some(TypeSelector::PrefixSelector { key, value })
+            if key == "class" && value == "JButton"
+        ));
+    }
+
+    #[test]
+    fn test_parse_class_prefix_cascaded() {
+        let result = parse_locator("class=JPanel >> class=JButton");
+        assert!(result.is_ok(), "Failed to parse class=JPanel >> class=JButton: {:?}", result);
+        let locator = result.unwrap();
+        let selector = &locator.selectors[0];
+        eprintln!("DEBUG: selector.compounds.len() = {}", selector.compounds.len());
+        assert_eq!(selector.compounds.len(), 2, "Expected 2 compounds");
+
+        let panel = &selector.compounds[0];
+        eprintln!("DEBUG: panel.type_selector = {:?}", panel.type_selector);
+        eprintln!("DEBUG: panel.combinator = {:?}", panel.combinator);
+        assert!(matches!(
+            &panel.type_selector,
+            Some(TypeSelector::PrefixSelector { key, value })
+            if key == "class" && value == "JPanel"
+        ), "Panel type selector mismatch: {:?}", panel.type_selector);
+
+        let button = &selector.compounds[1];
+        eprintln!("DEBUG: button.type_selector = {:?}", button.type_selector);
+        assert!(matches!(
+            &button.type_selector,
+            Some(TypeSelector::PrefixSelector { key, value })
+            if key == "class" && value == "JButton"
+        ), "Button type selector mismatch: {:?}", button.type_selector);
+    }
+
+    #[test]
+    fn test_parse_class_prefix_triple_cascaded() {
+        let result = parse_locator("class=JDialog >> class=JPanel >> class=JButton");
+        assert!(result.is_ok(), "Failed to parse class=JDialog >> class=JPanel >> class=JButton");
+        let locator = result.unwrap();
+        let selector = &locator.selectors[0];
+        assert_eq!(selector.compounds.len(), 3);
+    }
