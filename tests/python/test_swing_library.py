@@ -11,15 +11,15 @@ import sys
 
 # Check if swing_library is available
 try:
-    import swing_library
+    import JavaGui
     SWING_LIBRARY_AVAILABLE = True
 except ImportError:
     SWING_LIBRARY_AVAILABLE = False
 
-# Skip all tests in this module if swing_library is not available
+# Skip all tests in this module if JavaGui is not available
 pytestmark = pytest.mark.skipif(
     not SWING_LIBRARY_AVAILABLE,
-    reason="swing_library not available (Rust extension not compiled)"
+    reason="JavaGui not available (Rust extension not compiled)"
 )
 
 
@@ -28,21 +28,21 @@ class TestSwingLibraryInitialization:
 
     def test_initialization_default_values(self, mock_rust_core):
         """Test initialization with default values."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         assert lib._timeout == 10.0
 
     def test_initialization_custom_timeout(self, mock_rust_core):
         """Test initialization with custom timeout."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary(timeout=30.0)
         assert lib._timeout == 30.0
 
     def test_initialization_custom_poll_interval(self, mock_rust_core):
         """Test initialization with custom poll interval."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary(poll_interval=1.0)
         # Just verify initialization succeeds
@@ -50,7 +50,7 @@ class TestSwingLibraryInitialization:
 
     def test_initialization_all_custom_values(self, mock_rust_core):
         """Test initialization with all custom values."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary(timeout=60.0, poll_interval=0.25, screenshot_directory="/tmp")
         assert lib._timeout == 60.0
@@ -61,7 +61,7 @@ class TestConnectionKeywords:
 
     def test_connect_with_pid(self, mock_rust_core):
         """Test connecting with process ID."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -69,7 +69,7 @@ class TestConnectionKeywords:
 
     def test_connect_with_main_class(self, mock_rust_core):
         """Test connecting with main class name."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(main_class="com.example.MyApp")
@@ -77,7 +77,7 @@ class TestConnectionKeywords:
 
     def test_connect_with_title(self, mock_rust_core):
         """Test connecting with window title."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(title="Main Window")
@@ -85,7 +85,7 @@ class TestConnectionKeywords:
 
     def test_connect_with_custom_timeout(self, mock_rust_core):
         """Test connecting with custom timeout."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345, timeout=30.0)
@@ -93,7 +93,7 @@ class TestConnectionKeywords:
 
     def test_disconnect(self, mock_rust_core):
         """Test disconnecting from application."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -102,7 +102,7 @@ class TestConnectionKeywords:
 
     def test_list_applications(self, mock_rust_core):
         """Test listing running applications."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         apps = lib.list_applications()
@@ -115,7 +115,7 @@ class TestElementFindingKeywords:
 
     def test_find_element_by_id(self, mock_rust_core):
         """Test finding element by ID locator."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -125,7 +125,7 @@ class TestElementFindingKeywords:
 
     def test_find_element_not_found(self, mock_rust_core):
         """Test finding non-existent element."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -134,7 +134,7 @@ class TestElementFindingKeywords:
 
     def test_find_elements_multiple(self, mock_rust_core):
         """Test finding multiple elements."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -143,7 +143,7 @@ class TestElementFindingKeywords:
 
     def test_wait_for_element(self, mock_rust_core):
         """Test waiting for element."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -156,7 +156,7 @@ class TestClickKeywords:
 
     def test_click(self, mock_rust_core):
         """Test clicking element."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -164,7 +164,7 @@ class TestClickKeywords:
 
     def test_double_click(self, mock_rust_core):
         """Test double-clicking element."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -172,7 +172,7 @@ class TestClickKeywords:
 
     def test_right_click(self, mock_rust_core):
         """Test right-clicking element."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -184,7 +184,7 @@ class TestInputKeywords:
 
     def test_input_text(self, mock_rust_core):
         """Test inputting text."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -192,7 +192,7 @@ class TestInputKeywords:
 
     def test_clear_text(self, mock_rust_core):
         """Test clearing text."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -200,7 +200,7 @@ class TestInputKeywords:
 
     def test_type_text(self, mock_rust_core):
         """Test typing text character by character."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -212,7 +212,7 @@ class TestSelectionKeywords:
 
     def test_select_from_list_by_value(self, mock_rust_core):
         """Test selecting from list by value."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -221,7 +221,7 @@ class TestSelectionKeywords:
 
     def test_select_from_list_by_index(self, mock_rust_core):
         """Test selecting from list by index."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -230,7 +230,7 @@ class TestSelectionKeywords:
 
     def test_select_tab_by_title(self, mock_rust_core):
         """Test selecting tab by title."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -239,7 +239,7 @@ class TestSelectionKeywords:
 
     def test_select_tab_by_index(self, mock_rust_core):
         """Test selecting tab by index."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -252,7 +252,7 @@ class TestTableKeywords:
 
     def test_get_table_cell_value(self, mock_rust_core):
         """Test getting table cell value."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -261,7 +261,7 @@ class TestTableKeywords:
 
     def test_select_table_cell(self, mock_rust_core):
         """Test selecting table cell."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -269,7 +269,7 @@ class TestTableKeywords:
 
     def test_get_table_row_count(self, mock_rust_core):
         """Test getting table row count."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -282,7 +282,7 @@ class TestTreeKeywords:
 
     def test_expand_tree_node(self, mock_rust_core):
         """Test expanding tree node."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -290,7 +290,7 @@ class TestTreeKeywords:
 
     def test_collapse_tree_node(self, mock_rust_core):
         """Test collapsing tree node."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -298,7 +298,7 @@ class TestTreeKeywords:
 
     def test_select_tree_node(self, mock_rust_core):
         """Test selecting tree node."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -310,7 +310,7 @@ class TestWaitKeywords:
 
     def test_wait_until_element_visible(self, mock_rust_core):
         """Test waiting until element visible."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -318,7 +318,7 @@ class TestWaitKeywords:
 
     def test_wait_until_element_not_visible(self, mock_rust_core):
         """Test waiting until element not visible - API exists."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         # Test that wait keywords exist
@@ -327,7 +327,7 @@ class TestWaitKeywords:
 
     def test_wait_until_element_enabled(self, mock_rust_core):
         """Test waiting until element enabled."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -339,7 +339,7 @@ class TestVerificationKeywords:
 
     def test_element_should_exist(self, mock_rust_core):
         """Test element should exist."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -347,7 +347,7 @@ class TestVerificationKeywords:
 
     def test_element_should_not_exist(self, mock_rust_core):
         """Test element should not exist."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -355,7 +355,7 @@ class TestVerificationKeywords:
 
     def test_element_should_be_visible(self, mock_rust_core):
         """Test element should be visible."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -363,7 +363,7 @@ class TestVerificationKeywords:
 
     def test_element_should_be_enabled(self, mock_rust_core):
         """Test element should be enabled."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -371,7 +371,7 @@ class TestVerificationKeywords:
 
     def test_get_element_text(self, mock_rust_core):
         """Test getting element text."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -384,7 +384,7 @@ class TestUITreeKeywords:
 
     def test_get_component_tree_json(self, mock_rust_core):
         """Test getting component tree as JSON."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -393,7 +393,7 @@ class TestUITreeKeywords:
 
     def test_get_component_tree_text(self, mock_rust_core):
         """Test getting component tree as text."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -402,7 +402,7 @@ class TestUITreeKeywords:
 
     def test_get_component_tree_yaml(self, mock_rust_core):
         """Test getting component tree as YAML."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -412,7 +412,7 @@ class TestUITreeKeywords:
 
     def test_get_component_tree_with_depth(self, mock_rust_core):
         """Test getting component tree with depth limit."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -425,7 +425,7 @@ class TestScreenshotKeywords:
 
     def test_capture_screenshot_default(self, mock_rust_core):
         """Test capturing screenshot with default name."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -435,7 +435,7 @@ class TestScreenshotKeywords:
 
     def test_capture_screenshot_custom_name(self, mock_rust_core):
         """Test capturing screenshot with custom name."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -444,7 +444,7 @@ class TestScreenshotKeywords:
 
     def test_capture_element_screenshot(self, mock_rust_core):
         """Test that capture_screenshot API exists."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         # Test API exists - element screenshot is a future enhancement
@@ -456,18 +456,18 @@ class TestRobotFrameworkAttributes:
 
     def test_robot_library_scope(self, mock_rust_core):
         """Test ROBOT_LIBRARY_SCOPE attribute."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         assert SwingLibrary.ROBOT_LIBRARY_SCOPE == "GLOBAL"
 
     def test_robot_library_version(self, mock_rust_core):
         """Test ROBOT_LIBRARY_VERSION attribute."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         assert SwingLibrary.ROBOT_LIBRARY_VERSION is not None
 
     def test_robot_library_doc_format(self, mock_rust_core):
         """Test ROBOT_LIBRARY_DOC_FORMAT attribute."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         assert SwingLibrary.ROBOT_LIBRARY_DOC_FORMAT == "REST"

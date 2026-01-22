@@ -36,7 +36,7 @@ class TestGetComponentTree:
 
     def test_get_component_tree_text_format(self, mock_rust_core):
         """Test get_component_tree with explicit text format."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -48,7 +48,7 @@ class TestGetComponentTree:
 
     def test_get_component_tree_json_format(self, mock_rust_core):
         """Test get_component_tree with JSON format."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -61,7 +61,7 @@ class TestGetComponentTree:
 
     def test_get_component_tree_xml_format(self, mock_rust_core):
         """Test get_component_tree with XML format."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -73,7 +73,7 @@ class TestGetComponentTree:
 
     def test_get_component_tree_with_depth_limit(self, mock_rust_core):
         """Test get_component_tree with max_depth parameter."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -87,7 +87,7 @@ class TestGetComponentTree:
 
     def test_get_component_tree_format_and_depth(self, mock_rust_core):
         """Test get_component_tree with both format and max_depth."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -99,7 +99,7 @@ class TestGetComponentTree:
 
     def test_get_component_tree_locator_warning(self, mock_rust_core):
         """Test that locator parameter raises deprecation warning."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -113,7 +113,7 @@ class TestGetComponentTree:
 
     def test_get_component_tree_all_parameters(self, mock_rust_core):
         """Test get_component_tree with all parameters including unsupported locator."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -133,7 +133,7 @@ class TestSaveUITree:
 
     def test_save_ui_tree_default_parameters(self, mock_rust_core):
         """Test save_ui_tree with default parameters (text format)."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -157,7 +157,7 @@ class TestSaveUITree:
 
     def test_save_ui_tree_text_format(self, mock_rust_core):
         """Test save_ui_tree with explicit text format."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -179,7 +179,7 @@ class TestSaveUITree:
 
     def test_save_ui_tree_json_format(self, mock_rust_core):
         """Test save_ui_tree with JSON format."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -202,7 +202,7 @@ class TestSaveUITree:
 
     def test_save_ui_tree_xml_format(self, mock_rust_core):
         """Test save_ui_tree with XML format."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -224,7 +224,7 @@ class TestSaveUITree:
 
     def test_save_ui_tree_with_depth_limit(self, mock_rust_core):
         """Test save_ui_tree with max_depth parameter."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -246,7 +246,7 @@ class TestSaveUITree:
 
     def test_save_ui_tree_format_and_depth(self, mock_rust_core):
         """Test save_ui_tree with both format and max_depth."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -268,7 +268,7 @@ class TestSaveUITree:
 
     def test_save_ui_tree_locator_warning(self, mock_rust_core):
         """Test that locator parameter raises deprecation warning."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -287,7 +287,7 @@ class TestSaveUITree:
 
     def test_save_ui_tree_all_parameters(self, mock_rust_core):
         """Test save_ui_tree with all parameters."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -315,7 +315,7 @@ class TestSaveUITree:
 
     def test_save_ui_tree_creates_parent_directory(self, mock_rust_core):
         """Test save_ui_tree creates parent directories if needed."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -340,7 +340,7 @@ class TestSaveUITree:
 
     def test_save_ui_tree_file_encoding_utf8(self, mock_rust_core):
         """Test that save_ui_tree uses UTF-8 encoding."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -366,7 +366,7 @@ class TestErrorHandling:
 
     def test_get_component_tree_disconnected(self):
         """Test get_component_tree raises error when not connected."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
 
@@ -380,7 +380,7 @@ class TestErrorHandling:
 
     def test_save_ui_tree_invalid_path(self, mock_rust_core):
         """Test save_ui_tree with invalid file path."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -391,7 +391,7 @@ class TestErrorHandling:
 
     def test_save_ui_tree_permission_denied(self, mock_rust_core):
         """Test save_ui_tree with permission denied."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
         import sys
 
         # Skip on Windows as permission handling is different
@@ -421,7 +421,7 @@ class TestBackwardCompatibility:
 
     def test_get_component_tree_old_usage(self, mock_rust_core):
         """Test get_component_tree works with old usage patterns."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
@@ -432,7 +432,7 @@ class TestBackwardCompatibility:
 
     def test_save_ui_tree_old_usage(self, mock_rust_core):
         """Test save_ui_tree works with old usage patterns."""
-        from swing_library import SwingLibrary
+        from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)

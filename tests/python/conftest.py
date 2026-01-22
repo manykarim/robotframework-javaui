@@ -628,12 +628,12 @@ def mock_rust_core():
     mock_module.ElementNotFoundError = ElementNotFoundError
     mock_module.TimeoutError = TimeoutError
 
-    with patch.dict('sys.modules', {'swing_library._core': mock_module}):
+    with patch.dict('sys.modules', {'JavaGui._core': mock_module}):
         # Reload the module to pick up the mock
         import importlib
         import sys
-        if 'swing_library' in sys.modules:
-            del sys.modules['swing_library']
+        if 'JavaGui' in sys.modules:
+            del sys.modules['JavaGui']
         yield mock_module
 
 

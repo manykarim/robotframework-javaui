@@ -298,7 +298,7 @@ class TestFormats:
 def swing_library():
     """Standard test swing application."""
     # TODO: Connect to test app with ~200 components
-    from tests.python.conftest import MockSwingLibrary
+    from conftest import MockSwingLibrary
     return MockSwingLibrary()
 
 
@@ -306,7 +306,7 @@ def swing_library():
 def swing_library_100():
     """Test application with 100 components."""
     # TODO: Create/connect to app with exactly 100 components
-    from tests.python.conftest import MockSwingLibrary
+    from conftest import MockSwingLibrary
     return MockSwingLibrary()
 
 
@@ -314,7 +314,7 @@ def swing_library_100():
 def swing_library_1000():
     """Test application with 1000 components."""
     # TODO: Create/connect to app with exactly 1000 components
-    from tests.python.conftest import MockSwingLibrary
+    from conftest import MockSwingLibrary
     return MockSwingLibrary()
 
 
@@ -322,5 +322,5 @@ def swing_library_1000():
 def swing_library_5000():
     """Test application with 5000 components."""
     # TODO: Create/connect to app with exactly 5000 components
-    from tests.python.conftest import MockSwingLibrary
+    from conftest import MockSwingLibrary
     return MockSwingLibrary()
