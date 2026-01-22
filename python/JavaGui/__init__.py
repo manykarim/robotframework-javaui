@@ -194,6 +194,7 @@ else:
 
 ROBOT_LIBRARY_SCOPE = "GLOBAL"
 ROBOT_LIBRARY_VERSION = __version__
+ROBOT_LIBRARY_DOC_FORMAT = "REST"
 
 
 class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
@@ -249,6 +250,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
 
     ROBOT_LIBRARY_SCOPE = "GLOBAL"
     ROBOT_LIBRARY_VERSION = __version__
+    ROBOT_LIBRARY_DOC_FORMAT = "REST"
 
     def __init__(
         self,

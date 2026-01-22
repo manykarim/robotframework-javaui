@@ -72,6 +72,9 @@ class MockSwingLibrary:
         self._connected = False
         self._elements: Dict[str, MockSwingElement] = {}
         self._setup_default_elements()
+        # Track tree cache for simulating caching behavior
+        self._tree_cache = {}
+        self._tree_call_count = {}
 
     def _setup_default_elements(self) -> None:
         """Set up default mock elements for testing."""
@@ -159,10 +162,15 @@ class MockSwingLibrary:
         self, locator: str, parent: Optional[MockSwingElement] = None
     ) -> List[MockSwingElement]:
         results = []
-        base_type = locator.split("#")[0].split("[")[0].split(":")[0]
+        # Try exact match first
+        if locator in self._elements:
+            return [self._elements[locator]]
+
+        # Try partial matches (locator contains key or vice versa)
         for key, elem in self._elements.items():
-            if base_type in elem.class_name:
+            if locator in key or (elem.name and locator.endswith(f"#{elem.name}")):
                 results.append(elem)
+
         return results
 
     def wait_for_element(self, locator: str, timeout_ms: int = 10000) -> MockSwingElement:
@@ -183,6 +191,10 @@ class MockSwingLibrary:
         self.find_element(locator).double_click()
 
     def right_click(self, locator: str) -> None:
+        self.find_element(locator).right_click()
+
+    def right_click_element(self, locator: str) -> None:
+        """Right-click on element (method called by Rust core)."""
         self.find_element(locator).right_click()
 
     def input_text(self, locator: str, text: str, clear: bool = True) -> None:
@@ -294,6 +306,13 @@ class MockSwingLibrary:
         focusable_only: bool = False
     ) -> str:
         """Get component tree with advanced filtering support."""
+        # Validate max_depth parameter
+        if max_depth is not None:
+            if not isinstance(max_depth, int):
+                raise TypeError(f"max_depth must be an integer or None, got {type(max_depth).__name__}")
+            if max_depth < 0:
+                raise ValueError(f"max_depth must be >= 0, got {max_depth}")
+
         # Validate type patterns for empty entries
         if types:
             type_list = [t.strip() for t in types.split(',')]
@@ -303,8 +322,126 @@ class MockSwingLibrary:
             exclude_list = [t.strip() for t in exclude_types.split(',')]
             if any(not t for t in exclude_list):
                 raise ValueError("Invalid type pattern: empty pattern found in exclude_types list")
+
+        # Simulate caching behavior for unlimited depth
+        cache_key = f"unlimited_{format}_{types}_{exclude_types}_{visible_only}_{enabled_only}_{focusable_only}"
+        if max_depth is None:
+            self._tree_call_count[cache_key] = self._tree_call_count.get(cache_key, 0) + 1
+            if cache_key in self._tree_cache:
+                # Return cached result (simulates fast cache hit)
+                import time
+                time.sleep(0.00001)  # Very fast for cached result
+                return self._tree_cache[cache_key]
+        else:
+            # Non-cached call, slightly slower
+            import time
+            time.sleep(0.0001)
+
         # Build a realistic mock tree with various component types
-        mock_tree = {
+        # Vary tree depth/size based on max_depth parameter
+        if max_depth == 0:
+            # Depth 0: Only roots, no children
+            mock_tree = {
+                "roots": [{
+                    "type": "JFrame",
+                    "simpleClass": "JFrame",
+                    "name": "mainFrame",
+                    "visible": True,
+                    "enabled": True,
+                    "showing": True,
+                    "focusable": True,
+                    "children": []
+                }],
+                "timestamp": 1234567890
+            }
+        elif max_depth == 1:
+            # Depth 1: Root + immediate children only
+            mock_tree = {
+                "roots": [{
+                    "type": "JFrame",
+                    "simpleClass": "JFrame",
+                    "name": "mainFrame",
+                    "visible": True,
+                    "enabled": True,
+                    "showing": True,
+                    "focusable": True,
+                    "children": [
+                        {
+                            "type": "JPanel",
+                            "simpleClass": "JPanel",
+                            "name": "contentPane",
+                            "visible": True,
+                            "enabled": True,
+                            "showing": True,
+                            "focusable": False,
+                            "children": []
+                        }
+                    ]
+                }],
+                "timestamp": 1234567890
+            }
+        elif max_depth is not None and max_depth <= 5:
+            # Depth 2-5: Add more depth with children
+            mock_tree = {
+                "roots": [{
+                    "type": "JFrame",
+                    "simpleClass": "JFrame",
+                    "name": "mainFrame",
+                    "visible": True,
+                    "enabled": True,
+                    "showing": True,
+                    "focusable": True,
+                    "children": [
+                        {
+                            "type": "JPanel",
+                            "simpleClass": "JPanel",
+                            "name": "contentPane",
+                            "visible": True,
+                            "enabled": True,
+                            "showing": True,
+                            "focusable": False,
+                            "children": [
+                                {
+                                    "type": "JButton",
+                                    "simpleClass": "JButton",
+                                    "name": "loginBtn",
+                                    "text": "Login",
+                                    "visible": True,
+                                    "enabled": True,
+                                    "showing": True,
+                                    "focusable": True,
+                                    "children": []
+                                },
+                                {
+                                    "type": "JTextField",
+                                    "simpleClass": "JTextField",
+                                    "name": "usernameField",
+                                    "visible": True,
+                                    "enabled": True,
+                                    "showing": True,
+                                    "focusable": True,
+                                    "children": []
+                                },
+                                {
+                                    "type": "JLabel",
+                                    "simpleClass": "JLabel",
+                                    "name": "statusLabel",
+                                    "text": "Ready",
+                                    "visible": True,
+                                    "enabled": True,
+                                    "showing": True,
+                                    "focusable": False,
+                                    "children": []
+                                }
+                            ]
+                        }
+                    ]
+                }],
+                "timestamp": 1234567890
+            }
+        else:
+            # Unlimited depth or deep tree: Full tree with all components
+            mock_tree = {
             "roots": [{
                 "type": "JFrame",
                 "simpleClass": "JFrame",
@@ -447,23 +584,24 @@ class MockSwingLibrary:
         filtered_tree['roots'] = filtered_roots
 
         # Format output
+        result = None
         if format == "json":
             import json
-            return json.dumps(filtered_tree, indent=2)
+            result = json.dumps(filtered_tree, indent=2)
         elif format == "yaml":
             # Simple YAML representation
             yaml_str = "roots:\n"
             for root in filtered_tree['roots']:
                 yaml_str += f"  - type: {root.get('simpleClass')}\n"
                 yaml_str += f"    name: {root.get('name')}\n"
-            return yaml_str
+            result = yaml_str
         elif format == "xml":
             # Simple XML representation
             xml = '<?xml version="1.0" encoding="UTF-8"?>\n<uitree>\n'
             for root in filtered_tree['roots']:
                 xml += f'  <component type="{root.get("simpleClass")}" name="{root.get("name")}" />\n'
             xml += '</uitree>'
-            return xml
+            result = xml
         else:  # text format
             def component_to_text(comp, indent=0):
                 text = "  " * indent + f"[{comp.get('simpleClass')}] {comp.get('name', '-')}\n"
@@ -475,7 +613,13 @@ class MockSwingLibrary:
             text = ""
             for root in filtered_tree['roots']:
                 text += component_to_text(root)
-            return text
+            result = text
+
+        # Cache result for unlimited depth queries
+        if max_depth is None:
+            self._tree_cache[cache_key] = result
+
+        return result
 
     def get_ui_tree(
         self,
