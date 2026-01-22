@@ -23,12 +23,12 @@ class TestGetComponentTreeParameterPassing:
     """Test that get_component_tree passes parameters correctly to Rust backend."""
 
     def test_passes_format_parameter_correctly(self):
-        """Test that format parameter is passed to get_ui_tree, not locator."""
+        """Test that format parameter is passed to get_component_tree correctly."""
         from JavaGui import SwingLibrary
 
         # Create mock Rust core
         mock_lib = Mock()
-        mock_lib.get_ui_tree = Mock(return_value="JFrame test tree")
+        mock_lib.get_component_tree = Mock(return_value="JFrame test tree")
 
         # Create library instance and inject mock
         lib = SwingLibrary()
@@ -37,9 +37,17 @@ class TestGetComponentTreeParameterPassing:
         # Call with format parameter
         result = lib.get_component_tree(format="json")
 
-        # Verify get_ui_tree was called with correct parameters
-        # Should be: get_ui_tree(format, max_depth, visible_only)
-        mock_lib.get_ui_tree.assert_called_once_with("json", None, False)
+        # Verify get_component_tree was called with correct named parameters
+        mock_lib.get_component_tree.assert_called_once_with(
+            locator=None,
+            format="json",
+            max_depth=None,
+            types=None,
+            exclude_types=None,
+            visible_only=False,
+            enabled_only=False,
+            focusable_only=False
+        )
         assert result == "JFrame test tree"
 
     def test_passes_max_depth_parameter_correctly(self):
@@ -47,7 +55,7 @@ class TestGetComponentTreeParameterPassing:
         from JavaGui import SwingLibrary
 
         mock_lib = Mock()
-        mock_lib.get_ui_tree = Mock(return_value="JFrame test tree")
+        mock_lib.get_component_tree = Mock(return_value="JFrame test tree")
 
         lib = SwingLibrary()
         lib._lib = mock_lib
@@ -55,15 +63,24 @@ class TestGetComponentTreeParameterPassing:
         # Call with max_depth parameter
         result = lib.get_component_tree(max_depth=5)
 
-        # Should pass max_depth as second parameter
-        mock_lib.get_ui_tree.assert_called_once_with("text", 5, False)
+        # Should pass max_depth with named parameters
+        mock_lib.get_component_tree.assert_called_once_with(
+            locator=None,
+            format="text",
+            max_depth=5,
+            types=None,
+            exclude_types=None,
+            visible_only=False,
+            enabled_only=False,
+            focusable_only=False
+        )
 
     def test_passes_all_parameters_correctly(self):
-        """Test that all parameters are passed in correct order."""
+        """Test that all parameters are passed correctly."""
         from JavaGui import SwingLibrary
 
         mock_lib = Mock()
-        mock_lib.get_ui_tree = Mock(return_value="JFrame test tree")
+        mock_lib.get_component_tree = Mock(return_value="JFrame test tree")
 
         lib = SwingLibrary()
         lib._lib = mock_lib
@@ -71,15 +88,24 @@ class TestGetComponentTreeParameterPassing:
         # Call with all parameters
         result = lib.get_component_tree(format="xml", max_depth=10)
 
-        # Should pass all parameters in correct order
-        mock_lib.get_ui_tree.assert_called_once_with("xml", 10, False)
+        # Should pass all parameters with named parameters
+        mock_lib.get_component_tree.assert_called_once_with(
+            locator=None,
+            format="xml",
+            max_depth=10,
+            types=None,
+            exclude_types=None,
+            visible_only=False,
+            enabled_only=False,
+            focusable_only=False
+        )
 
     def test_locator_parameter_deprecated(self):
         """Test that locator parameter shows deprecation warning."""
         from JavaGui import SwingLibrary
 
         mock_lib = Mock()
-        mock_lib.get_ui_tree = Mock(return_value="JFrame test tree")
+        mock_lib.get_component_tree = Mock(return_value="JFrame test tree")
 
         lib = SwingLibrary()
         lib._lib = mock_lib
@@ -88,8 +114,17 @@ class TestGetComponentTreeParameterPassing:
         with pytest.warns(DeprecationWarning, match="locator.*not yet supported"):
             result = lib.get_component_tree(locator="JPanel#main")
 
-        # Should still call get_ui_tree with default parameters
-        mock_lib.get_ui_tree.assert_called_once()
+        # Should still call get_component_tree with locator passed (but backend ignores it)
+        mock_lib.get_component_tree.assert_called_once_with(
+            locator="JPanel#main",
+            format="text",
+            max_depth=None,
+            types=None,
+            exclude_types=None,
+            visible_only=False,
+            enabled_only=False,
+            focusable_only=False
+        )
 
 
 class TestSaveUITreeParameterPassing:
@@ -263,31 +298,28 @@ class TestBugRegression:
 
     def test_bug_get_component_tree_locator_passed_as_format(self):
         """
-        REGRESSION TEST: Bug where locator was passed as first parameter to get_ui_tree.
+        REGRESSION TEST: Bug where locator was passed as first parameter.
 
-        Old buggy code:
-            tree_str = self._lib.get_ui_tree(locator)
-
-        This would pass locator (e.g., "JPanel#main") as the format parameter,
-        causing incorrect behavior.
+        Old buggy code would have incorrectly passed parameters.
+        Now we correctly call get_component_tree with named parameters.
         """
         from JavaGui import SwingLibrary
 
         mock_lib = Mock()
-        mock_lib.get_ui_tree = Mock(return_value="tree")
+        mock_lib.get_component_tree = Mock(return_value="tree")
 
         lib = SwingLibrary()
         lib._lib = mock_lib
 
-        # Call with format="json" - old bug would pass locator instead
+        # Call with format="json"
         lib.get_component_tree(format="json")
 
-        # NEW CORRECT BEHAVIOR: Should pass "json" as format parameter
-        # OLD BUGGY BEHAVIOR: Would have passed None (locator default) as format
-        args = mock_lib.get_ui_tree.call_args[0]
-        assert args[0] == "json", "BUG: format parameter not passed correctly"
-        assert args[1] is None, "max_depth should be None"
-        assert args[2] is False, "visible_only should be False"
+        # NEW CORRECT BEHAVIOR: Should pass "json" as format parameter with named args
+        call_kwargs = mock_lib.get_component_tree.call_args[1]
+        assert call_kwargs['format'] == "json", "BUG: format parameter not passed correctly"
+        assert call_kwargs['max_depth'] is None, "max_depth should be None"
+        assert call_kwargs['locator'] is None, "locator should be None"
+        assert call_kwargs['visible_only'] is False, "visible_only should be False"
 
     def test_bug_save_ui_tree_missing_format_parameter(self):
         """
