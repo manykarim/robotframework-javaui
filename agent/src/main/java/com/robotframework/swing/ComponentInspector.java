@@ -65,18 +65,28 @@ public class ComponentInspector {
     }
 
     /**
-     * Get the full component tree starting from root frames.
+     * Get the full component tree starting from root frames with default depth.
      *
      * @return JsonObject representing the component tree
      */
     public static JsonObject getComponentTree() {
+        return getComponentTree(10);  // Default max depth of 10
+    }
+
+    /**
+     * Get the full component tree starting from root frames with specified max depth.
+     *
+     * @param maxDepth Maximum depth to traverse (0 = only roots, no children)
+     * @return JsonObject representing the component tree
+     */
+    public static JsonObject getComponentTree(int maxDepth) {
         return EdtHelper.runOnEdtAndReturn(() -> {
             JsonObject result = new JsonObject();
             JsonArray roots = new JsonArray();
 
             for (Window window : Window.getWindows()) {
                 if (window.isShowing()) {
-                    roots.add(buildComponentNode(window, 0, 10));
+                    roots.add(buildComponentNode(window, 0, maxDepth));
                 }
             }
 

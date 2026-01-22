@@ -132,6 +132,11 @@ public class RpcServer implements Runnable {
                     int maxDepth = paramsObj.has("maxDepth") ? paramsObj.get("maxDepth").getAsInt() : 10;
                     return ComponentInspector.getComponentTree(compId, maxDepth);
                 }
+                // Support maxDepth for root tree as well
+                if (paramsObj.has("maxDepth")) {
+                    int maxDepth = paramsObj.get("maxDepth").getAsInt();
+                    return ComponentInspector.getComponentTree(maxDepth);
+                }
                 return ComponentInspector.getComponentTree();
 
             // Element finding

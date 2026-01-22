@@ -970,40 +970,101 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         print(tree)
 
     def get_ui_tree(
-        self, format: str = "text", max_depth: Optional[int] = None, visible_only: bool = False
+        self,
+        format: str = "text",
+        max_depth: Optional[int] = None,
+        visible_only: bool = False,
+        types: Optional[str] = None,
+        exclude_types: Optional[str] = None,
+        enabled_only: bool = False,
+        focusable_only: bool = False
     ) -> str:
-        """Get the UI component tree as a string.
+        """Get the UI component tree as a string with advanced filtering.
 
         | **Argument** | **Description** |
-        | ``format`` | Output format: ``text``, ``json``, or ``xml``. Default ``text``. |
+        | ``format`` | Output format: ``text``, ``json``, ``xml``, or ``yaml``. Default ``text``. |
         | ``max_depth`` | Maximum depth to traverse. ``None`` for unlimited. |
         | ``visible_only`` | Only include visible components. Default ``False``. |
+        | ``types`` | Component types to include (comma-separated, supports wildcards). |
+        | ``exclude_types`` | Component types to exclude (comma-separated, supports wildcards). |
+        | ``enabled_only`` | Only include enabled components. Default ``False``. |
+        | ``focusable_only`` | Only include focusable components. Default ``False``. |
 
         Returns the component tree in the specified format.
 
-        Example:
+        Filtering Examples:
         | ${tree}=    Get UI Tree
         | ${json}=    Get UI Tree    format=json
         | ${tree}=    Get UI Tree    format=text    max_depth=3
+        | ${tree}=    Get UI Tree    types=JButton    visible_only=${True}
+        | ${tree}=    Get UI Tree    types=JButton,JTextField    enabled_only=${True}
+        | ${tree}=    Get UI Tree    types=J*Button    exclude_types=JRadioButton
+        | ${tree}=    Get UI Tree    types=JText*    visible_only=${True}    enabled_only=${True}
+
+        Type Filtering:
+        - Use exact type names: ``types=JButton``
+        - Multiple types: ``types=JButton,JTextField,JLabel``
+        - Wildcards: ``types=J*Button`` matches JButton, JToggleButton, JRadioButton
+        - Exclude: ``exclude_types=JLabel,JPanel``
+        - Combine: ``types=J*Button    exclude_types=JRadioButton``
+
+        State Filtering:
+        - ``visible_only=${True}`` - Only visible and showing components
+        - ``enabled_only=${True}`` - Only enabled components
+        - ``focusable_only=${True}`` - Only focusable components
+        - Combine multiple: ``visible_only=${True}    enabled_only=${True}``
 
         """
-        return self._lib.get_ui_tree(format, max_depth, visible_only)
+        return self._lib.get_component_tree(
+            locator=None,
+            format=format,
+            max_depth=max_depth,
+            types=types,
+            exclude_types=exclude_types,
+            visible_only=visible_only,
+            enabled_only=enabled_only,
+            focusable_only=focusable_only
+        )
 
-    def save_ui_tree(self, filename: str, locator: Optional[str] = None) -> None:
+    def save_ui_tree(
+        self,
+        filename: str,
+        locator: Optional[str] = None,
+        format: str = "text",
+        max_depth: Optional[int] = None
+    ) -> None:
         """Save the UI component tree to a file.
 
         | **Argument** | **Description** |
         | ``filename`` | Path to save the tree file. |
         | ``locator`` | Optional locator to start from. Saves entire tree if not specified. |
+        | ``format`` | Output format: ``text``, ``json``, or ``xml``. Default ``text``. |
+        | ``max_depth`` | Maximum depth to traverse. ``None`` for unlimited. |
 
         Saves the component hierarchy to a file for analysis.
 
         Example:
         | Save UI Tree    tree.txt
         | Save UI Tree    panel_tree.txt    JPanel#main
+        | Save UI Tree    tree.json    format=json    max_depth=5
 
         """
-        self._lib.save_ui_tree(filename, locator)
+        # Note: locator parameter is currently not supported by the Rust backend
+        if locator is not None:
+            import warnings
+            warnings.warn(
+                "The 'locator' parameter is not yet supported in save_ui_tree. "
+                "Saving full component tree instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        # Get the tree with the specified format and depth
+        tree_content = self._lib.get_ui_tree(format, max_depth, False)
+
+        # Write to file
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(tree_content)
 
     def refresh_ui_tree(self) -> None:
         """Refresh the cached UI component tree.
@@ -1313,26 +1374,106 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         locator: Optional[str] = None,
         format: str = "text",
         max_depth: Optional[int] = None,
+        types: Optional[str] = None,
+        exclude_types: Optional[str] = None,
+        visible_only: bool = False,
+        enabled_only: bool = False,
+        focusable_only: bool = False
     ) -> str:
-        """Get the component tree in various formats.
+        """Get the component tree with advanced filtering capabilities.
 
         | **Argument** | **Description** |
         | ``locator`` | Optional locator to start from. Uses root if not specified. |
-        | ``format`` | Output format: ``text``, ``json``, or ``yaml``. Default ``text``. |
-        | ``max_depth`` | Maximum depth to traverse. ``None`` for unlimited. |
+        | ``format`` | Output format: ``text``, ``json``, ``xml``, or ``yaml``. Default ``text``. |
+        | ``max_depth`` | Maximum depth to traverse (0=roots only). ``None`` for unlimited. Performance optimized at Java layer. |
+        | ``types`` | Component types to include (comma-separated, supports wildcards). |
+        | ``exclude_types`` | Component types to exclude (comma-separated, supports wildcards). |
+        | ``visible_only`` | Only include visible components. Default ``False``. |
+        | ``enabled_only`` | Only include enabled components. Default ``False``. |
+        | ``focusable_only`` | Only include focusable components. Default ``False``. |
 
         Returns the component tree as a string in the specified format.
 
-        Example:
+        Basic Examples:
         | ${tree}=    Get Component Tree
         | ${json}=    Get Component Tree    format=json
         | ${tree}=    Get Component Tree    format=text    max_depth=2
 
+        Type Filtering Examples:
+        | # Get only buttons
+        | ${buttons}=    Get Component Tree    types=JButton    format=json
+        |
+        | # Get multiple types
+        | ${inputs}=    Get Component Tree    types=JButton,JTextField,JTextArea
+        |
+        | # Get all button types (JButton, JToggleButton, JRadioButton, etc.)
+        | ${all_buttons}=    Get Component Tree    types=J*Button
+        |
+        | # Get all text components
+        | ${text_components}=    Get Component Tree    types=JText*
+        |
+        | # Exclude labels and panels
+        | ${tree}=    Get Component Tree    exclude_types=JLabel,JPanel
+        |
+        | # Include buttons but exclude radio buttons
+        | ${buttons}=    Get Component Tree    types=J*Button    exclude_types=JRadioButton
+
+        State Filtering Examples:
+        | # Get only visible components
+        | ${visible}=    Get Component Tree    visible_only=${True}
+        |
+        | # Get only enabled components
+        | ${enabled}=    Get Component Tree    enabled_only=${True}
+        |
+        | # Get only focusable components
+        | ${focusable}=    Get Component Tree    focusable_only=${True}
+
+        Combined Filtering Examples:
+        | # Get visible, enabled buttons
+        | ${buttons}=    Get Component Tree    types=JButton    visible_only=${True}    enabled_only=${True}
+        |
+        | # Get all visible text components that are enabled
+        | ${inputs}=    Get Component Tree    types=JText*    visible_only=${True}    enabled_only=${True}
+        |
+        | # Get shallow tree of visible buttons only
+        | ${buttons}=    Get Component Tree    types=JButton    max_depth=3    visible_only=${True}
+
+        Filter Logic:
+        - Type filters use AND logic: Component must match ALL criteria
+        - Exclude takes precedence over include
+        - Wildcards supported: ``*`` (any chars), ``?`` (single char)
+        - Type matching is case-sensitive (``JButton`` not ``jbutton``)
+        - Empty type patterns in comma-separated list will raise error
+
         """
-        tree_str = self._lib.get_ui_tree(locator)
-        # The Rust library returns text format by default
-        # Format conversion would be done here if needed
-        return tree_str
+        # Validate max_depth parameter
+        if max_depth is not None:
+            if not isinstance(max_depth, int):
+                raise TypeError(f"max_depth must be an integer or None, got {type(max_depth).__name__}")
+            if max_depth < 0:
+                raise ValueError(f"max_depth must be >= 0, got {max_depth}")
+
+        # Note: locator parameter is currently not supported by the Rust backend
+        if locator is not None:
+            import warnings
+            warnings.warn(
+                "The 'locator' parameter is not yet supported in get_component_tree. "
+                "Returning full component tree instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        # Call the Rust implementation with all filter parameters
+        return self._lib.get_component_tree(
+            locator=locator,
+            format=format,
+            max_depth=max_depth,
+            types=types,
+            exclude_types=exclude_types,
+            visible_only=visible_only,
+            enabled_only=enabled_only,
+            focusable_only=focusable_only
+        )
 
     def log_component_tree(self, locator: Optional[str] = None) -> None:
         """Alias for `Log UI Tree`."""
@@ -1497,6 +1638,71 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
             except Exception:
                 pass
         return properties
+
+    # ==========================================================================
+    # RCP Component Tree Methods (Phase 6)
+    # ==========================================================================
+
+    def get_rcp_component_tree(self, max_depth: int = 5, format: str = "json") -> str:
+        """Get RCP component tree hierarchy.
+
+        Returns a hierarchical representation of Eclipse RCP components including
+        workbench windows, perspectives, views, and editors with their underlying
+        SWT widgets exposed.
+
+        | **Argument** | **Description** |
+        | ``max_depth`` | Maximum depth for SWT widget trees (default: 5). |
+        | ``format`` | Output format: json, text, or yaml (default: json). |
+
+        Returns RCP component tree as a string in the specified format.
+
+        Example:
+        | ${tree}=    Get RCP Component Tree
+        | ${tree}=    Get RCP Component Tree    max_depth=3    format=text
+        """
+        return self._lib.get_rcp_component_tree(max_depth, format)
+
+    def get_all_rcp_views(self, include_swt_widgets: bool = False) -> str:
+        """Get all RCP views with optional SWT widget information.
+
+        | **Argument** | **Description** |
+        | ``include_swt_widgets`` | Include underlying SWT widget trees (default: False). |
+
+        Returns JSON array of all open views.
+
+        Example:
+        | ${views}=    Get All RCP Views
+        | ${views}=    Get All RCP Views    include_swt_widgets=True
+        """
+        return self._lib.get_all_rcp_views(include_swt_widgets)
+
+    def get_all_rcp_editors(self, include_swt_widgets: bool = False) -> str:
+        """Get all RCP editors with optional SWT widget information.
+
+        | **Argument** | **Description** |
+        | ``include_swt_widgets`` | Include underlying SWT widget trees (default: False). |
+
+        Returns JSON array of all open editors.
+
+        Example:
+        | ${editors}=    Get All RCP Editors
+        | ${editors}=    Get All RCP Editors    include_swt_widgets=True
+        """
+        return self._lib.get_all_rcp_editors(include_swt_widgets)
+
+    def get_rcp_component(self, path: str, max_depth: int = 3) -> str:
+        """Get a specific RCP component by path.
+
+        | **Argument** | **Description** |
+        | ``path`` | Component path (e.g., "window[0]/page[0]/view[org.example.view]"). |
+        | ``max_depth`` | Maximum depth for SWT widget tree (default: 3). |
+
+        Returns RCP component with SWT widget information as JSON.
+
+        Example:
+        | ${view}=    Get RCP Component    window[0]/page[0]/view[org.eclipse.ui.navigator]
+        """
+        return self._lib.get_rcp_component(path, max_depth)
 
 
 # Apply deprecation aliases to SwingLibrary

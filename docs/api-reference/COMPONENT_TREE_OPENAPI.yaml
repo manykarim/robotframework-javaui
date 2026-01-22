@@ -1,0 +1,706 @@
+openapi: 3.0.3
+info:
+  title: Robot Framework Swing Library - Component Tree API
+  description: |
+    This document describes the Component Tree API for the Robot Framework Swing Library.
+    The API provides methods for retrieving, filtering, and analyzing Java Swing/SWT/RCP UI component hierarchies.
+
+    ## Features
+    - **Multiple Output Formats**: JSON, XML, YAML, CSV, Markdown, Text
+    - **Advanced Filtering**: By type, state (visible, enabled, focusable)
+    - **Depth Control**: Limit tree traversal depth for performance
+    - **Subtree Extraction**: Get trees starting from specific components
+    - **Cross-Platform**: Supports Swing, SWT, and Eclipse RCP
+
+    ## Authentication
+    Connection to the Java application is required before any tree operations.
+    Use `Connect To Application` keyword with appropriate host/port/PID.
+
+  version: 0.2.0
+  contact:
+    name: Robot Framework Swing Library
+    url: https://github.com/manykarim/robotframework-javaui
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: local://robot-framework
+    description: Local Robot Framework test execution environment
+
+tags:
+  - name: Component Tree
+    description: Operations for retrieving and managing component trees
+  - name: Filtering
+    description: Advanced filtering capabilities
+  - name: Legacy
+    description: Backwards compatibility methods
+
+paths:
+  /component-tree:
+    get:
+      tags:
+        - Component Tree
+      summary: Get Component Tree
+      description: |
+        Retrieves the UI component tree with optional filtering and formatting.
+
+        This is the primary method for inspecting the complete UI hierarchy. It supports:
+        - Multiple output formats (JSON, XML, YAML, CSV, Markdown, Text)
+        - Depth limiting for performance optimization
+        - Type filtering with wildcard patterns
+        - State filtering (visible, enabled, focusable)
+        - Starting from root or specific component
+
+        **Performance Considerations:**
+        - Use `max_depth` to limit traversal on large UIs
+        - Use type filtering to reduce output size
+        - Consider using `Get Component Subtree` for specific sections
+
+      operationId: getComponentTree
+      parameters:
+        - name: locator
+          in: query
+          description: |
+            Optional component locator to start tree from. If not provided, starts from root window(s).
+            Supports full locator syntax including CSS selectors and XPath.
+
+            Examples:
+            - `JPanel[name='mainPanel']`
+            - `//JFrame[@title='Login']`
+            - `JDialog > JPanel`
+          schema:
+            type: string
+            nullable: true
+          required: false
+          example: "JPanel[name='mainPanel']"
+
+        - name: format
+          in: query
+          description: |
+            Output format for the component tree.
+
+            - **text**: Simple indented text format (default)
+            - **json**: Structured JSON with full details
+            - **xml**: Hierarchical XML markup
+            - **yaml** (or **yml**): Human-readable YAML
+            - **csv**: Flattened tabular format
+            - **markdown**: Documentation-friendly markdown table
+          schema:
+            type: string
+            enum:
+              - text
+              - json
+              - xml
+              - yaml
+              - yml
+              - csv
+              - markdown
+            default: text
+          required: false
+
+        - name: max_depth
+          in: query
+          description: |
+            Maximum tree depth to traverse. `null` means unlimited depth.
+
+            Use this to improve performance on large UIs:
+            - Depth 2-3: Very fast, good for overview
+            - Depth 5-10: Moderate, suitable for most debugging
+            - Depth unlimited: Slow on large UIs (1000+ components)
+          schema:
+            type: integer
+            minimum: 0
+            nullable: true
+          required: false
+          example: 5
+
+        - name: types
+          in: query
+          description: |
+            Comma-separated list of component types to include.
+            Supports wildcard patterns using `*` and `?`.
+
+            Examples:
+            - `JButton` - Only JButton components
+            - `JButton,JTextField` - Multiple specific types
+            - `J*Button` - All button types (JButton, JToggleButton, etc.)
+            - `JText*` - All text components (JTextField, JTextArea, etc.)
+          schema:
+            type: string
+            nullable: true
+          required: false
+          example: "JButton,JTextField"
+
+        - name: exclude_types
+          in: query
+          description: |
+            Comma-separated list of component types to exclude.
+            Takes precedence over `types` parameter.
+            Supports wildcard patterns.
+
+            Examples:
+            - `JLabel` - Exclude all labels
+            - `JPanel,JScrollPane` - Exclude multiple types
+            - `J*Label` - Exclude all label types
+          schema:
+            type: string
+            nullable: true
+          required: false
+          example: "JLabel,JPanel"
+
+        - name: visible_only
+          in: query
+          description: |
+            If `true`, only includes visible components in the tree.
+            Filters out components where `isVisible()` returns false.
+          schema:
+            type: boolean
+            default: false
+          required: false
+
+        - name: enabled_only
+          in: query
+          description: |
+            If `true`, only includes enabled components in the tree.
+            Filters out components where `isEnabled()` returns false.
+          schema:
+            type: boolean
+            default: false
+          required: false
+
+        - name: focusable_only
+          in: query
+          description: |
+            If `true`, only includes focusable components in the tree.
+            Filters out components where `isFocusable()` returns false.
+          schema:
+            type: boolean
+            default: false
+          required: false
+
+      responses:
+        '200':
+          description: Component tree retrieved successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                JFrame[name='MainWindow', title='Application']
+                  JMenuBar
+                    JMenu[text='File']
+                      JMenuItem[text='Open']
+                  JPanel[name='content']
+                    JButton[name='submitBtn', text='Submit']
+
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentTree'
+              example:
+                roots:
+                  - id:
+                      tree_path: "0"
+                      hash_code: 12345
+                    component_type:
+                      class_name: "javax.swing.JFrame"
+                      simple_name: "JFrame"
+                    identity:
+                      name: "MainWindow"
+                      text: "Application"
+                    state:
+                      visible: true
+                      enabled: true
+                      showing: true
+                      focusable: true
+                    geometry:
+                      bounds:
+                        x: 0
+                        y: 0
+                        width: 800
+                        height: 600
+                    children:
+                      - component_type:
+                          simple_name: "JButton"
+                        identity:
+                          name: "submitBtn"
+                          text: "Submit"
+
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidFormat:
+                  value:
+                    error: "ValueError"
+                    message: "Invalid format: 'invalid'. Must be one of: text, json, xml, yaml, csv, markdown"
+                invalidDepth:
+                  value:
+                    error: "ValueError"
+                    message: "max_depth must be >= 0"
+
+        '404':
+          description: Component not found (when locator specified)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "ElementNotFoundError"
+                message: "Element not found: JPanel[name='missing']"
+
+        '503':
+          description: Not connected to application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "SwingConnectionError"
+                message: "Not connected to application. Use 'Connect To Application' first."
+
+        '504':
+          description: Operation timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "TimeoutError"
+                message: "Tree retrieval exceeded timeout of 30s"
+
+  /component-tree/subtree:
+    get:
+      tags:
+        - Component Tree
+      summary: Get Component Subtree
+      description: |
+        Retrieves a subtree starting from a specific component.
+
+        This is more efficient than getting the full tree when you only need
+        a specific section of the UI. It's particularly useful for:
+        - Inspecting dialog contents
+        - Analyzing specific panels or containers
+        - Performance optimization on large UIs
+
+        **Performance Benefit:**
+        Getting a subtree of 100 components is ~50x faster than getting
+        a full tree of 2000 components.
+
+      operationId: getComponentSubtree
+      parameters:
+        - name: locator
+          in: query
+          description: |
+            Component locator to start subtree from (REQUIRED).
+            The component matching this locator becomes the root of the subtree.
+          schema:
+            type: string
+          required: true
+          example: "JPanel[name='loginForm']"
+
+        - name: format
+          in: query
+          description: Output format (same as Get Component Tree)
+          schema:
+            type: string
+            enum:
+              - text
+              - json
+              - xml
+              - yaml
+              - yml
+              - csv
+              - markdown
+            default: text
+          required: false
+
+        - name: max_depth
+          in: query
+          description: Maximum depth from the starting component
+          schema:
+            type: integer
+            minimum: 0
+            nullable: true
+          required: false
+
+        - $ref: '#/components/parameters/TypesParam'
+        - $ref: '#/components/parameters/ExcludeTypesParam'
+        - $ref: '#/components/parameters/VisibleOnlyParam'
+        - $ref: '#/components/parameters/EnabledOnlyParam'
+        - $ref: '#/components/parameters/FocusableOnlyParam'
+
+      responses:
+        '200':
+          description: Component subtree retrieved successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentNode'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/NotConnected'
+        '504':
+          $ref: '#/components/responses/Timeout'
+
+  /component-tree/refresh:
+    post:
+      tags:
+        - Component Tree
+      summary: Refresh Component Tree
+      description: |
+        Refreshes the cached component tree.
+
+        Call this after:
+        - Opening or closing dialogs
+        - Dynamic UI changes
+        - Adding/removing components
+        - Before critical tree inspection
+
+        The refresh operation is fast (<100ms) and recommended to call
+        liberally when in doubt about UI state.
+
+      operationId: refreshComponentTree
+      responses:
+        '200':
+          description: Tree refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "refreshed"
+                  timestamp:
+                    type: integer
+                    format: int64
+                    description: Unix timestamp in milliseconds
+        '503':
+          $ref: '#/components/responses/NotConnected'
+
+  /component-tree/log:
+    post:
+      tags:
+        - Component Tree
+      summary: Log Component Tree
+      description: |
+        Logs the component tree to the Robot Framework log.
+
+        This is useful for:
+        - Test documentation
+        - Debugging element locators
+        - Recording UI state in test logs
+
+      operationId: logComponentTree
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                locator:
+                  type: string
+                  nullable: true
+                  description: Optional locator to start from
+                format:
+                  type: string
+                  enum: [text, json]
+                  default: text
+                level:
+                  type: string
+                  enum: [TRACE, DEBUG, INFO, WARN, ERROR]
+                  default: INFO
+                  description: Robot Framework log level
+      responses:
+        '200':
+          description: Tree logged successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '503':
+          $ref: '#/components/responses/NotConnected'
+
+  /ui-tree:
+    get:
+      tags:
+        - Legacy
+      summary: Get UI Tree (Legacy)
+      deprecated: true
+      description: |
+        **DEPRECATED:** Use `Get Component Tree` instead.
+
+        This method is maintained for backwards compatibility with v0.1.x.
+        It has limited capabilities compared to the newer method.
+
+        **Limitations:**
+        - No JSON/XML/YAML/CSV/Markdown formats (only basic text)
+        - No depth control
+        - No filtering options
+
+        **Migration:**
+        Replace `Get UI Tree` with `Get Component Tree format=text`
+
+      operationId: getUiTree
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            default: text
+          deprecated: true
+      responses:
+        '200':
+          description: UI tree retrieved
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  schemas:
+    ComponentTree:
+      type: object
+      description: Complete component tree with one or more root windows
+      required:
+        - roots
+      properties:
+        roots:
+          type: array
+          description: Array of root window components
+          items:
+            $ref: '#/components/schemas/ComponentNode'
+
+    ComponentNode:
+      type: object
+      description: Single component in the tree hierarchy
+      required:
+        - id
+        - component_type
+        - identity
+        - state
+        - geometry
+      properties:
+        id:
+          $ref: '#/components/schemas/ComponentId'
+        component_type:
+          $ref: '#/components/schemas/ComponentType'
+        identity:
+          $ref: '#/components/schemas/ComponentIdentity'
+        state:
+          $ref: '#/components/schemas/ComponentState'
+        geometry:
+          $ref: '#/components/schemas/ComponentGeometry'
+        children:
+          type: array
+          description: Child components (if container)
+          items:
+            $ref: '#/components/schemas/ComponentNode'
+        type_specific:
+          type: object
+          description: Type-specific properties (varies by component type)
+          additionalProperties: true
+
+    ComponentId:
+      type: object
+      description: Component identification
+      properties:
+        tree_path:
+          type: string
+          description: Hierarchical path in tree (e.g., "0.1.2")
+        hash_code:
+          type: integer
+          description: Component hash code
+
+    ComponentType:
+      type: object
+      description: Component type information
+      required:
+        - class_name
+        - simple_name
+      properties:
+        class_name:
+          type: string
+          description: Fully qualified class name
+          example: "javax.swing.JButton"
+        simple_name:
+          type: string
+          description: Simple class name
+          example: "JButton"
+
+    ComponentIdentity:
+      type: object
+      description: Component identity properties
+      properties:
+        name:
+          type: string
+          nullable: true
+          description: Component name (if set via setName())
+        text:
+          type: string
+          nullable: true
+          description: Text content (for buttons, labels, etc.)
+
+    ComponentState:
+      type: object
+      description: Component state flags
+      required:
+        - visible
+        - enabled
+        - showing
+        - focusable
+      properties:
+        visible:
+          type: boolean
+          description: Component visibility (isVisible())
+        enabled:
+          type: boolean
+          description: Enabled state (isEnabled())
+        showing:
+          type: boolean
+          description: Showing state - visible AND all parents visible (isShowing())
+        focusable:
+          type: boolean
+          description: Can receive focus (isFocusable())
+
+    ComponentGeometry:
+      type: object
+      description: Component size and position
+      required:
+        - bounds
+      properties:
+        bounds:
+          $ref: '#/components/schemas/Bounds'
+
+    Bounds:
+      type: object
+      description: Component bounding rectangle
+      required:
+        - x
+        - y
+        - width
+        - height
+      properties:
+        x:
+          type: integer
+          description: X coordinate relative to parent
+        y:
+          type: integer
+          description: Y coordinate relative to parent
+        width:
+          type: integer
+          description: Component width in pixels
+        height:
+          type: integer
+          description: Component height in pixels
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error type/class name
+          example: "ValueError"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid format specified"
+        details:
+          type: object
+          description: Additional error context
+          additionalProperties: true
+
+  parameters:
+    TypesParam:
+      name: types
+      in: query
+      description: Component types to include (comma-separated, supports wildcards)
+      schema:
+        type: string
+        nullable: true
+      required: false
+
+    ExcludeTypesParam:
+      name: exclude_types
+      in: query
+      description: Component types to exclude (comma-separated, supports wildcards)
+      schema:
+        type: string
+        nullable: true
+      required: false
+
+    VisibleOnlyParam:
+      name: visible_only
+      in: query
+      description: Only include visible components
+      schema:
+        type: boolean
+        default: false
+      required: false
+
+    EnabledOnlyParam:
+      name: enabled_only
+      in: query
+      description: Only include enabled components
+      schema:
+        type: boolean
+        default: false
+      required: false
+
+    FocusableOnlyParam:
+      name: focusable_only
+      in: query
+      description: Only include focusable components
+      schema:
+        type: boolean
+        default: false
+      required: false
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Component not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotConnected:
+      description: Not connected to application
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Timeout:
+      description: Operation timeout exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    JavaAgentConnection:
+      type: apiKey
+      in: header
+      name: X-Java-Agent-Connection
+      description: |
+        Connection to Java application via agent.
+        Established by calling `Connect To Application` keyword.

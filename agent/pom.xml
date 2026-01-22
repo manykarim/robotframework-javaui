@@ -17,6 +17,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <gson.version>2.10.1</gson.version>
+        <swt.version>3.127.0</swt.version>
     </properties>
 
     <dependencies>
@@ -25,6 +26,9 @@
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
         </dependency>
+
+        <!-- SWT dependencies - provided scope since they should be on target app classpath -->
+        <!-- Will be included in specific profiles for building swt-agent jar -->
     </dependencies>
 
     <build>
@@ -87,63 +91,246 @@
     </build>
 
     <profiles>
-        <!-- Profile for building SWT agent with local DBeaver SWT jars -->
+        <!--
+        ========================================================================
+        SWT AGENT BUILD PROFILES
+        ========================================================================
+        These profiles add SWT dependencies and enable SWT-specific code.
+        Use -P <profile-id> to build for specific platforms.
+
+        Platform auto-detection profiles (automatically activate based on OS):
+        - linux-gtk-x86_64, linux-gtk-aarch64
+        - win32-x86_64, win32-aarch64
+        - macosx-x86_64, macosx-aarch64
+
+        Manual selection profiles (use with -P flag):
+        - swt-linux-x64, swt-win-x64, swt-mac-x64, swt-mac-arm64
+        - swt-all (includes all platforms - for CI/distribution)
+
+        Examples:
+          mvn clean package -P swt-linux-x64
+          mvn clean package -P swt-all
+        ========================================================================
+        -->
+
+        <!-- Linux GTK x86_64 (auto-detect) -->
         <profile>
-            <id>swt</id>
+            <id>linux-gtk-x86_64</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                    <name>Linux</name>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
             <dependencies>
-                <!-- SWT core from DBeaver - system scope for compilation only -->
                 <dependency>
-                    <groupId>org.eclipse.swt</groupId>
+                    <groupId>org.eclipse.platform</groupId>
                     <artifactId>org.eclipse.swt.gtk.linux.x86_64</artifactId>
-                    <version>3.132.0</version>
-                    <scope>system</scope>
-                    <systemPath>${basedir}/../demo/dbeaver/plugins/org.eclipse.swt.gtk.linux.x86_64_3.132.0.v20251124-0642.jar</systemPath>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
                 </dependency>
             </dependencies>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-compiler-plugin</artifactId>
-                        <version>3.11.0</version>
-                        <configuration>
-                            <source>17</source>
-                            <target>17</target>
-                            <!-- Include SWT classes, exclude RCP -->
-                            <excludes>
-                                <exclude>**/rcp/**</exclude>
-                            </excludes>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-shade-plugin</artifactId>
-                        <version>3.5.1</version>
-                        <executions>
-                            <execution>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>shade</goal>
-                                </goals>
-                                <configuration>
-                                    <transformers>
-                                        <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                            <manifestEntries>
-                                                <Premain-Class>com.robotframework.swt.SwtAgent</Premain-Class>
-                                                <Agent-Class>com.robotframework.swt.SwtAgent</Agent-Class>
-                                                <Can-Redefine-Classes>true</Can-Redefine-Classes>
-                                                <Can-Retransform-Classes>true</Can-Retransform-Classes>
-                                            </manifestEntries>
-                                        </transformer>
-                                    </transformers>
-                                    <createDependencyReducedPom>false</createDependencyReducedPom>
-                                    <finalName>javagui-swt-agent</finalName>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
+        </profile>
+
+        <!-- Linux GTK aarch64 (auto-detect) -->
+        <profile>
+            <id>linux-gtk-aarch64</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                    <name>Linux</name>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.gtk.linux.aarch64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- Windows x86_64 (auto-detect) -->
+        <profile>
+            <id>win32-x86_64</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                    <arch>amd64</arch>
+                </os>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.win32.win32.x86_64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- Windows aarch64 (auto-detect) -->
+        <profile>
+            <id>win32-aarch64</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.win32.win32.aarch64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- macOS x86_64 (auto-detect) -->
+        <profile>
+            <id>macosx-x86_64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>x86_64</arch>
+                </os>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.cocoa.macosx.x86_64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- macOS aarch64 / Apple Silicon (auto-detect) -->
+        <profile>
+            <id>macosx-aarch64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.cocoa.macosx.aarch64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- Manual platform selection profiles -->
+
+        <!-- Force Linux x86_64 -->
+        <profile>
+            <id>swt-linux-x64</id>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.gtk.linux.x86_64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- Force Windows x86_64 -->
+        <profile>
+            <id>swt-win-x64</id>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.win32.win32.x86_64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- Force macOS x86_64 -->
+        <profile>
+            <id>swt-mac-x64</id>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.cocoa.macosx.x86_64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!-- Force macOS aarch64 (Apple Silicon) -->
+        <profile>
+            <id>swt-mac-arm64</id>
+            <dependencies>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.cocoa.macosx.aarch64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <!--
+        ALL PLATFORMS PROFILE
+        Includes all SWT platform dependencies for CI builds and distribution.
+        Creates a fat jar that works on any platform (user must have native libs).
+        -->
+        <profile>
+            <id>swt-all</id>
+            <dependencies>
+                <!-- Linux -->
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.gtk.linux.x86_64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.gtk.linux.aarch64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <!-- Windows -->
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.win32.win32.x86_64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.win32.win32.aarch64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <!-- macOS -->
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.cocoa.macosx.x86_64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.eclipse.platform</groupId>
+                    <artifactId>org.eclipse.swt.cocoa.macosx.aarch64</artifactId>
+                    <version>${swt.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
         </profile>
     </profiles>
 </project>

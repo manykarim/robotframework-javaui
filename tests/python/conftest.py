@@ -283,25 +283,220 @@ class MockSwingLibrary:
         return self.find_element(locator).text or ""
 
     def get_component_tree(
-        self, format: str = "json", max_depth: Optional[int] = None
+        self,
+        locator: Optional[str] = None,
+        format: str = "text",
+        max_depth: Optional[int] = None,
+        types: Optional[str] = None,
+        exclude_types: Optional[str] = None,
+        visible_only: bool = False,
+        enabled_only: bool = False,
+        focusable_only: bool = False
     ) -> str:
-        if format == "json":
-            return '{"type": "JFrame", "name": "mainFrame", "children": []}'
-        elif format == "yaml":
-            return "window_title: Main Frame\nchildren: []"
-        else:
-            return "JFrame [mainFrame]\n  JPanel [contentPane]"
+        """Get component tree with advanced filtering support."""
+        # Validate type patterns for empty entries
+        if types:
+            type_list = [t.strip() for t in types.split(',')]
+            if any(not t for t in type_list):
+                raise ValueError("Invalid type pattern: empty pattern found in types list")
+        if exclude_types:
+            exclude_list = [t.strip() for t in exclude_types.split(',')]
+            if any(not t for t in exclude_list):
+                raise ValueError("Invalid type pattern: empty pattern found in exclude_types list")
+        # Build a realistic mock tree with various component types
+        mock_tree = {
+            "roots": [{
+                "type": "JFrame",
+                "simpleClass": "JFrame",
+                "name": "mainFrame",
+                "visible": True,
+                "enabled": True,
+                "showing": True,
+                "focusable": True,
+                "children": [
+                    {
+                        "type": "JPanel",
+                        "simpleClass": "JPanel",
+                        "name": "contentPane",
+                        "visible": True,
+                        "enabled": True,
+                        "showing": True,
+                        "focusable": False,
+                        "children": [
+                            {
+                                "type": "JButton",
+                                "simpleClass": "JButton",
+                                "name": "loginBtn",
+                                "text": "Login",
+                                "visible": True,
+                                "enabled": True,
+                                "showing": True,
+                                "focusable": True,
+                                "children": []
+                            },
+                            {
+                                "type": "JTextField",
+                                "simpleClass": "JTextField",
+                                "name": "usernameField",
+                                "visible": True,
+                                "enabled": True,
+                                "showing": True,
+                                "focusable": True,
+                                "children": []
+                            },
+                            {
+                                "type": "JLabel",
+                                "simpleClass": "JLabel",
+                                "name": "statusLabel",
+                                "text": "Ready",
+                                "visible": True,
+                                "enabled": True,
+                                "showing": True,
+                                "focusable": False,
+                                "children": []
+                            },
+                            {
+                                "type": "JToggleButton",
+                                "simpleClass": "JToggleButton",
+                                "name": "toggleBtn",
+                                "visible": False,
+                                "enabled": True,
+                                "showing": False,
+                                "focusable": True,
+                                "children": []
+                            },
+                            {
+                                "type": "JRadioButton",
+                                "simpleClass": "JRadioButton",
+                                "name": "radioBtn",
+                                "visible": True,
+                                "enabled": False,
+                                "showing": True,
+                                "focusable": True,
+                                "children": []
+                            }
+                        ]
+                    }
+                ]
+            }],
+            "timestamp": 1234567890
+        }
 
-    def get_ui_tree(self, locator: Optional[str] = None) -> str:
-        """New API get UI tree."""
-        return "JFrame [mainFrame]\n  JPanel [contentPane]\n    JButton [loginBtn]"
+        # Apply filters (simplified mock filtering)
+        import copy
+        import re
+        filtered_tree = copy.deepcopy(mock_tree)
+
+        def filter_component(comp):
+            """Apply filters to a component - returns flat list of matching components."""
+            results = []
+
+            # Check if this component should be excluded by type
+            excluded_by_type = False
+            if exclude_types:
+                exclude_list = [t.strip() for t in exclude_types.split(',') if t.strip()]
+                for pattern in exclude_list:
+                    if comp.get('simpleClass') == pattern:
+                        excluded_by_type = True
+                        break
+
+            if not excluded_by_type:
+                # Check if this component matches type filter
+                matches_type = True
+                if types:
+                    type_list = [t.strip() for t in types.split(',') if t.strip()]
+                    matches_type = False
+                    for pattern in type_list:
+                        # Wildcard support
+                        if '*' in pattern or '?' in pattern:
+                            regex_pattern = pattern.replace('.', '\\.').replace('*', '.*').replace('?', '.')
+                            if re.match(f"^{regex_pattern}$", comp.get('simpleClass', '')):
+                                matches_type = True
+                                break
+                        elif comp.get('simpleClass') == pattern:
+                            matches_type = True
+                            break
+
+                # Check state filters
+                matches_state = True
+                if visible_only and (not comp.get('visible') or not comp.get('showing')):
+                    matches_state = False
+                if enabled_only and not comp.get('enabled'):
+                    matches_state = False
+                if focusable_only and not comp.get('focusable'):
+                    matches_state = False
+
+                # Include component if it matches all filters
+                if matches_type and matches_state:
+                    # Create a copy without children for flat list
+                    comp_copy = {k: v for k, v in comp.items() if k != 'children'}
+                    comp_copy['children'] = []
+                    results.append(comp_copy)
+
+            # Recursively filter children
+            children = comp.get('children') or []
+            for child in children:
+                results.extend(filter_component(child))
+
+            return results
+
+        # Apply filters to roots - filter_component now returns flat list
+        filtered_roots = []
+        for root in filtered_tree['roots']:
+            filtered_roots.extend(filter_component(root))
+        filtered_tree['roots'] = filtered_roots
+
+        # Format output
+        if format == "json":
+            import json
+            return json.dumps(filtered_tree, indent=2)
+        elif format == "yaml":
+            # Simple YAML representation
+            yaml_str = "roots:\n"
+            for root in filtered_tree['roots']:
+                yaml_str += f"  - type: {root.get('simpleClass')}\n"
+                yaml_str += f"    name: {root.get('name')}\n"
+            return yaml_str
+        elif format == "xml":
+            # Simple XML representation
+            xml = '<?xml version="1.0" encoding="UTF-8"?>\n<uitree>\n'
+            for root in filtered_tree['roots']:
+                xml += f'  <component type="{root.get("simpleClass")}" name="{root.get("name")}" />\n'
+            xml += '</uitree>'
+            return xml
+        else:  # text format
+            def component_to_text(comp, indent=0):
+                text = "  " * indent + f"[{comp.get('simpleClass')}] {comp.get('name', '-')}\n"
+                children = comp.get('children') or []
+                for child in children:
+                    text += component_to_text(child, indent + 1)
+                return text
+
+            text = ""
+            for root in filtered_tree['roots']:
+                text += component_to_text(root)
+            return text
+
+    def get_ui_tree(
+        self,
+        format: str = "text",
+        max_depth: Optional[int] = None,
+        visible_only: bool = False
+    ) -> str:
+        """Get UI tree with format, depth, and visibility options."""
+        if format == "json":
+            return '{"type": "JFrame", "name": "mainFrame", "children": [{"type": "JPanel", "name": "contentPane", "children": [{"type": "JButton", "name": "loginBtn"}]}]}'
+        elif format == "xml":
+            return '<component type="JFrame" name="mainFrame"><component type="JPanel" name="contentPane"><component type="JButton" name="loginBtn"/></component></component>'
+        else:  # text format
+            return "JFrame [mainFrame]\n  JPanel [contentPane]\n    JButton [loginBtn]"
 
     def log_ui_tree(self, locator: Optional[str] = None) -> None:
         """New API log UI tree."""
-        print(self.get_ui_tree(locator))
+        print(self.get_ui_tree("text", None, False))
 
     def save_ui_tree(self, filename: str, locator: Optional[str] = None) -> None:
-        """New API save UI tree."""
+        """Legacy API - not used in new implementation."""
         pass
 
     def refresh_ui_tree(self) -> None:
