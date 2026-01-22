@@ -1168,19 +1168,28 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         if selected:
             raise AssertionError(f"Element '{locator}' should not be selected but was")
 
-    def element_should_exist(self, locator: str) -> None:
+    def element_should_exist(self, locator) -> None:
         """Verify that an element exists in the UI tree.
 
         | **Argument** | **Description** |
-        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``locator`` | CSS or XPath-like locator string or SwingElement object. See `Locator Syntax`. |
 
         Fails if the element does not exist.
 
         Example:
         | Element Should Exist    JButton#submit
         | Element Should Exist    #loginForm
+        | ${elem}=    Find Element    JButton
+        | Element Should Exist    ${elem}
 
         """
+        # Handle SwingElement objects - check type name to avoid PyO3 conversion issues
+        if type(locator).__name__ == 'SwingElement':
+            # It's a SwingElement and it exists by definition
+            # (Find Element already validated it)
+            return
+
+        # Handle locator strings
         try:
             elements = self._lib.find_elements(locator)
             if not elements:
@@ -1190,11 +1199,11 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         except Exception as e:
             raise AssertionError(f"Element '{locator}' should exist but was not found: {e}")
 
-    def element_should_not_exist(self, locator: str) -> None:
+    def element_should_not_exist(self, locator) -> None:
         """Verify that an element does not exist in the UI tree.
 
         | **Argument** | **Description** |
-        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``locator`` | CSS or XPath-like locator string or SwingElement object. See `Locator Syntax`. |
 
         Fails if the element exists.
 
@@ -1203,6 +1212,11 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Element Should Not Exist    #loadingSpinner
 
         """
+        # Handle SwingElement objects - if we have the object, it exists (duck typing)
+        if hasattr(locator, '_elem'):
+            raise AssertionError(f"Element '{locator}' should not exist but was found")
+
+        # Handle locator strings
         try:
             elements = self._lib.find_elements(locator)
             if elements:

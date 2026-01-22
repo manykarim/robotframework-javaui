@@ -16,7 +16,7 @@ use crate::locator::{
     AttributeOperator,
     // Pest parser and evaluator for advanced locator support
     parse_locator as pest_parse_locator, Evaluator, MatchContext,
-    Locator as ParsedLocator,
+    Locator as ParsedLocator, find_matching_components,
 };
 use crate::model::{
     SwingBaseType, UIComponent,
@@ -1947,14 +1947,20 @@ impl SwingLibrary {
     /// Find elements using the evaluator with a parsed locator
     fn find_with_evaluator(&self, tree: &UITree, parsed_locator: &ParsedLocator) -> Result<Vec<SwingElement>, SwingError> {
         let evaluator = Evaluator::new();
-        let mut results = Vec::new();
+        let mut all_results = Vec::new();
 
         // Search each root in the tree
         for root in &tree.roots {
-            self.find_matching_in_component(root, parsed_locator, &evaluator, None, Vec::new(), &[], 0, &mut results);
+            // Use find_matching_components which supports capture
+            let components = find_matching_components(parsed_locator, root, &evaluator);
+
+            // Convert UIComponents to SwingElements
+            for component in components {
+                all_results.push(self.component_to_swing_element(component));
+            }
         }
 
-        Ok(results)
+        Ok(all_results)
     }
 
     /// Recursively find matching components using the evaluator

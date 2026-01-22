@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SWING_APP_JAR="${SWING_APP_JAR:-tests/apps/swing/target/swing-test-app-1.0.0.jar}"
-AGENT_JAR="${SWING_AGENT_JAR:-agent/target/robotframework-swing-agent-1.0.0-all.jar}"
+AGENT_JAR="${SWING_AGENT_JAR:-agent/target/javagui-agent.jar}"
 PORT="${SWING_PORT:-5678}"
 LOG_DIR="${SWING_LOG_DIR:-/tmp}"
 STDOUT_LOG="${LOG_DIR}/swing-app-stdout.log"

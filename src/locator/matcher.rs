@@ -393,6 +393,46 @@ impl Evaluator {
                             .map_or(false, |s| s.eq_ignore_ascii_case(name))
                 }
             }
+            TypeSelector::PrefixSelector { key, value } => {
+                // Handle prefix-style selectors like class=JButton, name=myButton
+                match key.as_str() {
+                    "class" => self.match_class_selector(value, component),
+                    "name" => {
+                        if let Some(ref name) = component.identity.name {
+                            self.string_equals(name, value)
+                        } else {
+                            false
+                        }
+                    }
+                    "text" => {
+                        if let Some(ref text) = component.identity.text {
+                            self.string_equals(text, value)
+                        } else {
+                            false
+                        }
+                    }
+                    "id" => self.match_id_selector(value, component),
+                    "tooltip" => {
+                        if let Some(ref tooltip) = component.identity.tooltip {
+                            self.string_equals(tooltip, value)
+                        } else {
+                            false
+                        }
+                    }
+                    "index" => {
+                        // Index selector would need context, not supported in type selector
+                        false
+                    }
+                    "accessible" => {
+                        if let Some(ref accessible_name) = component.accessibility.accessible_name {
+                            self.string_equals(accessible_name, value)
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false,
+                }
+            }
         }
     }
 
@@ -419,7 +459,10 @@ impl Evaluator {
         let simple_name = &component.component_type.simple_name;
         let simple_without_j = simple_name.strip_prefix('J').unwrap_or(simple_name);
 
-        if self.string_equals(simple_without_j, class) {
+        // Also strip J prefix from the selector value for consistency
+        let class_without_j = class.strip_prefix('J').unwrap_or(class);
+
+        if self.string_equals(simple_without_j, class_without_j) {
             return true;
         }
 
@@ -820,9 +863,160 @@ pub fn find_matching_components<'a>(
     root: &'a UIComponent,
     evaluator: &Evaluator,
 ) -> Vec<&'a UIComponent> {
+    // Check if any selector has cascaded segments with capture
+    for selector in &locator.selectors {
+        if selector.is_cascaded() && selector.has_capture() {
+            // Use cascaded matching with capture support
+            if let Ok(results) = find_cascaded_with_capture(selector, root, evaluator) {
+                return results;
+            }
+        } else if selector.is_cascaded() {
+            // Use cascaded matching without capture
+            if let Ok(results) = find_cascaded(selector, root, evaluator) {
+                return results;
+            }
+        }
+    }
+
+    // Fallback to standard matching
     let mut results = Vec::new();
     find_recursive(locator, root, None, Vec::new(), &[], 0, evaluator, &mut results);
     results
+}
+
+/// Find elements matching a cascaded locator with capture support
+fn find_cascaded_with_capture<'a>(
+    selector: &ComplexSelector,
+    root: &'a UIComponent,
+    evaluator: &Evaluator,
+) -> Result<Vec<&'a UIComponent>, ()> {
+    // Get cascaded segments
+    let segments = selector.get_cascaded_segments().ok_or(())?;
+
+    // Track state through the cascade
+    let mut current_contexts: Vec<&UIComponent> = vec![root];
+    let mut captured_elements: Option<Vec<&UIComponent>> = None;
+
+    // Process each segment
+    for segment in segments.iter() {
+        let mut next_contexts = Vec::new();
+
+        // Search within each current context
+        for context in &current_contexts {
+            // Find all descendants matching this segment's selector
+            let matches = find_in_context(&segment.compound, context, evaluator);
+
+            // Add matches to next contexts (remove duplicates by comparing IDs)
+            for match_elem in matches {
+                if !next_contexts.iter().any(|e: &&UIComponent| e.id == match_elem.id) {
+                    next_contexts.push(match_elem);
+                }
+            }
+        }
+
+        // If this segment has capture flag and we haven't captured yet
+        if segment.capture && captured_elements.is_none() {
+            // This is the first segment with capture flag
+            captured_elements = Some(next_contexts.clone());
+        }
+
+        // Check if we found anything
+        if next_contexts.is_empty() {
+            // No matches found for this segment, return empty
+            return Ok(Vec::new());
+        }
+
+        // Continue with next segment using these results as new contexts
+        current_contexts = next_contexts;
+    }
+
+    // Return captured elements if any, otherwise final results
+    Ok(captured_elements.unwrap_or(current_contexts))
+}
+
+/// Find elements matching a cascaded locator (without capture)
+fn find_cascaded<'a>(
+    selector: &ComplexSelector,
+    root: &'a UIComponent,
+    evaluator: &Evaluator,
+) -> Result<Vec<&'a UIComponent>, ()> {
+    // Get cascaded segments
+    let segments = selector.get_cascaded_segments().ok_or(())?;
+
+    // Track state through the cascade
+    let mut current_contexts: Vec<&UIComponent> = vec![root];
+
+    // Process each segment
+    for segment in segments.iter() {
+        let mut next_contexts = Vec::new();
+
+        // Search within each current context
+        for context in &current_contexts {
+            // Find all descendants matching this segment's selector
+            let matches = find_in_context(&segment.compound, context, evaluator);
+
+            // Add matches to next contexts (remove duplicates by comparing IDs)
+            for match_elem in matches {
+                if !next_contexts.iter().any(|e: &&UIComponent| e.id == match_elem.id) {
+                    next_contexts.push(match_elem);
+                }
+            }
+        }
+
+        // Check if we found anything
+        if next_contexts.is_empty() {
+            // No matches found for this segment, return empty
+            return Ok(Vec::new());
+        }
+
+        // Continue with next segment using these results as new contexts
+        current_contexts = next_contexts;
+    }
+
+    // Return final results
+    Ok(current_contexts)
+}
+
+/// Find elements matching a compound selector within a specific context
+fn find_in_context<'a>(
+    compound: &CompoundSelector,
+    context: &'a UIComponent,
+    evaluator: &Evaluator,
+) -> Vec<&'a UIComponent> {
+    let mut results = Vec::new();
+
+    // Search all descendants of the context component
+    // (but not the context itself - that was matched by previous segment)
+    if let Some(ref children) = context.children {
+        for child in children {
+            search_descendants_recursive(child, compound, evaluator, &mut results);
+        }
+    }
+
+    results
+}
+
+/// Recursively search descendants for matches
+fn search_descendants_recursive<'a>(
+    component: &'a UIComponent,
+    compound: &CompoundSelector,
+    evaluator: &Evaluator,
+    results: &mut Vec<&'a UIComponent>,
+) {
+    // Create a temporary context for evaluation
+    let context = MatchContext::new(component);
+
+    // Check if current component matches
+    if evaluator.evaluate_compound_selector(compound, component, &context).matches {
+        results.push(component);
+    }
+
+    // Recurse into children
+    if let Some(ref children) = component.children {
+        for child in children {
+            search_descendants_recursive(child, compound, evaluator, results);
+        }
+    }
 }
 
 /// Recursive helper for finding matching components
