@@ -248,6 +248,7 @@ fn parse_compound_selector_with_capture(
     let mut capture = false;
     let mut compound = CompoundSelector::new();
     let mut raw = String::new();
+    let mut has_compound = false;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -258,8 +259,20 @@ fn parse_compound_selector_with_capture(
             Rule::compound_selector => {
                 compound = parse_compound_selector(inner.clone())?;
                 raw.push_str(inner.as_str());
+                has_compound = true;
             }
             _ => {}
+        }
+    }
+
+    // Special case: if we only have "*" with no compound selector following it,
+    // or if the compound selector is completely empty, treat "*" as a universal selector
+    // instead of a capture prefix
+    if !has_compound || compound.is_empty() {
+        if raw == "*" {
+            // This is a standalone "*" - treat as universal selector, not capture
+            compound.type_selector = Some(TypeSelector::Universal);
+            capture = false;
         }
     }
 
@@ -798,14 +811,14 @@ fn parse_xpath_expr(pair: pest::iterators::Pair<Rule>) -> Result<ComplexSelector
 /// Parse a single XPath step
 fn parse_xpath_step(pair: pest::iterators::Pair<Rule>, is_descendant: bool) -> Result<CompoundSelector, ParseError> {
     let mut compound = CompoundSelector::new();
-    let mut axis_descendant = is_descendant;
+    let mut _axis_descendant = is_descendant;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::xpath_axis => {
                 let axis = inner.as_str();
                 if axis.contains("descendant") {
-                    axis_descendant = true;
+                    _axis_descendant = true;
                 }
                 // Handle parent axis, etc. - for now we just track descendant
             }

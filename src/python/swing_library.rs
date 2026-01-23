@@ -6,7 +6,7 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use std::collections::HashMap;
-use std::io::{BufRead, Write};
+use std::io::Write;
 use std::net::TcpStream;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -1677,11 +1677,11 @@ impl SwingLibrary {
     ///     | ${path}= | Capture Screenshot |
     ///     | ${path}= | Capture Screenshot | login_screen.png |
     ///     | ${path}= | Capture Screenshot | locator=name:errorDialog |
-    #[pyo3(signature = (filename=None, locator=None))]
+    #[pyo3(signature = (filename=None, _locator=None))]
     pub fn capture_screenshot(
         &self,
         filename: Option<&str>,
-        locator: Option<&str>,
+        _locator: Option<&str>,
     ) -> PyResult<String> {
         self.ensure_connected()?;
 

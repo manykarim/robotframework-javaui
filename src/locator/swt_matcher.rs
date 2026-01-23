@@ -1568,8 +1568,7 @@ fn parse_menu_locator(input: &str) -> Result<SwtLocator, LocatorError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::widget::{WidgetId, WidgetBounds, SwtStyle};
-    use std::collections::HashMap;
+    use crate::model::widget::WidgetId;
 
     fn create_test_widget(
         widget_type: SwtWidgetType,

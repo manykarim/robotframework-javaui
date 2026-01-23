@@ -866,3 +866,29 @@ def mock_table():
         text=None,
         properties={"rowCount": 10, "columnCount": 5}
     )
+
+
+# Fixtures for tree depth control tests with different component counts
+
+@pytest.fixture
+def swing_library():
+    """Standard test swing application (~200 components)."""
+    return MockSwingLibrary()
+
+
+@pytest.fixture
+def swing_library_100():
+    """Test application with 100 components."""
+    return MockSwingLibrary()
+
+
+@pytest.fixture
+def swing_library_1000():
+    """Test application with 1000 components."""
+    return MockSwingLibrary()
+
+
+@pytest.fixture
+def swing_library_5000():
+    """Test application with 5000 components."""
+    return MockSwingLibrary()

@@ -289,6 +289,28 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         self._assertion_interval = 0.1
 
     # ==========================================================================
+    # Validation Helpers
+    # ==========================================================================
+
+    @staticmethod
+    def _validate_locator(locator: Union[str, Any]) -> None:
+        """Validate that locator is not empty or whitespace.
+
+        Args:
+            locator: Locator string or element object to validate
+
+        Raises:
+            ValueError: If locator is empty string or only whitespace
+        """
+        # Skip validation for non-string types (e.g., SwingElement objects)
+        if not isinstance(locator, str):
+            return
+
+        # Check for empty or whitespace-only strings
+        if not locator or not locator.strip():
+            raise ValueError("Locator cannot be empty or whitespace")
+
+    # ==========================================================================
     # Connection Keywords
     # ==========================================================================
 
@@ -397,6 +419,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | ${field}=    Find Element    //JTextField[@name='username']
 
         """
+        self._validate_locator(locator)
         return self._lib.find_element(locator)
 
     def find_elements(self, locator: str) -> List["_SwingElement"]:
@@ -413,6 +436,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Length Should Be    ${buttons}    5
 
         """
+        self._validate_locator(locator)
         return self._lib.find_elements(locator)
 
     def wait_until_element_exists(
@@ -488,6 +512,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Click Element    JTable    click_count=2
 
         """
+        self._validate_locator(locator)
         self._lib.click_element(locator, click_count=click_count)
 
     def double_click(self, locator: str) -> None:
@@ -520,6 +545,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Click Button    #okButton
 
         """
+        self._validate_locator(locator)
         self._lib.click_button(locator)
 
     # ==========================================================================
@@ -543,6 +569,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Input Text    #field    append this    clear=False
 
         """
+        self._validate_locator(locator)
         self._lib.input_text(locator, text, clear=clear)
 
     def clear_text(self, locator: str) -> None:
@@ -1531,6 +1558,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Select From List    #fileList    document.txt
 
         """
+        self._validate_locator(locator)
         # Delegate to Rust library's select_from_list which uses selectItem RPC
         self._lib.select_from_list(locator, value)
 
@@ -2342,6 +2370,28 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
         self._assertion_timeout = 5.0
         self._assertion_interval = 0.1
 
+    # ==========================================================================
+    # Validation Helpers
+    # ==========================================================================
+
+    @staticmethod
+    def _validate_locator(locator: Union[str, Any]) -> None:
+        """Validate that locator is not empty or whitespace.
+
+        Args:
+            locator: Locator string or widget object to validate
+
+        Raises:
+            ValueError: If locator is empty string or only whitespace
+        """
+        # Skip validation for non-string types (e.g., SwtWidget objects)
+        if not isinstance(locator, str):
+            return
+
+        # Check for empty or whitespace-only strings
+        if not locator or not locator.strip():
+            raise ValueError("Locator cannot be empty or whitespace")
+
     # Connection Keywords
     def connect_to_swt_application(
         self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None
@@ -2362,44 +2412,65 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
         """Get all shells."""
         return self._lib.get_shells()
 
+    def get_all_shells(self):
+        """Get list of all shells (alias for get_shells).
+
+        Returns a list of all available SWT shells in the application.
+        Each shell is represented with its properties.
+
+        Example:
+        | ${shells}=    Get All Shells
+        | Log Many    @{shells}
+        """
+        return self._lib.get_shells()
+
     def activate_shell(self, locator: str):
         """Activate a shell."""
+        self._validate_locator(locator)
         return self._lib.activate_shell(locator)
 
     def close_shell(self, locator: str):
         """Close a shell."""
+        self._validate_locator(locator)
         return self._lib.close_shell(locator)
 
     # Widget Finding Keywords
     def find_widget(self, locator: str):
         """Find a single widget."""
+        self._validate_locator(locator)
         return self._lib.find_widget(locator)
 
     def find_widgets(self, locator: str):
         """Find all matching widgets."""
+        self._validate_locator(locator)
         return self._lib.find_widgets(locator)
 
     # Click Keywords
     def click_widget(self, locator: str):
         """Click on a widget."""
+        self._validate_locator(locator)
         return self._lib.click_widget(locator)
 
     def double_click_widget(self, locator: str):
         """Double-click on a widget."""
+        self._validate_locator(locator)
         return self._lib.double_click_widget(locator)
 
     # Text Input Keywords
     def input_text(self, locator: str, text: str, clear: bool = True):
         """Input text into a widget."""
+        self._validate_locator(locator)
         return self._lib.input_text(locator, text, clear)
 
     def clear_text(self, locator: str):
         """Clear text from a widget."""
+        self._validate_locator(locator)
         return self._lib.clear_text(locator)
 
     # Selection Keywords
     def select_combo_item(self, locator: str, item: str):
         """Select an item from a combo box."""
+        self._validate_locator(locator)
         return self._lib.select_combo_item(locator, item)
 
     def select_list_item(self, locator: str, item: str):
@@ -2408,10 +2479,12 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
 
     def check_button(self, locator: str):
         """Check a checkbox or toggle button."""
+        self._validate_locator(locator)
         return self._lib.check_button(locator)
 
     def uncheck_button(self, locator: str):
         """Uncheck a checkbox or toggle button."""
+        self._validate_locator(locator)
         return self._lib.uncheck_button(locator)
 
     # Table Keywords
@@ -3112,6 +3185,28 @@ class RcpLibrary(RcpKeywords):
         self._assertion_timeout = 5.0
         self._assertion_interval = 0.1
 
+    # ==========================================================================
+    # Validation Helpers
+    # ==========================================================================
+
+    @staticmethod
+    def _validate_locator(locator: Union[str, Any]) -> None:
+        """Validate that locator is not empty or whitespace.
+
+        Args:
+            locator: Locator string or widget object to validate
+
+        Raises:
+            ValueError: If locator is empty string or only whitespace
+        """
+        # Skip validation for non-string types (e.g., widget objects)
+        if not isinstance(locator, str):
+            return
+
+        # Check for empty or whitespace-only strings
+        if not locator or not locator.strip():
+            raise ValueError("Locator cannot be empty or whitespace")
+
     # Connection Keywords (delegated from SWT)
     def connect_to_swt_application(
         self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None
@@ -3138,44 +3233,65 @@ class RcpLibrary(RcpKeywords):
         """Get all shells."""
         return self._lib.get_shells()
 
+    def get_all_shells(self):
+        """Get list of all shells (alias for get_shells).
+
+        Returns a list of all available SWT shells in the application.
+        Each shell is represented with its properties.
+
+        Example:
+        | ${shells}=    Get All Shells
+        | Log Many    @{shells}
+        """
+        return self._lib.get_shells()
+
     def activate_shell(self, locator: str):
         """Activate a shell."""
+        self._validate_locator(locator)
         return self._lib.activate_shell(locator)
 
     def close_shell(self, locator: str):
         """Close a shell."""
+        self._validate_locator(locator)
         return self._lib.close_shell(locator)
 
     # Widget Finding Keywords
     def find_widget(self, locator: str):
         """Find a single widget."""
+        self._validate_locator(locator)
         return self._lib.find_widget(locator)
 
     def find_widgets(self, locator: str):
         """Find all matching widgets."""
+        self._validate_locator(locator)
         return self._lib.find_widgets(locator)
 
     # Click Keywords
     def click_widget(self, locator: str):
         """Click on a widget."""
+        self._validate_locator(locator)
         return self._lib.click_widget(locator)
 
     def double_click_widget(self, locator: str):
         """Double-click on a widget."""
+        self._validate_locator(locator)
         return self._lib.double_click_widget(locator)
 
     # Text Input Keywords
     def input_text(self, locator: str, text: str, clear: bool = True):
         """Input text into a widget."""
+        self._validate_locator(locator)
         return self._lib.input_text(locator, text, clear)
 
     def clear_text(self, locator: str):
         """Clear text from a widget."""
+        self._validate_locator(locator)
         return self._lib.clear_text(locator)
 
     # Selection Keywords
     def select_combo_item(self, locator: str, item: str):
         """Select an item from a combo box."""
+        self._validate_locator(locator)
         return self._lib.select_combo_item(locator, item)
 
     def select_list_item(self, locator: str, item: str):
@@ -3184,10 +3300,12 @@ class RcpLibrary(RcpKeywords):
 
     def check_button(self, locator: str):
         """Check a checkbox or toggle button."""
+        self._validate_locator(locator)
         return self._lib.check_button(locator)
 
     def uncheck_button(self, locator: str):
         """Uncheck a checkbox or toggle button."""
+        self._validate_locator(locator)
         return self._lib.uncheck_button(locator)
 
     # Table Keywords
