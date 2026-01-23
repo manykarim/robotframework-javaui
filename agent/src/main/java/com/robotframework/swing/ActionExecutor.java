@@ -38,6 +38,7 @@ public class ActionExecutor {
     /**
      * Click on a component.
      * Uses runOnEdtLater to avoid blocking on modal dialogs.
+     * Automatically activates the window if component is not showing.
      */
     public static void click(int componentId) {
         // Get component from cache (non-EDT operation)
@@ -50,9 +51,47 @@ public class ActionExecutor {
         EdtHelper.runOnEdtLater(() -> {
             // Verify component is showing before clicking
             if (!component.isShowing()) {
-                System.err.println("[SwingAgent] Component not visible for click: " + componentId);
-                return;
+                System.err.println("[SwingAgent] Component not showing (ID: " + componentId + "), attempting window activation...");
+
+                // Try to activate the window
+                Window window = SwingUtilities.getWindowAncestor(component);
+                if (window != null) {
+                    // Bring window to front and request focus
+                    window.toFront();
+                    window.requestFocus();
+
+                    // On Windows, setAlwaysOnTop provides more reliable activation
+                    String osName = System.getProperty("os.name").toLowerCase();
+                    if (osName.contains("win")) {
+                        try {
+                            window.setAlwaysOnTop(true);
+                            EdtHelper.sleep(50);
+                            window.setAlwaysOnTop(false);
+                        } catch (Exception e) {
+                            // Ignore - setAlwaysOnTop may fail in some security contexts
+                        }
+                    }
+
+                    // Give window time to activate
+                    EdtHelper.sleep(200);
+
+                    System.err.println("[SwingAgent] Window activated: " + window.getClass().getSimpleName());
+                } else {
+                    System.err.println("[SwingAgent] No ancestor window found for component: " + componentId);
+                }
+
+                // Re-check visibility after activation attempt
+                if (!component.isShowing()) {
+                    throw new IllegalStateException(
+                        "Component not visible for click after window activation: " + componentId +
+                        ". Window may be minimized, hidden, or component is not in a displayable window."
+                    );
+                }
+
+                System.err.println("[SwingAgent] Component is now showing after window activation");
             }
+
+            // Perform the click
             if (component instanceof AbstractButton) {
                 ((AbstractButton) component).doClick();
             } else {
@@ -67,6 +106,7 @@ public class ActionExecutor {
     /**
      * Double-click on a component.
      * Uses runOnEdtLater to avoid blocking on modal dialogs.
+     * Automatically activates the window if component is not showing.
      */
     public static void doubleClick(int componentId) {
         // Get component from cache (non-EDT operation)
@@ -77,12 +117,51 @@ public class ActionExecutor {
 
         // Perform double-click asynchronously to avoid blocking on modal dialogs
         EdtHelper.runOnEdtLater(() -> {
+            // Verify component is showing before double-clicking
+            if (!component.isShowing()) {
+                System.err.println("[SwingAgent] Component not showing (ID: " + componentId + "), attempting window activation...");
+
+                // Try to activate the window
+                Window window = SwingUtilities.getWindowAncestor(component);
+                if (window != null) {
+                    window.toFront();
+                    window.requestFocus();
+
+                    // On Windows, setAlwaysOnTop provides more reliable activation
+                    String osName = System.getProperty("os.name").toLowerCase();
+                    if (osName.contains("win")) {
+                        try {
+                            window.setAlwaysOnTop(true);
+                            EdtHelper.sleep(50);
+                            window.setAlwaysOnTop(false);
+                        } catch (Exception e) {
+                            // Ignore - setAlwaysOnTop may fail in some security contexts
+                        }
+                    }
+
+                    EdtHelper.sleep(200);
+                    System.err.println("[SwingAgent] Window activated: " + window.getClass().getSimpleName());
+                } else {
+                    System.err.println("[SwingAgent] No ancestor window found for component: " + componentId);
+                }
+
+                // Re-check visibility after activation attempt
+                if (!component.isShowing()) {
+                    throw new IllegalStateException(
+                        "Component not visible for double-click after window activation: " + componentId
+                    );
+                }
+
+                System.err.println("[SwingAgent] Component is now showing after window activation");
+            }
+
             // For JComponents inside scroll panes, scroll them into view first
             if (component instanceof javax.swing.JComponent && component.getParent() instanceof javax.swing.JViewport) {
                 javax.swing.JComponent jcomp = (javax.swing.JComponent) component;
                 java.awt.Rectangle bounds = jcomp.getBounds();
                 jcomp.scrollRectToVisible(new java.awt.Rectangle(0, 0, bounds.width, Math.min(bounds.height, 20)));
             }
+
             performMouseClick(component, 2);
         });
 
