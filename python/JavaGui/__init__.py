@@ -194,6 +194,7 @@ else:
 
 ROBOT_LIBRARY_SCOPE = "GLOBAL"
 ROBOT_LIBRARY_VERSION = __version__
+ROBOT_LIBRARY_DOC_FORMAT = "REST"
 
 
 class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
@@ -249,6 +250,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
 
     ROBOT_LIBRARY_SCOPE = "GLOBAL"
     ROBOT_LIBRARY_VERSION = __version__
+    ROBOT_LIBRARY_DOC_FORMAT = "REST"
 
     def __init__(
         self,
@@ -285,6 +287,28 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         # AssertionEngine configuration
         self._assertion_timeout = 5.0
         self._assertion_interval = 0.1
+
+    # ==========================================================================
+    # Validation Helpers
+    # ==========================================================================
+
+    @staticmethod
+    def _validate_locator(locator: Union[str, Any]) -> None:
+        """Validate that locator is not empty or whitespace.
+
+        Args:
+            locator: Locator string or element object to validate
+
+        Raises:
+            ValueError: If locator is empty string or only whitespace
+        """
+        # Skip validation for non-string types (e.g., SwingElement objects)
+        if not isinstance(locator, str):
+            return
+
+        # Check for empty or whitespace-only strings
+        if not locator or not locator.strip():
+            raise ValueError("Locator cannot be empty or whitespace")
 
     # ==========================================================================
     # Connection Keywords
@@ -395,6 +419,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | ${field}=    Find Element    //JTextField[@name='username']
 
         """
+        self._validate_locator(locator)
         return self._lib.find_element(locator)
 
     def find_elements(self, locator: str) -> List["_SwingElement"]:
@@ -411,6 +436,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Length Should Be    ${buttons}    5
 
         """
+        self._validate_locator(locator)
         return self._lib.find_elements(locator)
 
     def wait_until_element_exists(
@@ -486,6 +512,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Click Element    JTable    click_count=2
 
         """
+        self._validate_locator(locator)
         self._lib.click_element(locator, click_count=click_count)
 
     def double_click(self, locator: str) -> None:
@@ -518,6 +545,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Click Button    #okButton
 
         """
+        self._validate_locator(locator)
         self._lib.click_button(locator)
 
     # ==========================================================================
@@ -541,6 +569,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Input Text    #field    append this    clear=False
 
         """
+        self._validate_locator(locator)
         self._lib.input_text(locator, text, clear=clear)
 
     def clear_text(self, locator: str) -> None:
@@ -970,40 +999,101 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         print(tree)
 
     def get_ui_tree(
-        self, format: str = "text", max_depth: Optional[int] = None, visible_only: bool = False
+        self,
+        format: str = "text",
+        max_depth: Optional[int] = None,
+        visible_only: bool = False,
+        types: Optional[str] = None,
+        exclude_types: Optional[str] = None,
+        enabled_only: bool = False,
+        focusable_only: bool = False
     ) -> str:
-        """Get the UI component tree as a string.
+        """Get the UI component tree as a string with advanced filtering.
 
         | **Argument** | **Description** |
-        | ``format`` | Output format: ``text``, ``json``, or ``xml``. Default ``text``. |
+        | ``format`` | Output format: ``text``, ``json``, ``xml``, or ``yaml``. Default ``text``. |
         | ``max_depth`` | Maximum depth to traverse. ``None`` for unlimited. |
         | ``visible_only`` | Only include visible components. Default ``False``. |
+        | ``types`` | Component types to include (comma-separated, supports wildcards). |
+        | ``exclude_types`` | Component types to exclude (comma-separated, supports wildcards). |
+        | ``enabled_only`` | Only include enabled components. Default ``False``. |
+        | ``focusable_only`` | Only include focusable components. Default ``False``. |
 
         Returns the component tree in the specified format.
 
-        Example:
+        Filtering Examples:
         | ${tree}=    Get UI Tree
         | ${json}=    Get UI Tree    format=json
         | ${tree}=    Get UI Tree    format=text    max_depth=3
+        | ${tree}=    Get UI Tree    types=JButton    visible_only=${True}
+        | ${tree}=    Get UI Tree    types=JButton,JTextField    enabled_only=${True}
+        | ${tree}=    Get UI Tree    types=J*Button    exclude_types=JRadioButton
+        | ${tree}=    Get UI Tree    types=JText*    visible_only=${True}    enabled_only=${True}
+
+        Type Filtering:
+        - Use exact type names: ``types=JButton``
+        - Multiple types: ``types=JButton,JTextField,JLabel``
+        - Wildcards: ``types=J*Button`` matches JButton, JToggleButton, JRadioButton
+        - Exclude: ``exclude_types=JLabel,JPanel``
+        - Combine: ``types=J*Button    exclude_types=JRadioButton``
+
+        State Filtering:
+        - ``visible_only=${True}`` - Only visible and showing components
+        - ``enabled_only=${True}`` - Only enabled components
+        - ``focusable_only=${True}`` - Only focusable components
+        - Combine multiple: ``visible_only=${True}    enabled_only=${True}``
 
         """
-        return self._lib.get_ui_tree(format, max_depth, visible_only)
+        return self._lib.get_component_tree(
+            locator=None,
+            format=format,
+            max_depth=max_depth,
+            types=types,
+            exclude_types=exclude_types,
+            visible_only=visible_only,
+            enabled_only=enabled_only,
+            focusable_only=focusable_only
+        )
 
-    def save_ui_tree(self, filename: str, locator: Optional[str] = None) -> None:
+    def save_ui_tree(
+        self,
+        filename: str,
+        locator: Optional[str] = None,
+        format: str = "text",
+        max_depth: Optional[int] = None
+    ) -> None:
         """Save the UI component tree to a file.
 
         | **Argument** | **Description** |
         | ``filename`` | Path to save the tree file. |
         | ``locator`` | Optional locator to start from. Saves entire tree if not specified. |
+        | ``format`` | Output format: ``text``, ``json``, or ``xml``. Default ``text``. |
+        | ``max_depth`` | Maximum depth to traverse. ``None`` for unlimited. |
 
         Saves the component hierarchy to a file for analysis.
 
         Example:
         | Save UI Tree    tree.txt
         | Save UI Tree    panel_tree.txt    JPanel#main
+        | Save UI Tree    tree.json    format=json    max_depth=5
 
         """
-        self._lib.save_ui_tree(filename, locator)
+        # Note: locator parameter is currently not supported by the Rust backend
+        if locator is not None:
+            import warnings
+            warnings.warn(
+                "The 'locator' parameter is not yet supported in save_ui_tree. "
+                "Saving full component tree instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        # Get the tree with the specified format and depth
+        tree_content = self._lib.get_ui_tree(format, max_depth, False)
+
+        # Write to file
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(tree_content)
 
     def refresh_ui_tree(self) -> None:
         """Refresh the cached UI component tree.
@@ -1313,26 +1403,106 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         locator: Optional[str] = None,
         format: str = "text",
         max_depth: Optional[int] = None,
+        types: Optional[str] = None,
+        exclude_types: Optional[str] = None,
+        visible_only: bool = False,
+        enabled_only: bool = False,
+        focusable_only: bool = False
     ) -> str:
-        """Get the component tree in various formats.
+        """Get the component tree with advanced filtering capabilities.
 
         | **Argument** | **Description** |
         | ``locator`` | Optional locator to start from. Uses root if not specified. |
-        | ``format`` | Output format: ``text``, ``json``, or ``yaml``. Default ``text``. |
-        | ``max_depth`` | Maximum depth to traverse. ``None`` for unlimited. |
+        | ``format`` | Output format: ``text``, ``json``, ``xml``, or ``yaml``. Default ``text``. |
+        | ``max_depth`` | Maximum depth to traverse (0=roots only). ``None`` for unlimited. Performance optimized at Java layer. |
+        | ``types`` | Component types to include (comma-separated, supports wildcards). |
+        | ``exclude_types`` | Component types to exclude (comma-separated, supports wildcards). |
+        | ``visible_only`` | Only include visible components. Default ``False``. |
+        | ``enabled_only`` | Only include enabled components. Default ``False``. |
+        | ``focusable_only`` | Only include focusable components. Default ``False``. |
 
         Returns the component tree as a string in the specified format.
 
-        Example:
+        Basic Examples:
         | ${tree}=    Get Component Tree
         | ${json}=    Get Component Tree    format=json
         | ${tree}=    Get Component Tree    format=text    max_depth=2
 
+        Type Filtering Examples:
+        | # Get only buttons
+        | ${buttons}=    Get Component Tree    types=JButton    format=json
+        |
+        | # Get multiple types
+        | ${inputs}=    Get Component Tree    types=JButton,JTextField,JTextArea
+        |
+        | # Get all button types (JButton, JToggleButton, JRadioButton, etc.)
+        | ${all_buttons}=    Get Component Tree    types=J*Button
+        |
+        | # Get all text components
+        | ${text_components}=    Get Component Tree    types=JText*
+        |
+        | # Exclude labels and panels
+        | ${tree}=    Get Component Tree    exclude_types=JLabel,JPanel
+        |
+        | # Include buttons but exclude radio buttons
+        | ${buttons}=    Get Component Tree    types=J*Button    exclude_types=JRadioButton
+
+        State Filtering Examples:
+        | # Get only visible components
+        | ${visible}=    Get Component Tree    visible_only=${True}
+        |
+        | # Get only enabled components
+        | ${enabled}=    Get Component Tree    enabled_only=${True}
+        |
+        | # Get only focusable components
+        | ${focusable}=    Get Component Tree    focusable_only=${True}
+
+        Combined Filtering Examples:
+        | # Get visible, enabled buttons
+        | ${buttons}=    Get Component Tree    types=JButton    visible_only=${True}    enabled_only=${True}
+        |
+        | # Get all visible text components that are enabled
+        | ${inputs}=    Get Component Tree    types=JText*    visible_only=${True}    enabled_only=${True}
+        |
+        | # Get shallow tree of visible buttons only
+        | ${buttons}=    Get Component Tree    types=JButton    max_depth=3    visible_only=${True}
+
+        Filter Logic:
+        - Type filters use AND logic: Component must match ALL criteria
+        - Exclude takes precedence over include
+        - Wildcards supported: ``*`` (any chars), ``?`` (single char)
+        - Type matching is case-sensitive (``JButton`` not ``jbutton``)
+        - Empty type patterns in comma-separated list will raise error
+
         """
-        tree_str = self._lib.get_ui_tree(locator)
-        # The Rust library returns text format by default
-        # Format conversion would be done here if needed
-        return tree_str
+        # Validate max_depth parameter
+        if max_depth is not None:
+            if not isinstance(max_depth, int):
+                raise TypeError(f"max_depth must be an integer or None, got {type(max_depth).__name__}")
+            if max_depth < 0:
+                raise ValueError(f"max_depth must be >= 0, got {max_depth}")
+
+        # Note: locator parameter is currently not supported by the Rust backend
+        if locator is not None:
+            import warnings
+            warnings.warn(
+                "The 'locator' parameter is not yet supported in get_component_tree. "
+                "Returning full component tree instead.",
+                DeprecationWarning,
+                stacklevel=2
+            )
+
+        # Call the Rust implementation with all filter parameters
+        return self._lib.get_component_tree(
+            locator=locator,
+            format=format,
+            max_depth=max_depth,
+            types=types,
+            exclude_types=exclude_types,
+            visible_only=visible_only,
+            enabled_only=enabled_only,
+            focusable_only=focusable_only
+        )
 
     def log_component_tree(self, locator: Optional[str] = None) -> None:
         """Alias for `Log UI Tree`."""
@@ -1388,6 +1558,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Select From List    #fileList    document.txt
 
         """
+        self._validate_locator(locator)
         # Delegate to Rust library's select_from_list which uses selectItem RPC
         self._lib.select_from_list(locator, value)
 
@@ -1497,6 +1668,71 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
             except Exception:
                 pass
         return properties
+
+    # ==========================================================================
+    # RCP Component Tree Methods (Phase 6)
+    # ==========================================================================
+
+    def get_rcp_component_tree(self, max_depth: int = 5, format: str = "json") -> str:
+        """Get RCP component tree hierarchy.
+
+        Returns a hierarchical representation of Eclipse RCP components including
+        workbench windows, perspectives, views, and editors with their underlying
+        SWT widgets exposed.
+
+        | **Argument** | **Description** |
+        | ``max_depth`` | Maximum depth for SWT widget trees (default: 5). |
+        | ``format`` | Output format: json, text, or yaml (default: json). |
+
+        Returns RCP component tree as a string in the specified format.
+
+        Example:
+        | ${tree}=    Get RCP Component Tree
+        | ${tree}=    Get RCP Component Tree    max_depth=3    format=text
+        """
+        return self._lib.get_rcp_component_tree(max_depth, format)
+
+    def get_all_rcp_views(self, include_swt_widgets: bool = False) -> str:
+        """Get all RCP views with optional SWT widget information.
+
+        | **Argument** | **Description** |
+        | ``include_swt_widgets`` | Include underlying SWT widget trees (default: False). |
+
+        Returns JSON array of all open views.
+
+        Example:
+        | ${views}=    Get All RCP Views
+        | ${views}=    Get All RCP Views    include_swt_widgets=True
+        """
+        return self._lib.get_all_rcp_views(include_swt_widgets)
+
+    def get_all_rcp_editors(self, include_swt_widgets: bool = False) -> str:
+        """Get all RCP editors with optional SWT widget information.
+
+        | **Argument** | **Description** |
+        | ``include_swt_widgets`` | Include underlying SWT widget trees (default: False). |
+
+        Returns JSON array of all open editors.
+
+        Example:
+        | ${editors}=    Get All RCP Editors
+        | ${editors}=    Get All RCP Editors    include_swt_widgets=True
+        """
+        return self._lib.get_all_rcp_editors(include_swt_widgets)
+
+    def get_rcp_component(self, path: str, max_depth: int = 3) -> str:
+        """Get a specific RCP component by path.
+
+        | **Argument** | **Description** |
+        | ``path`` | Component path (e.g., "window[0]/page[0]/view[org.example.view]"). |
+        | ``max_depth`` | Maximum depth for SWT widget tree (default: 3). |
+
+        Returns RCP component with SWT widget information as JSON.
+
+        Example:
+        | ${view}=    Get RCP Component    window[0]/page[0]/view[org.eclipse.ui.navigator]
+        """
+        return self._lib.get_rcp_component(path, max_depth)
 
 
 # Apply deprecation aliases to SwingLibrary
@@ -2134,6 +2370,28 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
         self._assertion_timeout = 5.0
         self._assertion_interval = 0.1
 
+    # ==========================================================================
+    # Validation Helpers
+    # ==========================================================================
+
+    @staticmethod
+    def _validate_locator(locator: Union[str, Any]) -> None:
+        """Validate that locator is not empty or whitespace.
+
+        Args:
+            locator: Locator string or widget object to validate
+
+        Raises:
+            ValueError: If locator is empty string or only whitespace
+        """
+        # Skip validation for non-string types (e.g., SwtWidget objects)
+        if not isinstance(locator, str):
+            return
+
+        # Check for empty or whitespace-only strings
+        if not locator or not locator.strip():
+            raise ValueError("Locator cannot be empty or whitespace")
+
     # Connection Keywords
     def connect_to_swt_application(
         self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None
@@ -2154,44 +2412,65 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
         """Get all shells."""
         return self._lib.get_shells()
 
+    def get_all_shells(self):
+        """Get list of all shells (alias for get_shells).
+
+        Returns a list of all available SWT shells in the application.
+        Each shell is represented with its properties.
+
+        Example:
+        | ${shells}=    Get All Shells
+        | Log Many    @{shells}
+        """
+        return self._lib.get_shells()
+
     def activate_shell(self, locator: str):
         """Activate a shell."""
+        self._validate_locator(locator)
         return self._lib.activate_shell(locator)
 
     def close_shell(self, locator: str):
         """Close a shell."""
+        self._validate_locator(locator)
         return self._lib.close_shell(locator)
 
     # Widget Finding Keywords
     def find_widget(self, locator: str):
         """Find a single widget."""
+        self._validate_locator(locator)
         return self._lib.find_widget(locator)
 
     def find_widgets(self, locator: str):
         """Find all matching widgets."""
+        self._validate_locator(locator)
         return self._lib.find_widgets(locator)
 
     # Click Keywords
     def click_widget(self, locator: str):
         """Click on a widget."""
+        self._validate_locator(locator)
         return self._lib.click_widget(locator)
 
     def double_click_widget(self, locator: str):
         """Double-click on a widget."""
+        self._validate_locator(locator)
         return self._lib.double_click_widget(locator)
 
     # Text Input Keywords
     def input_text(self, locator: str, text: str, clear: bool = True):
         """Input text into a widget."""
+        self._validate_locator(locator)
         return self._lib.input_text(locator, text, clear)
 
     def clear_text(self, locator: str):
         """Clear text from a widget."""
+        self._validate_locator(locator)
         return self._lib.clear_text(locator)
 
     # Selection Keywords
     def select_combo_item(self, locator: str, item: str):
         """Select an item from a combo box."""
+        self._validate_locator(locator)
         return self._lib.select_combo_item(locator, item)
 
     def select_list_item(self, locator: str, item: str):
@@ -2200,10 +2479,12 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
 
     def check_button(self, locator: str):
         """Check a checkbox or toggle button."""
+        self._validate_locator(locator)
         return self._lib.check_button(locator)
 
     def uncheck_button(self, locator: str):
         """Uncheck a checkbox or toggle button."""
+        self._validate_locator(locator)
         return self._lib.uncheck_button(locator)
 
     # Table Keywords
@@ -2904,6 +3185,28 @@ class RcpLibrary(RcpKeywords):
         self._assertion_timeout = 5.0
         self._assertion_interval = 0.1
 
+    # ==========================================================================
+    # Validation Helpers
+    # ==========================================================================
+
+    @staticmethod
+    def _validate_locator(locator: Union[str, Any]) -> None:
+        """Validate that locator is not empty or whitespace.
+
+        Args:
+            locator: Locator string or widget object to validate
+
+        Raises:
+            ValueError: If locator is empty string or only whitespace
+        """
+        # Skip validation for non-string types (e.g., widget objects)
+        if not isinstance(locator, str):
+            return
+
+        # Check for empty or whitespace-only strings
+        if not locator or not locator.strip():
+            raise ValueError("Locator cannot be empty or whitespace")
+
     # Connection Keywords (delegated from SWT)
     def connect_to_swt_application(
         self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None
@@ -2930,44 +3233,65 @@ class RcpLibrary(RcpKeywords):
         """Get all shells."""
         return self._lib.get_shells()
 
+    def get_all_shells(self):
+        """Get list of all shells (alias for get_shells).
+
+        Returns a list of all available SWT shells in the application.
+        Each shell is represented with its properties.
+
+        Example:
+        | ${shells}=    Get All Shells
+        | Log Many    @{shells}
+        """
+        return self._lib.get_shells()
+
     def activate_shell(self, locator: str):
         """Activate a shell."""
+        self._validate_locator(locator)
         return self._lib.activate_shell(locator)
 
     def close_shell(self, locator: str):
         """Close a shell."""
+        self._validate_locator(locator)
         return self._lib.close_shell(locator)
 
     # Widget Finding Keywords
     def find_widget(self, locator: str):
         """Find a single widget."""
+        self._validate_locator(locator)
         return self._lib.find_widget(locator)
 
     def find_widgets(self, locator: str):
         """Find all matching widgets."""
+        self._validate_locator(locator)
         return self._lib.find_widgets(locator)
 
     # Click Keywords
     def click_widget(self, locator: str):
         """Click on a widget."""
+        self._validate_locator(locator)
         return self._lib.click_widget(locator)
 
     def double_click_widget(self, locator: str):
         """Double-click on a widget."""
+        self._validate_locator(locator)
         return self._lib.double_click_widget(locator)
 
     # Text Input Keywords
     def input_text(self, locator: str, text: str, clear: bool = True):
         """Input text into a widget."""
+        self._validate_locator(locator)
         return self._lib.input_text(locator, text, clear)
 
     def clear_text(self, locator: str):
         """Clear text from a widget."""
+        self._validate_locator(locator)
         return self._lib.clear_text(locator)
 
     # Selection Keywords
     def select_combo_item(self, locator: str, item: str):
         """Select an item from a combo box."""
+        self._validate_locator(locator)
         return self._lib.select_combo_item(locator, item)
 
     def select_list_item(self, locator: str, item: str):
@@ -2976,10 +3300,12 @@ class RcpLibrary(RcpKeywords):
 
     def check_button(self, locator: str):
         """Check a checkbox or toggle button."""
+        self._validate_locator(locator)
         return self._lib.check_button(locator)
 
     def uncheck_button(self, locator: str):
         """Uncheck a checkbox or toggle button."""
+        self._validate_locator(locator)
         return self._lib.uncheck_button(locator)
 
     # Table Keywords

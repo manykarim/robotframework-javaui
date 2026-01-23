@@ -223,7 +223,8 @@ class TestComponentTreeWorkflow:
 
         # YAML format
         yaml_tree = lib.get_component_tree(format="yaml")
-        assert "window_title" in yaml_tree
+        assert "JFrame" in yaml_tree
+        assert "mainFrame" in yaml_tree
 
         lib.disconnect()
 

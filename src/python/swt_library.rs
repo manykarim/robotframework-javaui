@@ -6,7 +6,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 use std::collections::HashMap;
-use std::io::{BufRead, Read, Write};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};

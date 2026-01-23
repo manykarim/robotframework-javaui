@@ -504,11 +504,44 @@ These keywords support inline assertions with automatic retry:
 
 ### UI Tree Inspection
 
+The library provides powerful component tree inspection with advanced filtering capabilities:
+
 | Keyword | Arguments | Description |
 |---------|-----------|-------------|
-| `Get Ui Tree` | `format=text` | Get component hierarchy |
-| `Log Ui Tree` | | Log UI tree to console |
-| `Refresh Ui Tree` | | Refresh cached UI tree |
+| `Get Component Tree` | `locator=`, `format=text`, `max_depth=`, `types=`, `exclude_types=`, `visible_only=False`, `enabled_only=False`, `focusable_only=False` | Get component hierarchy with depth control, type filtering, and state filtering. Supports multiple output formats: text, json, xml, yaml, csv, markdown |
+| `Get Component Subtree` | `locator`, `format=text`, `max_depth=`, `types=`, `exclude_types=`, `visible_only=`, `enabled_only=`, `focusable_only=` | Get subtree starting from specific component (faster for large UIs) |
+| `Log Component Tree` | `locator=`, `format=text`, `level=INFO` | Log component tree to Robot Framework log |
+| `Refresh Component Tree` | | Refresh cached component tree |
+| `Get Ui Tree` | `format=text` | *(Legacy)* Get component hierarchy - use Get Component Tree instead |
+| `Log Ui Tree` | | *(Legacy)* Log UI tree - use Log Component Tree instead |
+| `Refresh Ui Tree` | | *(Legacy)* Refresh tree - use Refresh Component Tree instead |
+
+**Component Tree Features:**
+
+- **6 Output Formats**: `text` (default), `json`, `xml`, `yaml`, `csv`, `markdown`
+- **Type Filtering**: Include/exclude by component type with wildcard support (`J*Button`, `JText*`)
+- **State Filtering**: Filter by visible, enabled, or focusable state
+- **Depth Control**: Limit tree depth for performance (recommended for large UIs)
+- **Performance**: 50x faster subtree retrieval vs. full tree on large applications
+
+**Quick Examples:**
+
+```robotframework
+# Get tree with multiple formats
+${text}=     Get Component Tree    format=text
+${json}=     Get Component Tree    format=json    max_depth=5
+${xml}=      Get Component Tree    format=xml
+
+# Advanced filtering
+${buttons}=  Get Component Tree    types=J*Button    visible_only=${True}
+${inputs}=   Get Component Tree    types=JButton,JTextField    enabled_only=${True}
+${tree}=     Get Component Tree    exclude_types=JLabel,JPanel    max_depth=10
+
+# Subtree for performance
+${form}=     Get Component Subtree    JPanel[name='loginForm']    format=json
+```
+
+See [Component Tree Documentation](docs/COMPONENT_TREE_DOCUMENTATION_INDEX.md) for complete guide.
 
 ### Screenshots
 

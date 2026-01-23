@@ -321,7 +321,7 @@ impl PseudoSelector {
                     super::ast::NthExpr::Index(i) => Self::NthChild(*i),
                     super::ast::NthExpr::Odd => Self::NthChild(1),
                     super::ast::NthExpr::Even => Self::NthChild(2),
-                    super::ast::NthExpr::Formula { a, b } => Self::NthChild(*b),
+                    super::ast::NthExpr::Formula { a: _, b } => Self::NthChild(*b),
                 }
             }
             AstPseudoSelector::NthLastChild(expr) => {

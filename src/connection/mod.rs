@@ -195,7 +195,7 @@ impl SwingConnection {
         let stream = TcpStream::connect_timeout(
             &addr.parse().unwrap(),
             timeout,
-        ).map_err(|e| SwingError::ConnectionTimeout {
+        ).map_err(|_e| SwingError::ConnectionTimeout {
             timeout_ms: timeout.as_millis() as u64,
         })?;
 

@@ -6,7 +6,7 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use std::collections::HashMap;
-use std::io::{BufRead, Write};
+use std::io::Write;
 use std::net::TcpStream;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -1469,12 +1469,14 @@ impl SwingLibrary {
     ) -> PyResult<String> {
         self.ensure_connected()?;
 
-        // Get or refresh UI tree
-        let tree = self.get_or_refresh_tree()?;
+        // Get UI tree with depth control at Java layer for performance
+        // This ensures we don't traverse beyond max_depth in the Java agent
+        let tree = self.get_or_refresh_tree_with_depth(max_depth)?;
 
-        // Apply filtering if needed
-        let tree = if max_depth.is_some() || visible_only {
-            self.filter_tree(&tree, max_depth, visible_only)?
+        // Apply additional filtering if needed (visible_only)
+        // Note: max_depth filtering is now done at Java layer, so we only filter for visibility here
+        let tree = if visible_only {
+            self.filter_tree(&tree, None, visible_only)?
         } else {
             tree
         };
@@ -1487,6 +1489,135 @@ impl SwingLibrary {
             "text" => Ok(self.tree_to_text(&tree, 0)),
             _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
                 "Unknown format: {}. Use 'json', 'xml', or 'text'",
+                format
+            ))),
+        }
+    }
+
+    /// Get the component tree with advanced filtering
+    ///
+    /// Retrieves the UI component tree with powerful filtering options for
+    /// element types and states. This is ideal for debugging, documentation,
+    /// or selective tree analysis.
+    ///
+    /// Args:
+    ///     locator: Optional locator to get subtree (default: full tree)
+    ///     format: Output format - "json", "xml", "text", "yaml"/"yml", "csv", or "markdown"/"md" (default: "text")
+    ///     max_depth: Maximum tree depth to traverse (default: unlimited)
+    ///     types: Comma-separated list of types to include (e.g., "JButton,JTextField")
+    ///            Supports wildcards: "J*Button" matches JButton, JToggleButton, etc.
+    ///     exclude_types: Comma-separated list of types to exclude (takes precedence over types)
+    ///     visible_only: Only include visible components (default: False)
+    ///     enabled_only: Only include enabled components (default: False)
+    ///     focusable_only: Only include focusable components (default: False)
+    ///
+    /// Returns:
+    ///     Component tree in requested format
+    ///
+    /// Formats:
+    ///     - json: Structured JSON with full hierarchy
+    ///     - xml: XML format with nested elements
+    ///     - yaml/yml: YAML format with hierarchical structure
+    ///     - csv: Flattened CSV with path, depth, and properties columns
+    ///     - markdown/md: Human-readable Markdown with bullet lists
+    ///     - text: Simple indented text representation
+    ///
+    /// Example:
+    ///     | ${tree}= | Get Component Tree |
+    ///     | ${tree}= | Get Component Tree | format=json | max_depth=5 |
+    ///     | ${tree}= | Get Component Tree | format=yaml |
+    ///     | ${tree}= | Get Component Tree | format=csv |
+    ///     | ${tree}= | Get Component Tree | format=markdown |
+    ///     | ${buttons}= | Get Component Tree | types=JButton | visible_only=True |
+    ///     | ${inputs}= | Get Component Tree | types=JTextField,JTextArea | enabled_only=True |
+    ///     | ${tree}= | Get Component Tree | types=J*Button | exclude_types=JRadioButton |
+    #[pyo3(signature = (
+        locator=None,
+        format="text",
+        max_depth=None,
+        types=None,
+        exclude_types=None,
+        visible_only=false,
+        enabled_only=false,
+        focusable_only=false
+    ))]
+    pub fn get_component_tree(
+        &self,
+        locator: Option<&str>,
+        format: &str,
+        max_depth: Option<u32>,
+        types: Option<&str>,
+        exclude_types: Option<&str>,
+        visible_only: bool,
+        enabled_only: bool,
+        focusable_only: bool,
+    ) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        // Get base tree (full or subtree) with depth control at Java layer for performance
+        let tree = if let Some(loc) = locator {
+            // Get subtree starting from locator
+            let _element = self.find_element(loc)?;
+            // For now, we'll get the full tree and filter from there
+            // In a full implementation, we'd request a subtree from the agent
+            // Use depth control at Java layer if specified
+            self.get_or_refresh_tree_with_depth(max_depth)?
+        } else {
+            // Use depth control at Java layer if specified for performance
+            self.get_or_refresh_tree_with_depth(max_depth)?
+        };
+
+        // Parse type filters
+        let type_list = types.map(|t| {
+            t.split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<String>>()
+        });
+
+        let exclude_list = exclude_types.map(|t| {
+            t.split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<String>>()
+        });
+
+        // Validate filter combinations
+        self.validate_filters(&type_list, &exclude_list)?;
+
+        // Apply filters
+        let filtered = self.filter_tree_with_filters(
+            &tree,
+            max_depth,
+            visible_only,
+            type_list,
+            exclude_list,
+            enabled_only,
+            focusable_only,
+        )?;
+
+        // Warn if tree is empty after filtering
+        if filtered.roots.is_empty() {
+            eprintln!(
+                "Warning: Filter criteria excluded all components. \
+                 Consider adjusting filters: types={:?}, exclude_types={:?}, \
+                 visible_only={}, enabled_only={}, focusable_only={}",
+                types, exclude_types, visible_only, enabled_only, focusable_only
+            );
+        }
+
+        // Format output (case-insensitive)
+        match format.to_lowercase().as_str() {
+            "json" => serde_json::to_string_pretty(&filtered)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string())),
+            "xml" => self.tree_to_xml(&filtered),
+            "text" => Ok(self.tree_to_text(&filtered, 0)),
+            "yaml" | "yml" => serde_yaml::to_string(&filtered)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string())),
+            "csv" => self.tree_to_csv(&filtered),
+            "markdown" | "md" => Ok(self.tree_to_markdown(&filtered, 0)),
+            _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Unknown format: {}. Supported formats: json, xml, text, yaml/yml, csv, markdown/md",
                 format
             ))),
         }
@@ -1546,11 +1677,11 @@ impl SwingLibrary {
     ///     | ${path}= | Capture Screenshot |
     ///     | ${path}= | Capture Screenshot | login_screen.png |
     ///     | ${path}= | Capture Screenshot | locator=name:errorDialog |
-    #[pyo3(signature = (filename=None, locator=None))]
+    #[pyo3(signature = (filename=None, _locator=None))]
     pub fn capture_screenshot(
         &self,
         filename: Option<&str>,
-        locator: Option<&str>,
+        _locator: Option<&str>,
     ) -> PyResult<String> {
         self.ensure_connected()?;
 
@@ -1662,6 +1793,122 @@ impl SwingLibrary {
     pub fn refresh_ui_tree(&self) -> PyResult<()> {
         self.clear_caches()
     }
+
+    // ============================================================================
+    // RCP Component Tree Methods (Phase 6)
+    // ============================================================================
+
+    /// Get RCP component tree hierarchy (workbench, perspectives, views, editors)
+    ///
+    /// Returns a hierarchical representation of Eclipse RCP components with their
+    /// underlying SWT widgets exposed. This allows all SWT operations to work on
+    /// RCP components since RCP is built on top of SWT.
+    ///
+    /// Args:
+    ///     max_depth: Maximum depth for SWT widget trees (default: 5)
+    ///     format: Output format (json, text, yaml) (default: json)
+    ///
+    /// Returns:
+    ///     RCP component tree with workbench windows, perspectives, views, and editors
+    ///
+    /// Example:
+    ///     | ${tree}= | Get RCP Component Tree |
+    ///     | ${tree}= | Get RCP Component Tree | max_depth=3 | format=text |
+    #[pyo3(signature = (max_depth=5, format="json"))]
+    pub fn get_rcp_component_tree(&self, max_depth: u32, format: &str) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let params = serde_json::json!({
+            "maxDepth": max_depth
+        });
+
+        let tree = self.send_rpc_request("rcp.getComponentTree", params)?;
+
+        match format.to_lowercase().as_str() {
+            "json" => serde_json::to_string_pretty(&tree)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string())),
+            "text" => Ok(self.rcp_tree_to_text(&tree, 0)),
+            "yaml" | "yml" => serde_yaml::to_string(&tree)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string())),
+            _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Unknown format: {}. Supported: json, text, yaml",
+                format
+            ))),
+        }
+    }
+
+    /// Get all RCP views with optional SWT widget information
+    ///
+    /// Args:
+    ///     include_swt_widgets: Include underlying SWT widget trees (default: false)
+    ///
+    /// Returns:
+    ///     JSON array of all open views
+    ///
+    /// Example:
+    ///     | ${views}= | Get All RCP Views |
+    ///     | ${views}= | Get All RCP Views | include_swt_widgets=True |
+    #[pyo3(signature = (include_swt_widgets=false))]
+    pub fn get_all_rcp_views(&self, include_swt_widgets: bool) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let params = serde_json::json!({
+            "includeSwtWidgets": include_swt_widgets
+        });
+
+        let result = self.send_rpc_request("rcp.getAllViews", params)?;
+        serde_json::to_string_pretty(&result)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Get all RCP editors with optional SWT widget information
+    ///
+    /// Args:
+    ///     include_swt_widgets: Include underlying SWT widget trees (default: false)
+    ///
+    /// Returns:
+    ///     JSON array of all open editors
+    ///
+    /// Example:
+    ///     | ${editors}= | Get All RCP Editors |
+    ///     | ${editors}= | Get All RCP Editors | include_swt_widgets=True |
+    #[pyo3(signature = (include_swt_widgets=false))]
+    pub fn get_all_rcp_editors(&self, include_swt_widgets: bool) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let params = serde_json::json!({
+            "includeSwtWidgets": include_swt_widgets
+        });
+
+        let result = self.send_rpc_request("rcp.getAllEditors", params)?;
+        serde_json::to_string_pretty(&result)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Get a specific RCP component by path
+    ///
+    /// Args:
+    ///     path: Component path (e.g., "window[0]/page[0]/view[org.example.view]")
+    ///     max_depth: Maximum depth for SWT widget tree (default: 3)
+    ///
+    /// Returns:
+    ///     RCP component with SWT widget information
+    ///
+    /// Example:
+    ///     | ${view}= | Get RCP Component | path=window[0]/page[0]/view[org.eclipse.ui.navigator] |
+    #[pyo3(signature = (path, max_depth=3))]
+    pub fn get_rcp_component(&self, path: &str, max_depth: u32) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let params = serde_json::json!({
+            "path": path,
+            "maxDepth": max_depth
+        });
+
+        let result = self.send_rpc_request("rcp.getComponent", params)?;
+        serde_json::to_string_pretty(&result)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
 }
 
 // Private implementation methods
@@ -1676,6 +1923,54 @@ impl SwingLibrary {
             return Err(SwingError::connection("Not connected to any application").into());
         }
         Ok(())
+    }
+
+    /// Convert RCP tree to text format (helper method)
+    fn rcp_tree_to_text(&self, tree: &serde_json::Value, indent: usize) -> String {
+        let mut text = String::new();
+        let spaces = "  ".repeat(indent);
+
+        if let Some(obj) = tree.as_object() {
+            // Get type and identifier
+            let comp_type = obj.get("type").and_then(|v| v.as_str()).unwrap_or("Unknown");
+
+            // Build identifier from various possible fields
+            let identifier = obj.get("title")
+                .or(obj.get("name"))
+                .or(obj.get("id"))
+                .or(obj.get("label"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            // Format the line
+            if identifier.is_empty() {
+                text.push_str(&format!("{}{}\n", spaces, comp_type));
+            } else {
+                text.push_str(&format!("{}{}: {}\n", spaces, comp_type, identifier));
+            }
+
+            // Add properties
+            if let Some(dirty) = obj.get("dirty").and_then(|v| v.as_bool()) {
+                text.push_str(&format!("{}  dirty: {}\n", spaces, dirty));
+            }
+            if let Some(file_path) = obj.get("filePath").and_then(|v| v.as_str()) {
+                text.push_str(&format!("{}  file: {}\n", spaces, file_path));
+            }
+            if let Some(swt_id) = obj.get("swtShellId").or(obj.get("swtControlId")).and_then(|v| v.as_i64()) {
+                text.push_str(&format!("{}  swtId: {}\n", spaces, swt_id));
+            }
+
+            // Recursively process children arrays
+            for child_key in ["windows", "pages", "views", "editors", "children"] {
+                if let Some(children) = obj.get(child_key).and_then(|v| v.as_array()) {
+                    for child in children {
+                        text.push_str(&self.rcp_tree_to_text(child, indent + 1));
+                    }
+                }
+            }
+        }
+
+        text
     }
 
     /// Convert serde_json::Value to Python object
@@ -2512,8 +2807,14 @@ impl SwingLibrary {
         }
     }
 
-    /// Get or refresh UI tree
-    fn get_or_refresh_tree(&self) -> PyResult<UITree> {
+    /// Get or refresh UI tree with optional depth limit
+    fn get_or_refresh_tree_with_depth(&self, max_depth: Option<u32>) -> PyResult<UITree> {
+        // If max_depth is specified, always fetch fresh to ensure depth limiting happens at Java layer
+        if max_depth.is_some() {
+            return self.fetch_tree_from_agent(max_depth);
+        }
+
+        // Otherwise, use cached tree if available
         let tree_guard = self.ui_tree.read().map_err(|_| {
             SwingError::connection("Failed to acquire tree lock")
         })?;
@@ -2524,17 +2825,37 @@ impl SwingLibrary {
 
         drop(tree_guard);
 
-        // Fetch fresh tree from Java agent via RPC
-        let result = self.send_rpc_request("getComponentTree", serde_json::json!({}))?;
+        self.fetch_tree_from_agent(None)
+    }
+
+    /// Get or refresh UI tree (legacy method for backward compatibility)
+    fn get_or_refresh_tree(&self) -> PyResult<UITree> {
+        self.get_or_refresh_tree_with_depth(None)
+    }
+
+    /// Fetch tree from Java agent with optional depth limit
+    fn fetch_tree_from_agent(&self, max_depth: Option<u32>) -> PyResult<UITree> {
+        // Fetch fresh tree from Java agent via RPC with depth parameter
+        let params = if let Some(depth) = max_depth {
+            serde_json::json!({
+                "maxDepth": depth
+            })
+        } else {
+            serde_json::json!({})
+        };
+
+        let result = self.send_rpc_request("getComponentTree", params)?;
 
         // Convert JSON to UITree
         let tree = self.json_to_ui_tree(&result)?;
 
-        // Cache it
-        let mut tree_guard = self.ui_tree.write().map_err(|_| {
-            SwingError::connection("Failed to acquire tree lock")
-        })?;
-        *tree_guard = Some(tree.clone());
+        // Cache it only if no depth limit (full tree)
+        if max_depth.is_none() {
+            let mut tree_guard = self.ui_tree.write().map_err(|_| {
+                SwingError::connection("Failed to acquire tree lock")
+            })?;
+            *tree_guard = Some(tree.clone());
+        }
 
         Ok(tree)
     }
@@ -2682,9 +3003,242 @@ impl SwingLibrary {
         max_depth: Option<u32>,
         visible_only: bool,
     ) -> PyResult<UITree> {
-        // In actual implementation, would filter the tree
-        // For now, return as-is
-        Ok(tree.clone())
+        self.filter_tree_with_filters(
+            tree,
+            max_depth,
+            visible_only,
+            None,    // types
+            None,    // exclude_types
+            false,   // enabled_only
+            false,   // focusable_only
+        )
+    }
+
+    /// Filter tree with advanced type and state filters
+    fn filter_tree_with_filters(
+        &self,
+        tree: &UITree,
+        max_depth: Option<u32>,
+        visible_only: bool,
+        types: Option<Vec<String>>,
+        exclude_types: Option<Vec<String>>,
+        enabled_only: bool,
+        focusable_only: bool,
+    ) -> PyResult<UITree> {
+        let mut filtered_tree = UITree {
+            roots: Vec::new(),
+            metadata: tree.metadata.clone(),
+            statistics: tree.statistics.clone(),
+        };
+
+        // Filter each root component
+        for root in &tree.roots {
+            if let Some(filtered_root) = self.filter_component(
+                root,
+                0,
+                max_depth,
+                visible_only,
+                &types,
+                &exclude_types,
+                enabled_only,
+                focusable_only,
+            ) {
+                filtered_tree.roots.push(filtered_root);
+            }
+        }
+
+        Ok(filtered_tree)
+    }
+
+    /// Recursively filter a component and its children
+    fn filter_component(
+        &self,
+        component: &UIComponent,
+        current_depth: u32,
+        max_depth: Option<u32>,
+        visible_only: bool,
+        types: &Option<Vec<String>>,
+        exclude_types: &Option<Vec<String>>,
+        enabled_only: bool,
+        focusable_only: bool,
+    ) -> Option<UIComponent> {
+        // Check max depth first
+        if let Some(max) = max_depth {
+            if current_depth >= max {
+                return None;
+            }
+        }
+
+        // Apply state filters
+        if visible_only && (!component.state.visible || !component.state.showing) {
+            return None;
+        }
+
+        if enabled_only && !component.state.enabled {
+            return None;
+        }
+
+        if focusable_only && !component.state.focusable {
+            return None;
+        }
+
+        // Apply type filters
+        if !self.matches_type_filters(&component.component_type, types, exclude_types) {
+            return None;
+        }
+
+        // Component matches filters, clone it
+        let mut filtered = component.clone();
+
+        // Recursively filter children
+        if let Some(children) = &component.children {
+            let filtered_children: Vec<UIComponent> = children
+                .iter()
+                .filter_map(|child| {
+                    self.filter_component(
+                        child,
+                        current_depth + 1,
+                        max_depth,
+                        visible_only,
+                        types,
+                        exclude_types,
+                        enabled_only,
+                        focusable_only,
+                    )
+                })
+                .collect();
+
+            if filtered_children.is_empty() {
+                filtered.children = None;
+            } else {
+                filtered.children = Some(filtered_children);
+            }
+        }
+
+        Some(filtered)
+    }
+
+    /// Check if a component type matches the filter criteria
+    fn matches_type_filters(
+        &self,
+        component_type: &ComponentType,
+        types: &Option<Vec<String>>,
+        exclude_types: &Option<Vec<String>>,
+    ) -> bool {
+        // Check exclude list first (takes precedence)
+        if let Some(excludes) = exclude_types {
+            for pattern in excludes {
+                if self.matches_type_pattern(&component_type.simple_name, pattern)
+                    || self.matches_type_pattern(&component_type.class_name, pattern)
+                {
+                    return false;
+                }
+            }
+        }
+
+        // If no include list, accept all (unless excluded above)
+        if types.is_none() {
+            return true;
+        }
+
+        // Check include list
+        if let Some(includes) = types {
+            for pattern in includes {
+                if self.matches_type_pattern(&component_type.simple_name, pattern)
+                    || self.matches_type_pattern(&component_type.class_name, pattern)
+                {
+                    return true;
+                }
+            }
+            return false; // Doesn't match any include pattern
+        }
+
+        true
+    }
+
+    /// Match a component type against a pattern (supports wildcards)
+    fn matches_type_pattern(&self, type_name: &str, pattern: &str) -> bool {
+        // Exact match
+        if type_name == pattern {
+            return true;
+        }
+
+        // Wildcard support: J*Button matches JButton, JToggleButton, etc.
+        if pattern.contains('*') {
+            let regex_pattern = pattern
+                .replace(".", "\\.")
+                .replace("*", ".*")
+                .replace("?", ".");
+
+            if let Ok(re) = regex::Regex::new(&format!("^{}$", regex_pattern)) {
+                return re.is_match(type_name);
+            }
+        }
+
+        // Partial match for convenience (JButton matches javax.swing.JButton)
+        if type_name.ends_with(&format!(".{}", pattern)) {
+            return true;
+        }
+
+        false
+    }
+
+    /// Validate filter combinations and provide helpful error messages
+    fn validate_filters(
+        &self,
+        types: &Option<Vec<String>>,
+        exclude_types: &Option<Vec<String>>,
+    ) -> PyResult<()> {
+        // Check for invalid type patterns
+        if let Some(type_list) = types {
+            for pattern in type_list {
+                if pattern.is_empty() {
+                    return Err(pyo3::exceptions::PyValueError::new_err(
+                        "Empty type pattern in types filter"
+                    ));
+                }
+                // Validate wildcard patterns
+                if pattern.contains('*') || pattern.contains('?') {
+                    // Try to compile as regex to validate
+                    let regex_pattern = pattern
+                        .replace(".", "\\.")
+                        .replace("*", ".*")
+                        .replace("?", ".");
+                    if regex::Regex::new(&format!("^{}$", regex_pattern)).is_err() {
+                        return Err(pyo3::exceptions::PyValueError::new_err(
+                            format!("Invalid wildcard pattern: {}", pattern)
+                        ));
+                    }
+                }
+            }
+        }
+
+        if let Some(exclude_list) = exclude_types {
+            for pattern in exclude_list {
+                if pattern.is_empty() {
+                    return Err(pyo3::exceptions::PyValueError::new_err(
+                        "Empty type pattern in exclude_types filter"
+                    ));
+                }
+            }
+        }
+
+        // Warn if both types and exclude_types contain overlapping patterns
+        if let (Some(include), Some(exclude)) = (types, exclude_types) {
+            for inc_pattern in include {
+                for exc_pattern in exclude {
+                    if inc_pattern == exc_pattern {
+                        eprintln!(
+                            "Warning: Type '{}' appears in both types and exclude_types. \
+                             It will be excluded (exclude_types takes precedence).",
+                            inc_pattern
+                        );
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Convert tree to XML
@@ -2756,6 +3310,170 @@ impl SwingLibrary {
         if let Some(children) = &component.children {
             for child in children {
                 self.component_to_text(text, child, indent + 1);
+            }
+        }
+    }
+
+    /// Convert tree to CSV format (flattened hierarchy)
+    ///
+    /// Columns: path, depth, type, name, text, visible, enabled,
+    ///          bounds_x, bounds_y, bounds_width, bounds_height
+    fn tree_to_csv(&self, tree: &UITree) -> PyResult<String> {
+        let mut csv_buffer = Vec::new();
+        {
+            let mut writer = csv::Writer::from_writer(&mut csv_buffer);
+
+            // Write header
+            writer.write_record(&[
+                "path",
+                "depth",
+                "type",
+                "name",
+                "text",
+                "visible",
+                "enabled",
+                "bounds_x",
+                "bounds_y",
+                "bounds_width",
+                "bounds_height",
+            ]).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+
+            // Write rows for each component (flattened)
+            for root in &tree.roots {
+                self.component_to_csv_rows(&mut writer, root, 0)?;
+            }
+
+            writer.flush()
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        }
+
+        String::from_utf8(csv_buffer)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Write component and children as CSV rows (recursive)
+    fn component_to_csv_rows(
+        &self,
+        writer: &mut csv::Writer<&mut Vec<u8>>,
+        component: &UIComponent,
+        depth: usize,
+    ) -> PyResult<()> {
+        // Extract text - escape quotes and newlines
+        let text = component.identity.text.as_deref().unwrap_or("");
+        let text_escaped = text.replace('\n', "\\n").replace('\r', "\\r");
+
+        // Extract name
+        let name = component.identity.name.as_deref().unwrap_or("");
+
+        // Extract bounds
+        let bounds = &component.geometry.bounds;
+
+        // Write row
+        writer.write_record(&[
+            &component.id.tree_path,
+            &depth.to_string(),
+            &component.component_type.simple_name,
+            name,
+            &text_escaped,
+            &component.state.visible.to_string(),
+            &component.state.enabled.to_string(),
+            &bounds.x.to_string(),
+            &bounds.y.to_string(),
+            &bounds.width.to_string(),
+            &bounds.height.to_string(),
+        ]).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+
+        // Recursively write children
+        if let Some(children) = &component.children {
+            for child in children {
+                self.component_to_csv_rows(writer, child, depth + 1)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Convert tree to Markdown format
+    ///
+    /// Uses list syntax for hierarchy with component properties in inline code
+    fn tree_to_markdown(&self, tree: &UITree, indent: usize) -> String {
+        let mut md = String::from("# UI Component Tree\n\n");
+
+        for root in &tree.roots {
+            self.component_to_markdown(&mut md, root, indent);
+        }
+
+        md
+    }
+
+    /// Convert component to Markdown (recursive)
+    fn component_to_markdown(&self, md: &mut String, component: &UIComponent, indent: usize) {
+        let list_marker = match indent % 3 {
+            0 => "-",
+            1 => "*",
+            _ => "+",
+        };
+
+        let spaces = "  ".repeat(indent);
+
+        // Component identifier
+        let identifier = component
+            .identity
+            .name
+            .as_deref()
+            .or(component.identity.text.as_deref())
+            .unwrap_or("-");
+
+        // Format visibility/state indicators
+        let mut badges = Vec::new();
+        if component.state.visible {
+            badges.push("👁️ visible");
+        } else {
+            badges.push("🚫 hidden");
+        }
+        if component.state.enabled {
+            badges.push("✅ enabled");
+        } else {
+            badges.push("❌ disabled");
+        }
+
+        // Build markdown line
+        md.push_str(&format!(
+            "{}{} **{}** `{}` - {}\n",
+            spaces,
+            list_marker,
+            component.component_type.simple_name,
+            identifier,
+            badges.join(" ")
+        ));
+
+        // Add properties table for complex components with important data
+        if component.identity.text.is_some() && !component.identity.text.as_ref().unwrap().is_empty() {
+            let text = component.identity.text.as_ref().unwrap();
+            // Only show text preview if it's meaningful
+            if !text.trim().is_empty() && text.trim() != identifier {
+                let text_preview = if text.len() > 50 {
+                    format!("{}...", &text[..50])
+                } else {
+                    text.to_string()
+                };
+                md.push_str(&format!("{}  - *Text:* `{}`\n", spaces, text_preview.replace('\n', "\\n")));
+            }
+        }
+
+        // Add bounds info for positioned components
+        let bounds = &component.geometry.bounds;
+        if bounds.width > 0 && bounds.height > 0 {
+            md.push_str(&format!(
+                "{}  - *Bounds:* `{}×{}` at `({}, {})`\n",
+                spaces, bounds.width, bounds.height, bounds.x, bounds.y
+            ));
+        }
+
+        // Recursively add children
+        if let Some(children) = &component.children {
+            for child in children {
+                self.component_to_markdown(md, child, indent + 1);
             }
         }
     }

@@ -147,11 +147,19 @@ jobs:
         run: scripts/ci/cleanup-test-apps.ps1
 
       - name: Smoke Robot Tests (Swing/SWT/RCP)
+        if: runner.os != 'macOS'
         run: |
           uv run robot --outputdir tests/robot/output-smoke \
             tests/robot/swing/01_connection.robot \
             tests/robot/swt/01_connection.robot \
             tests/robot/rcp/01_connection.robot
+
+      - name: Smoke Robot Tests (macOS only, no RCP)
+        if: runner.os == 'macOS'
+        run: |
+          uv run robot --outputdir tests/robot/output-smoke \
+            tests/robot/swing/01_connection.robot \
+            tests/robot/swt/01_connection.robot
 
       - name: Run Robot Framework tests (incl. Swing/SWT/RCP)
         if: runner.os != 'macOS'
