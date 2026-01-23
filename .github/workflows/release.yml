@@ -103,11 +103,24 @@ jobs:
       - name: Install maturin
         run: uv tool install maturin
 
+      - name: Clean old wheels from cache
+        run: |
+          rm -rf target/wheels
+          mkdir -p target/wheels
+
       - name: Build wheel (ABI3 - compatible with Python 3.8+)
         run: |
           uv tool run maturin build --release --strip
           ls -la target/wheels/
           echo "ABI3 wheel works for all Python versions 3.8+"
+
+          # Verify only one wheel was built (ABI3)
+          WHEEL_COUNT=$(ls -1 target/wheels/*.whl 2>/dev/null | wc -l)
+          if [ "$WHEEL_COUNT" -ne 1 ]; then
+            echo "ERROR: Expected 1 ABI3 wheel, found $WHEEL_COUNT"
+            ls -la target/wheels/
+            exit 1
+          fi
 
       - name: Upload wheel
         uses: actions/upload-artifact@v4
@@ -136,7 +149,7 @@ jobs:
           mkdir -p release-files/wheels
           mkdir -p release-files/agent
 
-          # Collect all wheels (deduplicate by keeping unique filenames)
+          # Collect all wheels
           find dist-artifacts -name "*.whl" -exec cp {} release-files/wheels/ \;
 
           # Collect agent JAR
@@ -146,6 +159,18 @@ jobs:
           ls -la release-files/wheels/
           echo "=== Agent ==="
           ls -la release-files/agent/
+
+          # Verify exactly 3 ABI3 wheels (one per platform)
+          WHEEL_COUNT=$(ls -1 release-files/wheels/*.whl 2>/dev/null | wc -l)
+          ABI3_COUNT=$(ls -1 release-files/wheels/*-cp38-abi3-*.whl 2>/dev/null | wc -l)
+          echo "Total wheels: $WHEEL_COUNT (expected: 3)"
+          echo "ABI3 wheels: $ABI3_COUNT (expected: 3)"
+
+          if [ "$WHEEL_COUNT" -ne 3 ] || [ "$ABI3_COUNT" -ne 3 ]; then
+            echo "ERROR: Expected exactly 3 ABI3 wheels (one per platform)"
+            echo "Found $WHEEL_COUNT total wheels, $ABI3_COUNT ABI3 wheels"
+            exit 1
+          fi
 
       - name: Determine version
         id: version
@@ -214,9 +239,17 @@ jobs:
           echo "=== Wheels to publish ==="
           ls -la dist/pypi/
 
-          # Show wheel count
+          # Verify exactly 3 ABI3 wheels (one per platform)
           WHEEL_COUNT=$(ls -1 dist/pypi/*.whl 2>/dev/null | wc -l)
-          echo "Total wheels: $WHEEL_COUNT"
+          ABI3_COUNT=$(ls -1 dist/pypi/*-cp38-abi3-*.whl 2>/dev/null | wc -l)
+          echo "Total wheels: $WHEEL_COUNT (expected: 3)"
+          echo "ABI3 wheels: $ABI3_COUNT (expected: 3)"
+
+          if [ "$WHEEL_COUNT" -ne 3 ] || [ "$ABI3_COUNT" -ne 3 ]; then
+            echo "ERROR: Expected exactly 3 ABI3 wheels for PyPI upload"
+            echo "Found $WHEEL_COUNT total wheels, $ABI3_COUNT ABI3 wheels"
+            exit 1
+          fi
 
       - name: Publish to PyPI (Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
