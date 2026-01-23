@@ -9,11 +9,15 @@ Tests the RCP-specific tree traversal that exposes:
 - Underlying SWT widgets
 
 Verifies that RCP components inherit all SWT operations.
+
+NOTE: These tests require a real Eclipse RCP application and are skipped in CI.
 """
 
 import json
 import pytest
 from JavaGui import SwingLibrary
+
+pytestmark = pytest.mark.skip(reason="RCP tests require a real Eclipse RCP application - not available in CI")
 
 
 @pytest.fixture

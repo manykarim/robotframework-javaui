@@ -4,12 +4,16 @@ Performance tests for output formatters.
 Validates that formatters meet performance requirements:
 - Format conversion should add <5ms overhead
 - Large trees (1000+ components) should format in <50ms
+
+NOTE: These tests require a real Java application and are skipped in CI.
 """
 
 import pytest
 import time
 import json
 import yaml
+
+pytestmark = pytest.mark.skip(reason="Performance tests require a real Java application - not available in CI")
 
 
 @pytest.mark.performance

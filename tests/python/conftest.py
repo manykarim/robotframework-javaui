@@ -740,6 +740,39 @@ class MockSwingLibrary:
         self.find_element(locator)
         return "Root/Selected"
 
+    def get_rcp_component_tree(self, max_depth: Optional[int] = None, format: str = "json") -> str:
+        """Get RCP component tree (mock implementation)."""
+        import json
+        # Mock RCP tree structure
+        rcp_tree = {
+            "type": "RcpWorkbench",
+            "available": False,  # RCP not available in mock environment
+            "message": "RCP support requires a real Eclipse RCP application"
+        }
+
+        if format.lower() == "json":
+            return json.dumps(rcp_tree, indent=2)
+        elif format.lower() in ["yaml", "yml"]:
+            return "type: RcpWorkbench\navailable: false\nmessage: RCP support requires a real Eclipse RCP application"
+        else:
+            return "RcpWorkbench (not available)"
+
+    def get_all_rcp_views(self, include_swt_widgets: bool = False) -> str:
+        """Get all RCP views (mock implementation)."""
+        import json
+        return json.dumps({
+            "views": [],
+            "message": "RCP support requires a real Eclipse RCP application"
+        }, indent=2)
+
+    def get_all_rcp_editors(self, include_swt_widgets: bool = False) -> str:
+        """Get all RCP editors (mock implementation)."""
+        import json
+        return json.dumps({
+            "editors": [],
+            "message": "RCP support requires a real Eclipse RCP application"
+        }, indent=2)
+
 
 class SwingError(Exception):
     """Base exception for Swing errors."""
