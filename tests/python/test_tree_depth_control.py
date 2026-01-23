@@ -183,54 +183,51 @@ class TestCaching:
     """Test caching strategy for tree queries."""
 
     def test_unlimited_depth_uses_cache(self, swing_library):
-        """Unlimited depth queries should use cache on repeat."""
-        # Run multiple iterations to get reliable timing measurements
-        iterations = 10
+        """Unlimited depth queries should use cache on repeat.
 
-        # First batch - fetch fresh (should be slower)
-        start1 = time.perf_counter()
-        for _ in range(iterations):
-            tree1 = swing_library.get_component_tree(format="json")
-        time1 = time.perf_counter() - start1
+        Note: We test functional correctness (cache returns same result) rather than
+        performance in CI, because operations are too fast (0.1-0.5ms) for reliable
+        timing measurements. CPU scheduling noise, GC, and JIT compilation make
+        timing assertions flaky in CI environments.
+        """
+        # First call - populates cache
+        tree1 = swing_library.get_component_tree(format="json")
 
-        # Second batch - should be cached (much faster)
-        start2 = time.perf_counter()
-        for _ in range(iterations):
-            tree2 = swing_library.get_component_tree(format="json")
-        time2 = time.perf_counter() - start2
+        # Second call - should return cached result
+        tree2 = swing_library.get_component_tree(format="json")
 
-        # Ensure minimum time threshold to avoid flaky comparisons
-        # If both are extremely fast (<100μs per call), test consistency instead
-        avg_time1_ms = (time1 / iterations) * 1000
-        avg_time2_ms = (time2 / iterations) * 1000
+        # Third call - verify consistency
+        tree3 = swing_library.get_component_tree(format="json")
 
-        if avg_time1_ms < 0.1 and avg_time2_ms < 0.1:
-            # Both are extremely fast - verify consistency instead of speed
-            # Just ensure content matches and calls complete successfully
-            assert tree1 == tree2, "Cached tree should match original"
-        else:
-            # Cached call should be at least 1.5x faster on average
-            assert time2 < time1 / 1.5, \
-                f"Cached calls ({avg_time2_ms:.3f}ms avg) should be faster than first batch ({avg_time1_ms:.3f}ms avg)"
+        # Verify that cached results are consistent with original
+        assert tree1 == tree2 == tree3, "Cached tree should match original"
 
-            # Content should be identical
-            assert tree1 == tree2, "Cached tree should match original"
+        # Verify the cache was actually used by checking internal state
+        cache_key = "unlimited_json_None_None_False_False_False"
+        assert cache_key in swing_library._tree_cache, \
+            "Cache should contain unlimited depth query"
+        assert swing_library._tree_call_count.get(cache_key, 0) >= 3, \
+            "Cache should have been accessed multiple times"
 
     def test_depth_limited_no_cache(self, swing_library):
-        """Depth-limited queries should not use cache."""
-        # Two calls with same depth - both should fetch fresh
-        start1 = time.time()
+        """Depth-limited queries should not use cache.
+
+        Note: We verify functional behavior (no caching) rather than timing,
+        as timing assertions are unreliable in CI for fast operations.
+        """
+        # Multiple calls with same depth
         tree1 = swing_library.get_component_tree(format="json", max_depth=5)
-        time1 = time.time() - start1
-
-        start2 = time.time()
         tree2 = swing_library.get_component_tree(format="json", max_depth=5)
-        time2 = time.time() - start2
+        tree3 = swing_library.get_component_tree(format="json", max_depth=5)
 
-        # Times should be similar (both fetch fresh)
-        time_ratio = max(time1, time2) / min(time1, time2)
-        assert time_ratio < 2, \
-            f"Both calls should be similar speed (ratio: {time_ratio:.2f})"
+        # Results should be identical (same query)
+        assert tree1 == tree2 == tree3, "Depth-limited results should be consistent"
+
+        # Verify that depth-limited queries are NOT cached
+        # Only unlimited depth queries should be in the cache
+        for key in swing_library._tree_cache.keys():
+            assert not key.startswith("limited_"), \
+                "Depth-limited queries should not be cached"
 
     def test_different_depths_independent(self, swing_library):
         """Different depths should be independent queries."""
