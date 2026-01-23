@@ -47,9 +47,9 @@ public class ActionExecutor {
             throw new IllegalArgumentException("Component not found: " + componentId);
         }
 
-        // Perform entire click operation asynchronously to avoid blocking on modal dialogs
-        EdtHelper.runOnEdtLater(() -> {
-            // Verify component is showing before clicking
+        // Check visibility and activate window SYNCHRONOUSLY before async click
+        // This ensures exceptions are properly propagated to RPC caller
+        EdtHelper.runOnEdt(() -> {
             if (!component.isShowing()) {
                 System.err.println("[SwingAgent] Component not showing (ID: " + componentId + "), attempting window activation...");
 
@@ -72,26 +72,38 @@ public class ActionExecutor {
                         }
                     }
 
-                    // Give window time to activate
-                    EdtHelper.sleep(200);
-
                     System.err.println("[SwingAgent] Window activated: " + window.getClass().getSimpleName());
                 } else {
                     System.err.println("[SwingAgent] No ancestor window found for component: " + componentId);
                 }
 
-                // Re-check visibility after activation attempt
-                if (!component.isShowing()) {
+                // Poll for component visibility with retry (Windows needs more time)
+                boolean showing = component.isShowing();
+                int retries = 0;
+                while (!showing && retries < 20) {  // Up to 2 seconds (20 * 100ms)
+                    EdtHelper.sleep(100);
+                    showing = component.isShowing();
+                    retries++;
+                }
+
+                if (!showing) {
                     throw new IllegalStateException(
                         "Component not visible for click after window activation: " + componentId +
-                        ". Window may be minimized, hidden, or component is not in a displayable window."
+                        ". Window may be minimized, hidden, or component is not in a displayable window. " +
+                        "Waited " + (retries * 100) + "ms after activation."
                     );
                 }
 
-                System.err.println("[SwingAgent] Component is now showing after window activation");
+                if (retries > 0) {
+                    System.err.println("[SwingAgent] Component became showing after " + (retries * 100) + "ms wait");
+                } else {
+                    System.err.println("[SwingAgent] Component is now showing after window activation");
+                }
             }
+        });
 
-            // Perform the click
+        // Now perform the actual click asynchronously to avoid blocking on modal dialogs
+        EdtHelper.runOnEdtLater(() -> {
             if (component instanceof AbstractButton) {
                 ((AbstractButton) component).doClick();
             } else {
@@ -115,9 +127,9 @@ public class ActionExecutor {
             throw new IllegalArgumentException("Component not found: " + componentId);
         }
 
-        // Perform double-click asynchronously to avoid blocking on modal dialogs
-        EdtHelper.runOnEdtLater(() -> {
-            // Verify component is showing before double-clicking
+        // Check visibility and activate window SYNCHRONOUSLY before async double-click
+        // This ensures exceptions are properly propagated to RPC caller
+        EdtHelper.runOnEdt(() -> {
             if (!component.isShowing()) {
                 System.err.println("[SwingAgent] Component not showing (ID: " + componentId + "), attempting window activation...");
 
@@ -139,22 +151,37 @@ public class ActionExecutor {
                         }
                     }
 
-                    EdtHelper.sleep(200);
                     System.err.println("[SwingAgent] Window activated: " + window.getClass().getSimpleName());
                 } else {
                     System.err.println("[SwingAgent] No ancestor window found for component: " + componentId);
                 }
 
-                // Re-check visibility after activation attempt
-                if (!component.isShowing()) {
+                // Poll for component visibility with retry (Windows needs more time)
+                boolean showing = component.isShowing();
+                int retries = 0;
+                while (!showing && retries < 20) {  // Up to 2 seconds (20 * 100ms)
+                    EdtHelper.sleep(100);
+                    showing = component.isShowing();
+                    retries++;
+                }
+
+                if (!showing) {
                     throw new IllegalStateException(
-                        "Component not visible for double-click after window activation: " + componentId
+                        "Component not visible for double-click after window activation: " + componentId +
+                        ". Waited " + (retries * 100) + "ms after activation."
                     );
                 }
 
-                System.err.println("[SwingAgent] Component is now showing after window activation");
+                if (retries > 0) {
+                    System.err.println("[SwingAgent] Component became showing after " + (retries * 100) + "ms wait");
+                } else {
+                    System.err.println("[SwingAgent] Component is now showing after window activation");
+                }
             }
+        });
 
+        // Now perform the actual double-click asynchronously to avoid blocking on modal dialogs
+        EdtHelper.runOnEdtLater(() -> {
             // For JComponents inside scroll panes, scroll them into view first
             if (component instanceof javax.swing.JComponent && component.getParent() instanceof javax.swing.JViewport) {
                 javax.swing.JComponent jcomp = (javax.swing.JComponent) component;
