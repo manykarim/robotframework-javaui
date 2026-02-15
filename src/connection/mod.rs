@@ -103,7 +103,7 @@ impl SwingConnection {
 
         for line in stdout.lines() {
             let parts: Vec<&str> = line.splitn(2, ' ').collect();
-            if parts.len() >= 1 {
+            if !parts.is_empty() {
                 if let Ok(pid) = parts[0].parse::<u32>() {
                     let main_class = parts.get(1).unwrap_or(&"").to_string();
                     jvms.push(JvmInfo {
@@ -222,13 +222,11 @@ impl SwingConnection {
             return text.contains(inner);
         }
 
-        if pattern.starts_with('*') {
-            let suffix = &pattern[1..];
+        if let Some(suffix) = pattern.strip_prefix('*') {
             return text.ends_with(suffix);
         }
 
-        if pattern.ends_with('*') {
-            let prefix = &pattern[..pattern.len()-1];
+        if let Some(prefix) = pattern.strip_suffix('*') {
             return text.starts_with(prefix);
         }
 

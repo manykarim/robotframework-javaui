@@ -909,8 +909,7 @@ impl SwtMatcher {
                 let left_matches = Self::find_all_by_locator(widgets, left);
                 left_matches.into_iter()
                     .filter(|w| {
-                        Self::find_all_by_locator(&[(*w).clone()], right)
-                            .len() > 0
+                        !Self::find_all_by_locator(&[(*w).clone()], right).is_empty()
                     })
                     .collect()
             }
@@ -930,12 +929,12 @@ impl SwtMatcher {
     }
 
     /// Count widgets matching the selector
-    pub fn count<'a>(widgets: &'a [SwtWidget], selector: &WidgetSelector) -> usize {
+    pub fn count(widgets: &[SwtWidget], selector: &WidgetSelector) -> usize {
         Self::find_all(widgets, selector).len()
     }
 
     /// Check if any widget matches the selector
-    pub fn exists<'a>(widgets: &'a [SwtWidget], selector: &WidgetSelector) -> bool {
+    pub fn exists(widgets: &[SwtWidget], selector: &WidgetSelector) -> bool {
         Self::find_first(widgets, selector).is_some()
     }
 }
@@ -1491,13 +1490,13 @@ fn parse_attribute_into_selector(
 fn extract_quoted_value(input: &str) -> Result<String, LocatorError> {
     let trimmed = input.trim();
 
-    if trimmed.starts_with('\'') {
-        if let Some(end) = trimmed[1..].find('\'') {
-            return Ok(trimmed[1..end + 1].to_string());
+    if let Some(rest) = trimmed.strip_prefix('\'') {
+        if let Some(end) = rest.find('\'') {
+            return Ok(rest[..end].to_string());
         }
-    } else if trimmed.starts_with('"') {
-        if let Some(end) = trimmed[1..].find('"') {
-            return Ok(trimmed[1..end + 1].to_string());
+    } else if let Some(rest) = trimmed.strip_prefix('"') {
+        if let Some(end) = rest.find('"') {
+            return Ok(rest[..end].to_string());
         }
     }
 

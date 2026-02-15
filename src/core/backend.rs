@@ -308,6 +308,7 @@ impl GenericBackend {
     }
 
     /// Get the next request ID
+    #[allow(dead_code)]
     fn next_request_id(&mut self) -> u64 {
         self.request_id += 1;
         self.request_id

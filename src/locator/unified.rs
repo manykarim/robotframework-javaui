@@ -955,8 +955,7 @@ impl LocatorNormalizer {
         }
 
         // 3. Check for ID shorthand (#id)
-        if trimmed.starts_with('#') {
-            let id = &trimmed[1..];
+        if let Some(id) = trimmed.strip_prefix('#') {
             if id.is_empty() {
                 return Err(LocatorParseError::new("Empty ID in # locator"));
             }
@@ -1012,15 +1011,15 @@ impl LocatorNormalizer {
                     return Err(LocatorParseError::new("Empty value in text: locator"));
                 }
                 // Check for match mode prefixes
-                if value.starts_with('*') {
+                if let Some(rest) = value.strip_prefix('*') {
                     Ok(Some(NormalizedLocator::new(
                         LocatorType::TextContains,
-                        value[1..].to_string(),
+                        rest.to_string(),
                     ).with_toolkit(self.mode)))
-                } else if value.starts_with('~') {
+                } else if let Some(rest) = value.strip_prefix('~') {
                     Ok(Some(NormalizedLocator::new(
                         LocatorType::TextRegex,
-                        value[1..].to_string(),
+                        rest.to_string(),
                     ).with_toolkit(self.mode)))
                 } else {
                     Ok(Some(NormalizedLocator::new(
@@ -1319,12 +1318,10 @@ impl LocatorNormalizer {
 
         // Check for SWT prefix format in Swing mode
         if self.mode == ToolkitType::Swing {
-            if locator.starts_with("name:") {
-                let value = &locator[5..];
+            if let Some(value) = locator.strip_prefix("name:") {
                 suggestions.push(format!("CSS-style syntax recommended: [name='{}']", value));
             }
-            if locator.starts_with("text:") {
-                let value = &locator[5..];
+            if let Some(value) = locator.strip_prefix("text:") {
                 suggestions.push(format!("CSS-style syntax recommended: [text='{}']", value));
             }
         }
@@ -1342,11 +1339,10 @@ impl LocatorNormalizer {
         }
 
         // Check for missing quotes in attributes
-        if locator.contains('[') && locator.contains('=') {
-            if !locator.contains('\'') && !locator.contains('"') {
+        if locator.contains('[') && locator.contains('=')
+            && !locator.contains('\'') && !locator.contains('"') {
                 suggestions.push("Attribute values should be quoted: [attr='value']".to_string());
             }
-        }
 
         suggestions
     }
@@ -1425,8 +1421,8 @@ impl UnifiedLocator {
         }
 
         // Handle #name shorthand
-        if locator.starts_with('#') {
-            return Ok(Self::name(&locator[1..]));
+        if let Some(rest) = locator.strip_prefix('#') {
+            return Ok(Self::name(rest));
         }
 
         // Handle XPath
@@ -1446,7 +1442,7 @@ impl UnifiedLocator {
     /// Parse CSS-like selector with optional attributes and pseudo-classes
     fn parse_css_extended(locator: &str) -> Result<Self, LocatorParseError> {
         // Find the first special character ([ or :) to split type from predicates
-        let special_pos = locator.find(|c: char| c == '[' || c == ':');
+        let special_pos = locator.find(['[', ':']);
 
         let (class_name, rest) = match special_pos {
             Some(pos) => (&locator[..pos], &locator[pos..]),
@@ -1474,7 +1470,7 @@ impl UnifiedLocator {
             } else if remaining.starts_with(':') {
                 // Parse pseudo-class
                 let pseudo_end = remaining[1..]
-                    .find(|c: char| c == ':' || c == '[')
+                    .find([':', '['])
                     .map(|i| i + 1)
                     .unwrap_or(remaining.len());
 
@@ -1601,6 +1597,7 @@ impl UnifiedLocator {
     }
 
     /// Parse CSS-like selector
+    #[allow(dead_code)]
     fn parse_css(locator: &str) -> Result<Self, LocatorParseError> {
         // Simple CSS parsing: Type[attr="value"]
         let bracket_pos = locator

@@ -535,7 +535,7 @@ impl ElementType {
 
     /// Infer element type from class name and toolkit
     pub fn from_class_name(class_name: &str, toolkit: ToolkitType) -> Self {
-        let simple_name = class_name.split('.').last().unwrap_or(class_name);
+        let simple_name = class_name.split('.').next_back().unwrap_or(class_name);
 
         match toolkit {
             ToolkitType::Swing => Self::from_swing_class(simple_name),
@@ -574,8 +574,8 @@ impl ElementType {
             "JToolBar" => ElementType::ToolBar,
             _ => {
                 // Try removing J prefix and matching
-                if simple_name.starts_with('J') {
-                    Self::from_swing_class(&simple_name[1..])
+                if let Some(rest) = simple_name.strip_prefix('J') {
+                    Self::from_swing_class(rest)
                 } else {
                     ElementType::Widget
                 }
@@ -622,7 +622,6 @@ impl ElementType {
         const SWT_CHECK: i32 = 1 << 5;     // 32
         const SWT_RADIO: i32 = 1 << 4;     // 16
         const SWT_TOGGLE: i32 = 1 << 1;    // 2
-        const SWT_ARROW: i32 = 1 << 2;     // 4
 
         if style & SWT_CHECK != 0 {
             ElementType::CheckBox
@@ -630,10 +629,8 @@ impl ElementType {
             ElementType::RadioButton
         } else if style & SWT_TOGGLE != 0 {
             ElementType::ToggleButton
-        } else if style & SWT_ARROW != 0 {
-            ElementType::Button // Arrow buttons are still buttons
         } else {
-            ElementType::Button // Default push button
+            ElementType::Button // Default push button (including arrow buttons)
         }
     }
 }
@@ -722,7 +719,7 @@ impl JavaGuiElement {
     #[new]
     #[pyo3(signature = (hash_code, class_name, toolkit="swing"))]
     pub fn new(hash_code: i64, class_name: &str, toolkit: &str) -> Self {
-        let simple_name = class_name.split('.').last().unwrap_or(class_name).to_string();
+        let simple_name = class_name.split('.').next_back().unwrap_or(class_name).to_string();
         let toolkit_type = ToolkitType::from_str(toolkit).unwrap_or(ToolkitType::Swing);
         let element_type = ElementType::from_class_name(class_name, toolkit_type);
 
@@ -890,7 +887,7 @@ impl JavaGuiElement {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
             .unwrap_or_else(|| {
-                class_name.split('.').last().unwrap_or(&class_name).to_string()
+                class_name.split('.').next_back().unwrap_or(&class_name).to_string()
             });
 
         let element_type = ElementType::from_class_name(&class_name, toolkit);

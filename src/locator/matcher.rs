@@ -390,7 +390,7 @@ impl Evaluator {
                     simple_name.eq_ignore_ascii_case(name)
                         || simple_name
                             .strip_prefix('J')
-                            .map_or(false, |s| s.eq_ignore_ascii_case(name))
+                            .is_some_and(|s| s.eq_ignore_ascii_case(name))
                 }
             }
             TypeSelector::PrefixSelector { key, value } => {

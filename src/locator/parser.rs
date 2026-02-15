@@ -268,13 +268,12 @@ fn parse_compound_selector_with_capture(
     // Special case: if we only have "*" with no compound selector following it,
     // or if the compound selector is completely empty, treat "*" as a universal selector
     // instead of a capture prefix
-    if !has_compound || compound.is_empty() {
-        if raw == "*" {
+    if (!has_compound || compound.is_empty())
+        && raw == "*" {
             // This is a standalone "*" - treat as universal selector, not capture
             compound.type_selector = Some(TypeSelector::Universal);
             capture = false;
         }
-    }
 
     Ok((capture, compound, raw))
 }

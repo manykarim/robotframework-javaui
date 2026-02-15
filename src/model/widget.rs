@@ -1855,11 +1855,10 @@ impl SwtFilterSpec {
                 return false;
             }
         }
-        if !self.widget_types.is_empty() {
-            if !self.widget_types.contains(&widget.widget_type) {
+        if !self.widget_types.is_empty()
+            && !self.widget_types.contains(&widget.widget_type) {
                 return false;
             }
-        }
         if let Some(style_bits) = self.style_bits {
             if (widget.style.style_bits & style_bits) != style_bits {
                 return false;
