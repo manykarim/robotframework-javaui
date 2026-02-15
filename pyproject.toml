@@ -64,8 +64,10 @@ target-version = ["py38", "py39", "py310", "py311", "py312"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "D", "UP", "S", "B", "A", "C4", "T20"]
-ignore = ["D100", "D104"]
+ignore = ["D100", "D104", "D203", "D213"]
 
 [tool.mypy]
 python_version = "3.8"
@@ -78,6 +80,11 @@ testpaths = ["tests/python"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+markers = [
+    "performance: marks tests as performance benchmarks",
+    "slow: marks tests as slow running",
+    "integration: marks tests as integration tests requiring running apps",
+]
 
 [dependency-groups]
 dev = [

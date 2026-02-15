@@ -29,9 +29,13 @@ For Eclipse RCP applications:
     Library    JavaGui.Rcp    WITH NAME    RCP
 """
 
+import logging
 import os
-import sys
 from typing import Any, Dict, List, Optional, Union
+
+from JavaGui.validation import validate_locator
+
+logger = logging.getLogger(__name__)
 
 # AssertionEngine integration imports
 try:
@@ -294,21 +298,8 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
 
     @staticmethod
     def _validate_locator(locator: Union[str, Any]) -> None:
-        """Validate that locator is not empty or whitespace.
-
-        Args:
-            locator: Locator string or element object to validate
-
-        Raises:
-            ValueError: If locator is empty string or only whitespace
-        """
-        # Skip validation for non-string types (e.g., SwingElement objects)
-        if not isinstance(locator, str):
-            return
-
-        # Check for empty or whitespace-only strings
-        if not locator or not locator.strip():
-            raise ValueError("Locator cannot be empty or whitespace")
+        """Validate that locator is not empty or whitespace."""
+        validate_locator(locator)
 
     # ==========================================================================
     # Connection Keywords
@@ -983,7 +974,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         """
         # Get tree as text and log it
         tree = self.get_ui_tree(format="text")
-        print(tree)
+        logger.info(tree)
 
     def get_ui_tree(
         self,
@@ -2363,21 +2354,8 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
 
     @staticmethod
     def _validate_locator(locator: Union[str, Any]) -> None:
-        """Validate that locator is not empty or whitespace.
-
-        Args:
-            locator: Locator string or widget object to validate
-
-        Raises:
-            ValueError: If locator is empty string or only whitespace
-        """
-        # Skip validation for non-string types (e.g., SwtWidget objects)
-        if not isinstance(locator, str):
-            return
-
-        # Check for empty or whitespace-only strings
-        if not locator or not locator.strip():
-            raise ValueError("Locator cannot be empty or whitespace")
+        """Validate that locator is not empty or whitespace."""
+        validate_locator(locator)
 
     # Connection Keywords
     def connect_to_swt_application(
@@ -3178,21 +3156,8 @@ class RcpLibrary(RcpKeywords):
 
     @staticmethod
     def _validate_locator(locator: Union[str, Any]) -> None:
-        """Validate that locator is not empty or whitespace.
-
-        Args:
-            locator: Locator string or widget object to validate
-
-        Raises:
-            ValueError: If locator is empty string or only whitespace
-        """
-        # Skip validation for non-string types (e.g., widget objects)
-        if not isinstance(locator, str):
-            return
-
-        # Check for empty or whitespace-only strings
-        if not locator or not locator.strip():
-            raise ValueError("Locator cannot be empty or whitespace")
+        """Validate that locator is not empty or whitespace."""
+        validate_locator(locator)
 
     # Connection Keywords (delegated from SWT)
     def connect_to_swt_application(
