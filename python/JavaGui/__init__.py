@@ -710,7 +710,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
 
         """
         # Convert pipe separator to slash for Java agent compatibility
-        normalized_path = path.replace("    ", "/")
+        normalized_path = path.replace("|", "/")
         self._lib.expand_tree_node(locator, normalized_path)
 
     def collapse_tree_node(self, locator: str, path: str) -> None:
@@ -747,23 +747,10 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
 
         """
         # Convert pipe separator to slash for Java agent compatibility
-        normalized_path = path.replace("    ", "/")
+        normalized_path = path.replace("|", "/")
         self._lib.select_tree_node(locator, normalized_path)
 
-    def get_selected_tree_node(self, locator: str) -> Optional[str]:
-        """Get the currently selected tree node path.
-
-        | **Argument** | **Description** |
-        | ``locator`` | CSS or XPath-like locator for the ``JTree``. See `Locator Syntax`. |
-
-        Returns the path of the currently selected node, or ``None`` if no node is selected.
-
-        Example:
-        | ${path}=    Get Selected Tree Node    JTree
-        | Should Be Equal    ${path}    Root/Config/Settings
-
-        """
-        return self._lib.get_selected_tree_node(locator)
+    # get_selected_tree_node is provided by TreeKeywords mixin with full assertion support
 
     # ==========================================================================
     # Menu Keywords

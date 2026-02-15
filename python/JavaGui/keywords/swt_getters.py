@@ -55,6 +55,10 @@ Get Widget Text    Text#input    matches    \\\\d+ items
         Supported operators: ==, !=, <, >, <=, >=, contains, not contains,
         starts, ends, matches, validate, then
         """
+        # Validate input before any connection-dependent operations
+        if isinstance(locator, str) and (not locator or not locator.strip()):
+            raise ValueError("Locator cannot be empty or whitespace")
+
         timeout_val = timeout if timeout is not None else self._assertion_timeout
         msg = message or f"Widget '{locator}' text"
 
