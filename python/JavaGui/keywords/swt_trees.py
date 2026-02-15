@@ -135,34 +135,12 @@ class SwtTreeKeywords:
 
         def get_count():
             # SWT trees expose item count through getItemCount()
-            # If parent_path is given, we need to navigate to that node first
             if parent_path:
-                # Get node level to count children
-                try:
-                    # Expand to ensure children are loaded
-                    self._lib.expand_tree_item(locator, parent_path)
-                except Exception:
-                    pass
-
-                # Count children at the given path
-                # This would require getting the tree structure
-                # For now, use get_tree_node_level or similar
-                try:
-                    # Get all visible nodes and count those under the path
-                    nodes = self._lib.get_selected_tree_nodes(locator)
-                    # This is a simplified approach - actual implementation
-                    # would need tree traversal
-                    return len(nodes) if nodes else 0
-                except Exception:
-                    return 0
-            else:
-                # Count root level items
-                try:
-                    # Use tree item count property
-                    count = self._lib.get_widget_property(locator, "itemCount")
-                    return int(count) if count is not None else 0
-                except Exception:
-                    return 0
+                # Expand to ensure children are loaded
+                self._lib.expand_tree_item(locator, parent_path)
+            # Use tree itemCount property for root-level count
+            count = self._lib.get_widget_property(locator, "itemCount")
+            return int(count) if count is not None else 0
 
         return numeric_assertion_with_retry(
             get_count,
@@ -211,14 +189,17 @@ class SwtTreeKeywords:
         msg = message or f"Tree '{locator}' item '{path}' text"
 
         def get_text():
-            # Select the tree item to ensure it's accessible
-            try:
-                self._lib.select_tree_item(locator, path)
-            except Exception:
-                pass
-
-            # Get the text of the last path component
-            # The path format is Root/Parent/Node - get the node text
+            # Select the tree item at the path
+            self._lib.select_tree_item(locator, path)
+            # Get the text from the selected node
+            nodes = self._lib.get_selected_tree_nodes(locator)
+            if nodes:
+                # Selected node text is the full path; extract the leaf name
+                node_path = nodes[0]
+                if "/" in node_path:
+                    return node_path.split("/")[-1]
+                return node_path
+            # Fallback: return the last path component
             path_parts = path.replace("|", "/").split("/")
             return path_parts[-1] if path_parts else ""
 

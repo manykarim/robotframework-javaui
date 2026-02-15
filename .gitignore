@@ -51,6 +51,8 @@ agent/.gradle/
 demo/target/
 demo/build/
 demo/.gradle/
+tests/apps/*/target/
+tests/apps/*/dependency-reduced-pom.xml
 *.class
 
 # =============================================================================

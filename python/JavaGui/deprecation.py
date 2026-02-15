@@ -206,15 +206,19 @@ class KeywordAliasRegistry:
         """
         for alias_name, info in self._aliases.items():
             original_name = info["original"]
-            if hasattr(cls, original_name):
-                original_method = getattr(cls, original_name)
+            # Convert Robot Framework keyword name to Python method name
+            python_name = original_name.replace(" ", "_").lower()
+            if hasattr(cls, python_name):
+                original_method = getattr(cls, python_name)
+                # Use snake_case alias name for Python attribute
+                python_alias = alias_name.replace(" ", "_").lower()
                 alias_method = create_keyword_alias(
                     original_method,
                     alias_name,
                     info["deprecated_in"],
                     info["remove_in"],
                 )
-                setattr(cls, alias_name, alias_method)
+                setattr(cls, python_alias, alias_method)
         return cls
 
 
@@ -314,33 +318,15 @@ register_alias(
 # Tree keyword aliases
 register_alias(
     "Get Tree Node Text",
-    "Get Tree Node Label",
-    deprecated_in="3.0.0",
-    remove_in="4.0.0",
-)
-register_alias(
-    "Get Tree Node Count",
-    "Get Tree Child Count",
+    "Get Selected Tree Node",
     deprecated_in="3.0.0",
     remove_in="4.0.0",
 )
 
 # List keyword aliases
 register_alias(
-    "Get List Item Text",
-    "Get List Item Value",
-    deprecated_in="3.0.0",
-    remove_in="4.0.0",
-)
-register_alias(
     "Get Number Of List Items",
     "Get List Item Count",
-    deprecated_in="3.0.0",
-    remove_in="4.0.0",
-)
-register_alias(
-    "Get Combobox Items",
-    "Get ComboBox Items",
     deprecated_in="3.0.0",
     remove_in="4.0.0",
 )

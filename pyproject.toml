@@ -47,10 +47,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/robotframework/robotframework-javagui"
-Documentation = "https://robotframework-javagui.readthedocs.io"
-Repository = "https://github.com/robotframework/robotframework-javagui"
-Issues = "https://github.com/robotframework/robotframework-javagui/issues"
+Homepage = "https://github.com/manykarim/robotframework-javaui"
+Documentation = "https://github.com/manykarim/robotframework-javaui#readme"
+Repository = "https://github.com/manykarim/robotframework-javaui"
+Issues = "https://github.com/manykarim/robotframework-javaui/issues"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
