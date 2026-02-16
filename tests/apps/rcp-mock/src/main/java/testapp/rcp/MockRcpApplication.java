@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Mock RCP Application - Simulates Eclipse RCP Workbench for testing.
@@ -44,7 +45,7 @@ public class MockRcpApplication {
     private Map<String, EditorInfo> editors = new ConcurrentHashMap<>();
     private Map<String, CTabItem> viewTabs = new ConcurrentHashMap<>();
     private Map<String, CTabItem> editorTabs = new ConcurrentHashMap<>();
-    private java.util.List<String> openDialogs = new ArrayList<>();
+    private java.util.List<String> openDialogs = new CopyOnWriteArrayList<>();
 
     private String workbenchTitle = "Mock RCP Workbench";
     private Label statusLabel;
@@ -682,37 +683,40 @@ public class MockRcpApplication {
 
     // ================== RCP API Methods ==================
 
-    public synchronized String getWorkbenchInfo() {
+    public String getWorkbenchInfo() {
         return "{\"title\":\"" + workbenchTitle + "\",\"windowCount\":1,\"activePerspective\":\"" + activePerspectiveId + "\"}";
     }
 
-    public synchronized String getActivePerspective() {
+    public String getActivePerspective() {
         return activePerspectiveId;
     }
 
-    public synchronized java.util.List<String> getAvailablePerspectives() {
+    public java.util.List<String> getAvailablePerspectives() {
         return new ArrayList<>(perspectives.keySet());
     }
 
-    public synchronized java.util.List<String> getOpenPerspectives() {
+    public java.util.List<String> getOpenPerspectives() {
         // In our mock, all perspectives are "open" (available)
         return new ArrayList<>(perspectives.keySet());
     }
 
-    public synchronized boolean switchPerspective(String perspectiveId) {
+    public boolean switchPerspective(String perspectiveId) {
         if (perspectives.containsKey(perspectiveId)) {
             activePerspectiveId = perspectiveId;
             display.asyncExec(() -> {
+                if (shell.isDisposed()) return;
                 PerspectiveInfo persp = perspectives.get(perspectiveId);
-                shell.setText(workbenchTitle + " - " + persp.name);
-                statusLabel.setText("Switched to " + persp.name);
+                if (persp != null) {
+                    shell.setText(workbenchTitle + " - " + persp.name);
+                    statusLabel.setText("Switched to " + persp.name);
+                }
             });
             return true;
         }
         return false;
     }
 
-    public synchronized void openPerspectiveByName(String name) {
+    public void openPerspectiveByName(String name) {
         for (PerspectiveInfo persp : perspectives.values()) {
             if (persp.name.equalsIgnoreCase(name) || persp.name.contains(name)) {
                 switchPerspective(persp.id);
@@ -721,13 +725,14 @@ public class MockRcpApplication {
         }
     }
 
-    public synchronized void resetPerspective() {
+    public void resetPerspective() {
         display.asyncExec(() -> {
+            if (shell.isDisposed()) return;
             statusLabel.setText("Perspective reset");
         });
     }
 
-    public synchronized void closePerspective(String perspectiveId) {
+    public void closePerspective(String perspectiveId) {
         // In our mock, we just switch to another perspective
         if (perspectiveId.equals(activePerspectiveId)) {
             for (String id : perspectives.keySet()) {
@@ -739,18 +744,19 @@ public class MockRcpApplication {
         }
     }
 
-    public synchronized void closeAllPerspectives() {
+    public void closeAllPerspectives() {
         // Reset to default
         activePerspectiveId = "com.testapp.rcp.perspective.main";
     }
 
-    public synchronized boolean showView(String viewId, String secondaryId) {
+    public boolean showView(String viewId, String secondaryId) {
         ViewInfo view = views.get(viewId);
         if (view == null) return false;
 
         view.isVisible = true;
 
         display.syncExec(() -> {
+            if (shell.isDisposed()) return;
             // Check if tab already exists
             if (!viewTabs.containsKey(viewId)) {
                 createViewTab(viewFolder, viewId);
@@ -764,7 +770,7 @@ public class MockRcpApplication {
         return true;
     }
 
-    public synchronized void closeView(String viewId) {
+    public void closeView(String viewId) {
         ViewInfo view = views.get(viewId);
         if (view != null) {
             view.isVisible = false;
@@ -779,7 +785,7 @@ public class MockRcpApplication {
         });
     }
 
-    public synchronized void activateView(String viewId) {
+    public void activateView(String viewId) {
         display.asyncExec(() -> {
             CTabItem tab = viewTabs.get(viewId);
             if (tab != null && !tab.isDisposed()) {
@@ -795,7 +801,7 @@ public class MockRcpApplication {
      * @param locator Widget type (e.g., "Tree", "Table") or name locator (e.g., "name:myWidget")
      * @return Map with widget info, or null if not found
      */
-    public synchronized Map<String, Object> getViewWidget(String viewId, String locator) {
+    public Map<String, Object> getViewWidget(String viewId, String locator) {
         System.out.println("[DEBUG] getViewWidget called: viewId=" + viewId + ", locator=" + locator);
         System.out.println("[DEBUG] viewTabs keys: " + viewTabs.keySet());
 
@@ -911,7 +917,7 @@ public class MockRcpApplication {
         return result;
     }
 
-    public synchronized java.util.List<Map<String, Object>> getOpenViews() {
+    public java.util.List<Map<String, Object>> getOpenViews() {
         java.util.List<Map<String, Object>> result = new ArrayList<>();
         for (Map.Entry<String, ViewInfo> entry : views.entrySet()) {
             if (entry.getValue().isVisible) {
@@ -925,12 +931,12 @@ public class MockRcpApplication {
         return result;
     }
 
-    public synchronized boolean isViewVisible(String viewId) {
+    public boolean isViewVisible(String viewId) {
         ViewInfo view = views.get(viewId);
         return view != null && view.isVisible;
     }
 
-    public synchronized String getActiveView() {
+    public String getActiveView() {
         // Return the currently selected view
         CTabItem selection = viewFolder.getSelection();
         if (selection != null) {
@@ -939,21 +945,21 @@ public class MockRcpApplication {
         return null;
     }
 
-    public synchronized void minimizeView(String viewId) {
+    public void minimizeView(String viewId) {
         ViewInfo view = views.get(viewId);
         if (view != null) {
             view.isMinimized = true;
         }
     }
 
-    public synchronized void maximizeView(String viewId) {
+    public void maximizeView(String viewId) {
         ViewInfo view = views.get(viewId);
         if (view != null) {
             view.isMaximized = true;
         }
     }
 
-    public synchronized void restoreView(String viewId) {
+    public void restoreView(String viewId) {
         ViewInfo view = views.get(viewId);
         if (view != null) {
             view.isMinimized = false;
@@ -961,22 +967,22 @@ public class MockRcpApplication {
         }
     }
 
-    public synchronized boolean isViewMinimized(String viewId) {
+    public boolean isViewMinimized(String viewId) {
         ViewInfo view = views.get(viewId);
         return view != null && view.isMinimized;
     }
 
-    public synchronized boolean isViewMaximized(String viewId) {
+    public boolean isViewMaximized(String viewId) {
         ViewInfo view = views.get(viewId);
         return view != null && view.isMaximized;
     }
 
-    public synchronized String getViewTitle(String viewId) {
+    public String getViewTitle(String viewId) {
         ViewInfo view = views.get(viewId);
         return view != null ? view.name : null;
     }
 
-    public synchronized void openEditor(String filePath) {
+    public void openEditor(String filePath) {
         String editorId = "editor_" + filePath.hashCode();
         String fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
 
@@ -1021,7 +1027,7 @@ public class MockRcpApplication {
         });
     }
 
-    public synchronized void closeEditor(String filePath) {
+    public void closeEditor(String filePath) {
         // Support lookup by title as well as filePath
         final String pathToRemove = resolveEditorPath(filePath);
         editors.remove(pathToRemove);
@@ -1035,7 +1041,7 @@ public class MockRcpApplication {
         });
     }
 
-    public synchronized void closeAllEditors(boolean save) {
+    public void closeAllEditors(boolean save) {
         editors.clear();
 
         display.asyncExec(() -> {
@@ -1052,7 +1058,7 @@ public class MockRcpApplication {
      * @param locator Widget type (e.g., "StyledText") or name locator (e.g., "name:editorText")
      * @return Map with widget info, or null if not found
      */
-    public synchronized Map<String, Object> getEditorWidget(String titleOrPath, String locator) {
+    public Map<String, Object> getEditorWidget(String titleOrPath, String locator) {
         final Map<String, Object>[] result = new Map[1];
 
         display.syncExec(() -> {
@@ -1082,7 +1088,7 @@ public class MockRcpApplication {
         return result[0];
     }
 
-    public synchronized void activateEditor(String filePath) {
+    public void activateEditor(String filePath) {
         // Support lookup by title as well as filePath
         String actualPath = resolveEditorPath(filePath);
         display.asyncExec(() -> {
@@ -1107,7 +1113,7 @@ public class MockRcpApplication {
         return filePathOrTitle; // Return original if not found
     }
 
-    public synchronized void saveEditor(String filePath) {
+    public void saveEditor(String filePath) {
         // Support lookup by title as well as filePath
         String actualPath = resolveEditorPath(filePath);
         EditorInfo editor = editors.get(actualPath);
@@ -1126,7 +1132,7 @@ public class MockRcpApplication {
         }
     }
 
-    public synchronized void saveAllEditors() {
+    public void saveAllEditors() {
         for (EditorInfo editor : editors.values()) {
             editor.isDirty = false;
         }
@@ -1151,7 +1157,7 @@ public class MockRcpApplication {
         }
     }
 
-    public synchronized java.util.List<Map<String, Object>> getOpenEditors() {
+    public java.util.List<Map<String, Object>> getOpenEditors() {
         java.util.List<Map<String, Object>> result = new ArrayList<>();
         for (Map.Entry<String, EditorInfo> entry : editors.entrySet()) {
             Map<String, Object> editorMap = new HashMap<>();
@@ -1164,7 +1170,7 @@ public class MockRcpApplication {
         return result;
     }
 
-    public synchronized String getActiveEditor() {
+    public String getActiveEditor() {
         CTabItem selection = editorFolder.getSelection();
         if (selection != null) {
             return (String) selection.getData("editorId");
@@ -1172,27 +1178,27 @@ public class MockRcpApplication {
         return null;
     }
 
-    public synchronized boolean isEditorOpen(String filePath) {
+    public boolean isEditorOpen(String filePath) {
         // Support lookup by title as well as filePath
         String actualPath = resolveEditorPath(filePath);
         return editors.containsKey(actualPath);
     }
 
-    public synchronized boolean isEditorDirty(String filePath) {
+    public boolean isEditorDirty(String filePath) {
         // Support lookup by title as well as filePath
         String actualPath = resolveEditorPath(filePath);
         EditorInfo editor = editors.get(actualPath);
         return editor != null && editor.isDirty;
     }
 
-    public synchronized String getEditorContent(String filePath) {
+    public String getEditorContent(String filePath) {
         // Support lookup by title as well as filePath
         String actualPath = resolveEditorPath(filePath);
         EditorInfo editor = editors.get(actualPath);
         return editor != null ? editor.content : null;
     }
 
-    public synchronized int getDirtyEditorCount() {
+    public int getDirtyEditorCount() {
         int count = 0;
         for (EditorInfo editor : editors.values()) {
             if (editor.isDirty) count++;
@@ -1200,7 +1206,7 @@ public class MockRcpApplication {
         return count;
     }
 
-    public synchronized void enterTextInEditor(String text) {
+    public void enterTextInEditor(String text) {
         display.asyncExec(() -> {
             CTabItem selection = editorFolder.getSelection();
             if (selection != null) {
@@ -1220,19 +1226,19 @@ public class MockRcpApplication {
         });
     }
 
-    public synchronized void executeCommand(String commandId) {
+    public void executeCommand(String commandId) {
         display.asyncExec(() -> {
             statusLabel.setText("Executed command: " + commandId);
         });
     }
 
-    public synchronized void executeMenu(String menuPath) {
+    public void executeMenu(String menuPath) {
         display.asyncExec(() -> {
             statusLabel.setText("Executed menu: " + menuPath);
         });
     }
 
-    public synchronized void clickToolbarItem(String tooltip) {
+    public void clickToolbarItem(String tooltip) {
         display.asyncExec(() -> {
             // Find toolbar item by tooltip
             for (ToolItem item : mainToolBar.getItems()) {
@@ -1248,24 +1254,24 @@ public class MockRcpApplication {
         });
     }
 
-    public synchronized void openPreferencesDialog() {
+    public void openPreferencesDialog() {
         display.asyncExec(() -> {
             showPreferencesDialog();
         });
     }
 
-    public synchronized void navigateToPreferencePage(String path) {
+    public void navigateToPreferencePage(String path) {
         // This is a simplified implementation - in real Eclipse this would navigate the tree
         display.asyncExec(() -> {
             statusLabel.setText("Navigated to preference: " + path);
         });
     }
 
-    public synchronized java.util.List<String> getOpenDialogs() {
+    public java.util.List<String> getOpenDialogs() {
         return new ArrayList<>(openDialogs);
     }
 
-    public synchronized void pressButton(String label) {
+    public void pressButton(String label) {
         display.asyncExec(() -> {
             Shell activeShell = display.getActiveShell();
             if (activeShell != null && activeShell != shell) {
@@ -1293,7 +1299,7 @@ public class MockRcpApplication {
         return null;
     }
 
-    public synchronized void closeActiveDialog() {
+    public void closeActiveDialog() {
         display.asyncExec(() -> {
             Shell activeShell = display.getActiveShell();
             if (activeShell != null && activeShell != shell) {
@@ -1302,15 +1308,15 @@ public class MockRcpApplication {
         });
     }
 
-    public synchronized String getWorkbenchTitle() {
+    public String getWorkbenchTitle() {
         return shell.getText();
     }
 
-    public synchronized String getWorkbenchState() {
+    public String getWorkbenchState() {
         return "{\"ready\":true,\"starting\":false,\"closing\":false}";
     }
 
-    public synchronized int getWorkbenchWindowCount() {
+    public int getWorkbenchWindowCount() {
         return 1;
     }
 
