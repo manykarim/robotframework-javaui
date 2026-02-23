@@ -167,7 +167,7 @@ jobs:
 
       - name: Run Robot Framework tests (macOS only, no RCP)
         if: runner.os == 'macOS'
-        run: uv run robot --outputdir tests/robot/output tests/robot/swing tests/robot/swing tests/robot/swt
+        run: uv run robot --outputdir tests/robot/output tests/robot/swing tests/robot/swt
 
       - name: Run Python tests
         run: uv run pytest tests/python/

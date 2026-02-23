@@ -47,6 +47,7 @@ jobs:
 
   # =============================================================================
   # Build Python Wheels (ABI3 - one wheel per OS works for all Python versions)
+  # Uses manylinux containers on Linux for broad glibc compatibility
   # =============================================================================
   build-wheels:
     needs: build-agent
@@ -54,7 +55,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-14]
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            manylinux: "2_17"
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-14
+            target: aarch64-apple-darwin
     defaults:
       run:
         shell: bash
@@ -78,39 +86,23 @@ jobs:
           cp agent/target/javagui-agent.jar python/JavaGui/jars/javagui-agent.jar
           ls -la python/JavaGui/jars/
 
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v2
+      - name: Build wheel (Linux - manylinux container)
+        if: runner.os == 'Linux'
+        uses: PyO3/maturin-action@v1
         with:
-          version: latest
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --strip
 
-      - name: Setup Python
-        run: uv python install 3.12
-
-      - name: Setup Rust (stable)
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Cargo
-        uses: actions/cache@v4
+      - name: Build wheel (non-Linux)
+        if: runner.os != 'Linux'
+        uses: PyO3/maturin-action@v1
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          target: ${{ matrix.target }}
+          args: --release --strip
 
-      - name: Install maturin
-        run: uv tool install maturin
-
-      - name: Clean old wheels from cache
+      - name: Verify wheel
         run: |
-          rm -rf target/wheels
-          mkdir -p target/wheels
-
-      - name: Build wheel (ABI3 - compatible with Python 3.8+)
-        run: |
-          uv tool run maturin build --release --strip
           ls -la target/wheels/
           echo "ABI3 wheel works for all Python versions 3.8+"
 

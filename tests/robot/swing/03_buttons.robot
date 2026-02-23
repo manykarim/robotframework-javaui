@@ -122,18 +122,19 @@ Double Click On Table
 Double Click Using XPath
     [Documentation]    Double-click using XPath selector.
     [Tags]    positive    xpath-locator
+    # clearButton is on Form Input tab; previous test switched to Data View
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Form Input
+    Sleep    0.2s
     Double Click    //JButton[@name='clearButton']
     Sleep    0.5s
 
 Double Click On List Item
-    [Documentation]    Double-click on a list component via its scroll pane.
+    [Documentation]    Double-click on a list component.
     ...                Common for opening list items.
     [Tags]    positive
-    # The app starts on Form Input tab by default
-    # But we explicitly select it in case previous tests changed tabs
-    Select Tab    JTabbedPane[name='mainTabbedPane']    Form Input
+    # itemList is on the Selections tab
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Selections
     Sleep    0.3s
-    # Double-click on the list - the list is always visible on Form Input
     Double Click    JList[name='itemList']
     Sleep    0.3s
 
@@ -145,6 +146,9 @@ Right Click On Button
     [Documentation]    Perform a right-click (context click) on a button.
     ...                Opens context menu if available.
     [Tags]    positive    context-menu
+    # submitButton is on Form Input tab
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Form Input
+    Sleep    0.2s
     Right Click    JButton[name='submitButton']
     Sleep    0.3s
 
@@ -178,6 +182,9 @@ Right Click Using XPath
 Click Element Single Click
     [Documentation]    Click element with explicit single click count.
     [Tags]    positive
+    # submitButton is on Form Input tab; previous tests may have switched tabs
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Form Input
+    Sleep    0.2s
     Click Element    JButton[name='submitButton']    click_count=1
     Sleep    0.3s
 

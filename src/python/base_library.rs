@@ -43,6 +43,7 @@ impl Default for UnifiedLibraryConfig {
 }
 
 /// Connection state for the library
+#[derive(Default)]
 pub struct UnifiedConnectionState {
     /// Whether connected to an application
     pub connected: bool,
@@ -60,29 +61,14 @@ pub struct UnifiedConnectionState {
     pub request_id: u64,
 }
 
-impl Default for UnifiedConnectionState {
-    fn default() -> Self {
-        Self {
-            connected: false,
-            application_name: None,
-            pid: None,
-            host: None,
-            port: None,
-            stream: None,
-            request_id: 0,
-        }
-    }
-}
 
 /// Convert Python object to f64, handling various number types
 pub fn py_to_f64(py: Python<'_>, obj: Option<PyObject>) -> Option<f64> {
     obj.and_then(|o| {
         if let Ok(i) = o.extract::<i64>(py) {
             Some(i as f64)
-        } else if let Ok(f) = o.extract::<f64>(py) {
-            Some(f)
         } else {
-            None
+            o.extract::<f64>(py).ok()
         }
     })
 }
@@ -1103,12 +1089,12 @@ impl JavaGuiLibrary {
         }
 
         // Check for #name format
-        if locator.starts_with('#') {
-            return ("name".to_string(), locator[1..].to_string());
+        if let Some(rest) = locator.strip_prefix('#') {
+            return ("name".to_string(), rest.to_string());
         }
 
         // Default: treat as class name
-        let simple_name = locator.split('.').last().unwrap_or(locator);
+        let simple_name = locator.split('.').next_back().unwrap_or(locator);
         ("class".to_string(), simple_name.to_string())
     }
 
@@ -1152,7 +1138,7 @@ impl JavaGuiLibrary {
             .unwrap_or("Unknown");
         let simple_name = json.get("simpleClass").and_then(|v| v.as_str())
             .map(String::from)
-            .unwrap_or_else(|| class_name.split('.').last().unwrap_or(class_name).to_string());
+            .unwrap_or_else(|| class_name.split('.').next_back().unwrap_or(class_name).to_string());
 
         let hash_code = json.get("id").and_then(|v| v.as_i64())
             .or_else(|| json.get("hashCode").and_then(|v| v.as_i64()))

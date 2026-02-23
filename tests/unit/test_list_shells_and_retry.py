@@ -40,7 +40,7 @@ class TestListShellsRPC:
             # and would return a list if app was running
             error_msg = str(e).lower()
             # Should fail with connection error, not "method not found"
-            assert "connection" in error_msg or "refused" in error_msg, \
+            assert "connect" in error_msg or "refused" in error_msg, \
                 f"Unexpected error: {e}"
 
     def test_get_shells_contains_main_shell(self, swt_lib):
@@ -53,7 +53,7 @@ class TestListShellsRPC:
         except Exception as e:
             # Connection error is acceptable for unit test
             error_msg = str(e).lower()
-            if "connection" not in error_msg and "refused" not in error_msg:
+            if "connect" not in error_msg and "refused" not in error_msg:
                 # If not a connection error, re-raise
                 raise
 
@@ -70,7 +70,7 @@ class TestListShellsRPC:
         except Exception as e:
             # Connection error is acceptable for unit test
             error_msg = str(e).lower()
-            if "connection" not in error_msg and "refused" not in error_msg:
+            if "connect" not in error_msg and "refused" not in error_msg:
                 # If not a connection error, re-raise
                 raise
 
@@ -93,7 +93,7 @@ class TestRcpListShells:
         except Exception as e:
             # Connection error is acceptable
             error_msg = str(e).lower()
-            assert "connection" in error_msg or "refused" in error_msg or "method" not in error_msg, \
+            assert "connect" in error_msg or "refused" in error_msg or "method" not in error_msg, \
                 f"Unexpected error: {e}"
 
 
@@ -114,7 +114,7 @@ class TestConnectionRetryLogic:
         except Exception as e:
             error_msg = str(e).lower()
             # Error should mention connection issue
-            assert "connection" in error_msg or "refused" in error_msg or "connect" in error_msg, \
+            assert "connect" in error_msg or "refused" in error_msg, \
                 f"Connection error should be clear: {e}"
 
     def test_connection_retry_eventually_fails(self, swt_lib):

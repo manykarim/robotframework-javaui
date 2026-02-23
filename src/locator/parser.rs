@@ -268,13 +268,12 @@ fn parse_compound_selector_with_capture(
     // Special case: if we only have "*" with no compound selector following it,
     // or if the compound selector is completely empty, treat "*" as a universal selector
     // instead of a capture prefix
-    if !has_compound || compound.is_empty() {
-        if raw == "*" {
+    if (!has_compound || compound.is_empty())
+        && raw == "*" {
             // This is a standalone "*" - treat as universal selector, not capture
             compound.type_selector = Some(TypeSelector::Universal);
             capture = false;
         }
-    }
 
     Ok((capture, compound, raw))
 }
@@ -459,8 +458,8 @@ fn parse_attribute_matcher(pair: pest::iterators::Pair<Rule>) -> Result<Attribut
 
 /// Parse a match operator
 fn parse_match_operator(pair: pest::iterators::Pair<Rule>) -> Result<MatchOperator, ParseError> {
-    for inner in pair.into_inner() {
-        return match inner.as_rule() {
+    if let Some(inner) = pair.into_inner().next() {
+        match inner.as_rule() {
             Rule::equals => Ok(MatchOperator::Equals),
             Rule::not_equals => Ok(MatchOperator::NotEquals),
             Rule::prefix_match => Ok(MatchOperator::PrefixMatch),
@@ -474,13 +473,14 @@ fn parse_match_operator(pair: pest::iterators::Pair<Rule>) -> Result<MatchOperat
                 ParseErrorKind::InvalidAttribute,
                 0,
             )),
-        };
+        }
+    } else {
+        Err(ParseError::new(
+            "Missing operator".to_string(),
+            ParseErrorKind::InvalidAttribute,
+            0,
+        ))
     }
-    Err(ParseError::new(
-        "Missing operator".to_string(),
-        ParseErrorKind::InvalidAttribute,
-        0,
-    ))
 }
 
 /// Parse an attribute value
@@ -751,8 +751,8 @@ fn parse_string_arg(pair: pest::iterators::Pair<Rule>) -> Result<String, ParseEr
 
 /// Parse a combinator
 fn parse_combinator(pair: pest::iterators::Pair<Rule>) -> Result<Combinator, ParseError> {
-    for inner in pair.into_inner() {
-        return match inner.as_rule() {
+    if let Some(inner) = pair.into_inner().next() {
+        match inner.as_rule() {
             Rule::cascaded_combinator => Ok(Combinator::Cascaded),
             Rule::child_combinator => Ok(Combinator::Child),
             Rule::adjacent_sibling => Ok(Combinator::AdjacentSibling),
@@ -763,10 +763,11 @@ fn parse_combinator(pair: pest::iterators::Pair<Rule>) -> Result<Combinator, Par
                 ParseErrorKind::SyntaxError,
                 0,
             )),
-        };
+        }
+    } else {
+        // Default to descendant if no specific combinator found
+        Ok(Combinator::Descendant)
     }
-    // Default to descendant if no specific combinator found
-    Ok(Combinator::Descendant)
 }
 
 /// Parse XPath expression

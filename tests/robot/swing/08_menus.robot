@@ -347,6 +347,9 @@ Menu Keyboard Navigation Alternative
 Menu And Button Integration
     [Documentation]    Test menu operations alongside button clicks.
     [Tags]    integration
+    # Buttons are on Form Input tab; previous tests may have switched tabs
+    Select Tab    JTabbedPane[name='mainTabbedPane']    Form Input
+    Sleep    0.2s
     # Click a button
     Click Button    JButton[name='clearButton']
     Sleep    0.2s

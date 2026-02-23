@@ -14,6 +14,7 @@ from ..assertions import (
     numeric_assertion_with_retry,
     ElementState,
 )
+from ..validation import validate_locator
 
 
 class SwtGetterKeywords:
@@ -55,6 +56,9 @@ Get Widget Text    Text#input    matches    \\\\d+ items
         Supported operators: ==, !=, <, >, <=, >=, contains, not contains,
         starts, ends, matches, validate, then
         """
+        # Validate input before any connection-dependent operations
+        validate_locator(locator)
+
         timeout_val = timeout if timeout is not None else self._assertion_timeout
         msg = message or f"Widget '{locator}' text"
 

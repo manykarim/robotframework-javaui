@@ -38,6 +38,7 @@ fn py_to_f64(py: Python<'_>, obj: Option<PyObject>) -> Option<f64> {
 
 /// Configuration for the SWT Library
 #[derive(Clone)]
+#[allow(dead_code)]
 struct SwtLibraryConfig {
     /// Default timeout for wait operations (seconds)
     timeout: f64,
@@ -64,6 +65,7 @@ impl Default for SwtLibraryConfig {
 }
 
 /// Connection state for the SWT library
+#[derive(Default)]
 struct SwtConnectionState {
     /// Whether connected to an application
     connected: bool,
@@ -81,19 +83,6 @@ struct SwtConnectionState {
     request_id: u64,
 }
 
-impl Default for SwtConnectionState {
-    fn default() -> Self {
-        Self {
-            connected: false,
-            application_name: None,
-            pid: None,
-            host: None,
-            port: None,
-            stream: None,
-            request_id: 0,
-        }
-    }
-}
 
 impl Clone for SwtConnectionState {
     fn clone(&self) -> Self {
@@ -1411,8 +1400,8 @@ impl SwtLibrary {
         })?;
 
         if !conn.connected {
-            let hint = if conn.host.is_some() && conn.port.is_some() {
-                format!("Not connected to any SWT application. Use 'Connect To Application' keyword first. Last attempted connection: {}:{}", conn.host.as_ref().unwrap(), conn.port.as_ref().unwrap())
+            let hint = if let (Some(host), Some(port)) = (conn.host.as_ref(), conn.port.as_ref()) {
+                format!("Not connected to any SWT application. Use 'Connect To Application' keyword first. Last attempted connection: {}:{}", host, port)
             } else {
                 "Not connected to any SWT application. Use 'Connect To Application' keyword first.".to_string()
             };
@@ -1594,12 +1583,12 @@ impl SwtLibrary {
         }
 
         // Check for #name format
-        if locator.starts_with('#') {
-            return ("name".to_string(), locator[1..].to_string());
+        if let Some(rest) = locator.strip_prefix('#') {
+            return ("name".to_string(), rest.to_string());
         }
 
         // Default: treat as class name
-        let simple_name = locator.split('.').last().unwrap_or(locator);
+        let simple_name = locator.split('.').next_back().unwrap_or(locator);
         ("class".to_string(), simple_name.to_string())
     }
 
@@ -1650,7 +1639,7 @@ impl SwtLibrary {
             .unwrap_or("Unknown");
         let simple_name = json.get("simpleClass").and_then(|v| v.as_str())
             .map(String::from)
-            .unwrap_or_else(|| class_name.split('.').last().unwrap_or(class_name).to_string());
+            .unwrap_or_else(|| class_name.split('.').next_back().unwrap_or(class_name).to_string());
 
         let hash_code = json.get("id").and_then(|v| v.as_i64())
             .or_else(|| json.get("hashCode").and_then(|v| v.as_i64()))

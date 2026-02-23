@@ -439,7 +439,7 @@ impl SwtElement {
 
         let simple_name = json.get("simpleClass").and_then(|v| v.as_str())
             .map(String::from)
-            .unwrap_or_else(|| class_name.split('.').last().unwrap_or(class_name).to_string());
+            .unwrap_or_else(|| class_name.split('.').next_back().unwrap_or(class_name).to_string());
 
         let hash_code = json.get("id").and_then(|v| v.as_i64())
             .or_else(|| json.get("hashCode").and_then(|v| v.as_i64()))

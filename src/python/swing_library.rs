@@ -29,6 +29,7 @@ use super::exceptions::SwingError;
 
 /// Configuration for the Swing Library
 #[derive(Clone)]
+#[allow(dead_code)]
 struct LibraryConfig {
     /// Default timeout for wait operations (seconds)
     timeout: f64,
@@ -55,6 +56,7 @@ impl Default for LibraryConfig {
 }
 
 /// Connection state for the library
+#[derive(Default)]
 struct ConnectionState {
     /// Whether connected to an application
     connected: bool,
@@ -72,19 +74,6 @@ struct ConnectionState {
     request_id: u64,
 }
 
-impl Default for ConnectionState {
-    fn default() -> Self {
-        Self {
-            connected: false,
-            application_name: None,
-            pid: None,
-            host: None,
-            port: None,
-            stream: None,
-            request_id: 0,
-        }
-    }
-}
 
 impl Clone for ConnectionState {
     fn clone(&self) -> Self {
@@ -1912,6 +1901,7 @@ impl SwingLibrary {
 }
 
 // Private implementation methods
+#[allow(dead_code)]
 impl SwingLibrary {
     /// Ensure we're connected to an application
     fn ensure_connected(&self) -> PyResult<()> {
@@ -2169,8 +2159,8 @@ impl SwingLibrary {
         let locator = locator.trim();
 
         // Check for @text= prefix
-        if locator.starts_with("@text=") {
-            return ("text".to_string(), locator[6..].to_string());
+        if let Some(rest) = locator.strip_prefix("@text=") {
+            return ("text".to_string(), rest.to_string());
         }
 
         // Check for explicit type=value format
@@ -2186,8 +2176,8 @@ impl SwingLibrary {
         }
 
         // Check for #name format
-        if locator.starts_with('#') {
-            return ("name".to_string(), locator[1..].to_string());
+        if let Some(rest) = locator.strip_prefix('#') {
+            return ("name".to_string(), rest.to_string());
         }
 
         // Check for Class#name format
@@ -2198,7 +2188,7 @@ impl SwingLibrary {
 
         // Default: treat as class name
         // Extract simple class name if it's a full class name with package
-        let simple_name = locator.split('.').last().unwrap_or(locator);
+        let simple_name = locator.split('.').next_back().unwrap_or(locator);
         ("class".to_string(), simple_name.to_string())
     }
 
@@ -2374,7 +2364,7 @@ impl SwingLibrary {
     /// Convert JSON element to SwingElement
     fn json_to_swing_element(&self, json: &serde_json::Value) -> Option<SwingElement> {
         let class_name = json.get("className").and_then(|v| v.as_str()).unwrap_or("Unknown");
-        let simple_name = class_name.split('.').last().unwrap_or(class_name).to_string();
+        let simple_name = class_name.split('.').next_back().unwrap_or(class_name).to_string();
 
         let hash_code = json.get("hashCode").and_then(|v| v.as_i64()).unwrap_or(0);
         let tree_path = json.get("treePath").and_then(|v| v.as_str()).unwrap_or("0").to_string();
@@ -2900,7 +2890,7 @@ impl SwingLibrary {
         // Java agent provides "simpleClass" directly
         let simple_name = json.get("simpleClass").and_then(|v| v.as_str())
             .map(String::from)
-            .unwrap_or_else(|| class_name.split('.').last().unwrap_or(class_name).to_string());
+            .unwrap_or_else(|| class_name.split('.').next_back().unwrap_or(class_name).to_string());
 
         let name = json.get("name").and_then(|v| v.as_str()).map(String::from);
         let text = json.get("text").and_then(|v| v.as_str()).map(String::from);
@@ -3324,7 +3314,7 @@ impl SwingLibrary {
             let mut writer = csv::Writer::from_writer(&mut csv_buffer);
 
             // Write header
-            writer.write_record(&[
+            writer.write_record([
                 "path",
                 "depth",
                 "type",
@@ -3369,7 +3359,7 @@ impl SwingLibrary {
         let bounds = &component.geometry.bounds;
 
         // Write row
-        writer.write_record(&[
+        writer.write_record([
             &component.id.tree_path,
             &depth.to_string(),
             &component.component_type.simple_name,
@@ -3448,8 +3438,7 @@ impl SwingLibrary {
         ));
 
         // Add properties table for complex components with important data
-        if component.identity.text.is_some() && !component.identity.text.as_ref().unwrap().is_empty() {
-            let text = component.identity.text.as_ref().unwrap();
+        if let Some(text) = component.identity.text.as_ref().filter(|t| !t.is_empty()) {
             // Only show text preview if it's meaningful
             if !text.trim().is_empty() && text.trim() != identifier {
                 let text_preview = if text.len() > 50 {

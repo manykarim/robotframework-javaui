@@ -20,6 +20,7 @@ pub type RcpId = String;
 /// Relationship between views in a perspective layout
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum LayoutRelationship {
     /// View is positioned to the left of the reference
     Left,
@@ -30,14 +31,10 @@ pub enum LayoutRelationship {
     /// View is positioned below the reference
     Bottom,
     /// View is stacked with the reference (tabbed)
+    #[default]
     Stack,
 }
 
-impl Default for LayoutRelationship {
-    fn default() -> Self {
-        Self::Stack
-    }
-}
 
 /// Position information for a view within the layout
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,6 +158,7 @@ impl Default for PerspectiveDescriptor {
 
 /// Active perspective instance
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Perspective {
     /// Perspective descriptor
     pub descriptor: PerspectiveDescriptor,
@@ -173,16 +171,6 @@ pub struct Perspective {
     pub customized: bool,
 }
 
-impl Default for Perspective {
-    fn default() -> Self {
-        Self {
-            descriptor: PerspectiveDescriptor::default(),
-            layout: PerspectiveLayout::default(),
-            original_layout: None,
-            customized: false,
-        }
-    }
-}
 
 // ============================================================================
 // Editor Types
@@ -191,8 +179,10 @@ impl Default for Perspective {
 /// Editor input type classification
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum EditorInputType {
     /// File-based editor input
+    #[default]
     File,
     /// External file (outside workspace)
     ExternalFile,
@@ -206,11 +196,6 @@ pub enum EditorInputType {
     Custom,
 }
 
-impl Default for EditorInputType {
-    fn default() -> Self {
-        Self::File
-    }
-}
 
 /// Editor input descriptor
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -255,6 +240,7 @@ impl Default for EditorInput {
 
 /// Editor part representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Editor {
     /// Editor ID (editor type, e.g., "org.eclipse.ui.DefaultTextEditor")
     pub id: RcpId,
@@ -285,23 +271,6 @@ pub struct Editor {
     pub site_id: Option<String>,
 }
 
-impl Default for Editor {
-    fn default() -> Self {
-        Self {
-            id: String::new(),
-            title: String::new(),
-            title_tool_tip: None,
-            title_image: None,
-            dirty: false,
-            active: false,
-            pinned: false,
-            input: EditorInput::default(),
-            widget: None,
-            properties: HashMap::new(),
-            site_id: None,
-        }
-    }
-}
 
 // ============================================================================
 // View Types
@@ -394,6 +363,7 @@ impl View {
 
 /// Eclipse command representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct EclipseCommand {
     /// Command ID (e.g., "org.eclipse.ui.file.save")
     pub id: RcpId,
@@ -425,23 +395,6 @@ pub struct EclipseCommand {
     pub parameters: HashMap<String, CommandParameter>,
 }
 
-impl Default for EclipseCommand {
-    fn default() -> Self {
-        Self {
-            id: String::new(),
-            name: String::new(),
-            description: None,
-            category: None,
-            category_name: None,
-            defined: false,
-            enabled: false,
-            handled: false,
-            default_key_binding: None,
-            key_bindings: Vec::new(),
-            parameters: HashMap::new(),
-        }
-    }
-}
 
 impl EclipseCommand {
     /// Create a new command with basic info
@@ -741,10 +694,12 @@ impl Workbench {
 /// Workbench state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum WorkbenchState {
     /// Workbench is starting up
     Starting,
     /// Workbench is running normally
+    #[default]
     Running,
     /// Workbench is shutting down
     Closing,
@@ -752,11 +707,6 @@ pub enum WorkbenchState {
     Closed,
 }
 
-impl Default for WorkbenchState {
-    fn default() -> Self {
-        Self::Running
-    }
-}
 
 // ============================================================================
 // Tests
