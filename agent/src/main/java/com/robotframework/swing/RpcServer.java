@@ -168,21 +168,26 @@ public class RpcServer implements Runnable {
 
             // Actions
             case "click":
-                ActionExecutor.click(paramsObj.get("componentId").getAsInt());
+                boolean forceClick = paramsObj.has("forceInteract") && paramsObj.get("forceInteract").getAsBoolean();
+                ActionExecutor.click(paramsObj.get("componentId").getAsInt(), forceClick);
                 return JsonNull.INSTANCE;
 
             case "doubleClick":
-                ActionExecutor.doubleClick(paramsObj.get("componentId").getAsInt());
+                boolean forceDblClick = paramsObj.has("forceInteract") && paramsObj.get("forceInteract").getAsBoolean();
+                ActionExecutor.doubleClick(paramsObj.get("componentId").getAsInt(), forceDblClick);
                 return JsonNull.INSTANCE;
 
             case "rightClick":
-                ActionExecutor.rightClick(paramsObj.get("componentId").getAsInt());
+                boolean forceRightClick = paramsObj.has("forceInteract") && paramsObj.get("forceInteract").getAsBoolean();
+                ActionExecutor.rightClick(paramsObj.get("componentId").getAsInt(), forceRightClick);
                 return JsonNull.INSTANCE;
 
             case "typeText":
+                boolean forceType = paramsObj.has("forceInteract") && paramsObj.get("forceInteract").getAsBoolean();
                 ActionExecutor.typeText(
                     paramsObj.get("componentId").getAsInt(),
-                    paramsObj.get("text").getAsString()
+                    paramsObj.get("text").getAsString(),
+                    forceType
                 );
                 return JsonNull.INSTANCE;
 

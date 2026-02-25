@@ -258,21 +258,22 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
 
     def __init__(
         self,
-        timeout: float = 10.0,
-        poll_interval: float = 0.5,
+        timeout=10.0,
+        poll_interval=0.5,
         screenshot_directory: str = ".",
     ) -> None:
         """Initialize the Swing Library.
 
         | **Argument** | **Description** |
-        | ``timeout`` | Default timeout in seconds for wait operations. Default ``10.0``. |
-        | ``poll_interval`` | Polling interval in seconds for wait operations. Default ``0.5``. |
+        | ``timeout`` | Default timeout for wait operations. Accepts seconds or RF time strings (e.g., ``3s``, ``500ms``). Default ``10.0``. |
+        | ``poll_interval`` | Polling interval for wait operations. Accepts seconds or RF time strings. Default ``0.5``. |
         | ``screenshot_directory`` | Directory to save screenshots. Default ``.`` (current). |
 
         Example:
         | **Setting** | **Value** | **Value** |
         | Library | swing_library.SwingLibrary | |
         | Library | swing_library.SwingLibrary | timeout=30 |
+        | Library | swing_library.SwingLibrary | timeout=3s |
 
         """
         if not _RUST_AVAILABLE:
@@ -281,12 +282,14 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
                 "Please ensure the library is properly installed with: pip install robotframework-swing"
             )
 
+        timeout_val = self._parse_timeout(timeout, 10.0)
+        poll_val = self._parse_timeout(poll_interval, 0.5)
         self._lib = _SwingLibrary(
-            timeout=timeout,
-            poll_interval=poll_interval,
+            timeout=timeout_val,
+            poll_interval=poll_val,
             screenshot_directory=screenshot_directory,
         )
-        self._timeout = timeout
+        self._timeout = timeout_val
 
         # AssertionEngine configuration
         self._assertion_timeout = 5.0
@@ -301,6 +304,37 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         """Validate that locator is not empty or whitespace."""
         validate_locator(locator)
 
+    @staticmethod
+    def _parse_timeout(value, default=None):
+        """Parse a timeout value, supporting Robot Framework time strings.
+
+        Accepts:
+        - None: returns default
+        - int/float: returns as float seconds
+        - str: parses RF time strings like '3s', '500ms', '1 min', '1:30'
+
+        Returns:
+            float: timeout in seconds, or default if value is None
+        """
+        if value is None:
+            return default
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                from robot.utils import timestr_to_secs
+                return timestr_to_secs(value)
+            except (ImportError, ValueError):
+                try:
+                    return float(value)
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid timeout value: '{value}'. "
+                        f"Expected a number (seconds) or Robot Framework time string "
+                        f"(e.g., '3s', '500ms', '1 min', '1:30')."
+                    )
+        return float(value)
+
     # ==========================================================================
     # Connection Keywords
     # ==========================================================================
@@ -313,7 +347,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         title: Optional[str] = None,
         host: str = "localhost",
         port: int = 5678,
-        timeout: Optional[float] = None,
+        timeout=None,
     ) -> None:
         """Connect to a running Java Swing application.
 
@@ -348,7 +382,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
             else:
                 app_id = "default"
 
-        timeout_val = timeout if timeout is not None else self._timeout
+        timeout_val = self._parse_timeout(timeout, self._timeout)
         self._lib.connect_to_application(app_id, host, port, timeout_val)
 
     def disconnect(self) -> None:
@@ -433,84 +467,91 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
     def wait_until_element_exists(
         self,
         locator: str,
-        timeout: Optional[float] = None,
+        timeout=None,
     ) -> None:
         """Wait until an element exists in the UI tree.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
-        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
+        | ``timeout`` | Maximum wait time. Accepts seconds or RF time strings (e.g., ``3s``, ``500ms``). Uses library default if not set. |
 
         Raises ``TimeoutError`` if element does not exist within timeout.
 
         Example:
         | Wait Until Element Exists    JButton#submit
         | Wait Until Element Exists    JButton#submit    timeout=30
+        | Wait Until Element Exists    JButton#submit    timeout=3s
 
         """
-        timeout_val = timeout if timeout is not None else self._timeout
+        timeout_val = self._parse_timeout(timeout, self._timeout)
         self._lib.wait_until_element_exists(locator, timeout_val)
 
     def wait_until_element_does_not_exist(
         self,
         locator: str,
-        timeout: Optional[float] = None,
+        timeout=None,
     ) -> None:
         """Wait until an element no longer exists in the UI tree.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
-        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
+        | ``timeout`` | Maximum wait time. Accepts seconds or RF time strings (e.g., ``3s``, ``500ms``). Uses library default if not set. |
 
         Raises ``TimeoutError`` if element still exists after timeout.
 
         Example:
         | Wait Until Element Does Not Exist    JDialog#loading
         | Wait Until Element Does Not Exist    JDialog#loading    timeout=60
+        | Wait Until Element Does Not Exist    JDialog#loading    timeout=1 min
 
         """
-        timeout_val = timeout if timeout is not None else self._timeout
+        timeout_val = self._parse_timeout(timeout, self._timeout)
         self._lib.wait_until_element_does_not_exist(locator, timeout_val)
 
     # ==========================================================================
     # Click Keywords
     # ==========================================================================
 
-    def click(self, locator: str) -> None:
+    def click(self, locator: str, force: bool = False) -> None:
         """Click on an element.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``force`` | If True, bypass isShowing() check. Use when component is in tree but not showing. Default ``False``. |
 
         Performs a single left-click on the element.
 
         Example:
         | Click    JButton#submit
         | Click    //JButton[@text='OK']
+        | Click    JButton#hidden    force=True
 
         """
-        self._lib.click_element(locator, click_count=1)
+        self._lib.click_element(locator, click_count=1, force_interact=force)
 
-    def click_element(self, locator: str, click_count: int = 1) -> None:
+    def click_element(self, locator: str, click_count: int = 1, force: bool = False) -> None:
         """Click on an element with specified click count.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
         | ``click_count`` | Number of clicks. ``1`` for single click, ``2`` for double click. Default ``1``. |
+        | ``force`` | If True, bypass isShowing() check. Use when component is in tree but not showing. Default ``False``. |
 
         Example:
         | Click Element    JButton#submit
         | Click Element    JTable    click_count=2
+        | Click Element    JButton#hidden    force=True
 
         """
         self._validate_locator(locator)
-        self._lib.click_element(locator, click_count=click_count)
+        self._lib.click_element(locator, click_count=click_count, force_interact=force)
 
-    def double_click(self, locator: str) -> None:
+    def double_click(self, locator: str, force: bool = False) -> None:
         """Double-click on an element.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``force`` | If True, bypass isShowing() check. Use when component is in tree but not showing. Default ``False``. |
 
         Performs a double left-click on the element. Useful for opening items
         in tables, lists, or trees.
@@ -518,15 +559,17 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         Example:
         | Double Click    JTable
         | Double Click    JList#items
+        | Double Click    JTable#hidden    force=True
 
         """
-        self._lib.click_element(locator, click_count=2)
+        self._lib.click_element(locator, click_count=2, force_interact=force)
 
-    def click_button(self, locator: str) -> None:
+    def click_button(self, locator: str, force: bool = False) -> None:
         """Click a button element.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string for the button. See `Locator Syntax`. |
+        | ``force`` | If True, bypass isShowing() check. Use when component is in tree but not showing. Default ``False``. |
 
         Specialized click for ``JButton`` components. Ensures the element
         is a button before clicking.
@@ -534,22 +577,24 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         Example:
         | Click Button    JButton#submit
         | Click Button    #okButton
+        | Click Button    JButton#hidden    force=True
 
         """
         self._validate_locator(locator)
-        self._lib.click_button(locator)
+        self._lib.click_button(locator, force_interact=force)
 
     # ==========================================================================
     # Input Keywords
     # ==========================================================================
 
-    def input_text(self, locator: str, text: str, clear: bool = True) -> None:
+    def input_text(self, locator: str, text: str, clear: bool = True, force: bool = False) -> None:
         """Input text into a text field.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
         | ``text`` | Text to input into the field. |
         | ``clear`` | Whether to clear existing text first. Default ``True``. |
+        | ``force`` | If True, bypass isShowing() check. Use when component is in tree but not showing. Default ``False``. |
 
         When ``clear`` is ``True``, any existing text is removed before typing.
         Set ``clear=False`` to append to existing text.
@@ -558,10 +603,11 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Input Text    #username    testuser
         | Input Text    JTextField:first-child    Hello World
         | Input Text    #field    append this    clear=False
+        | Input Text    #hidden    text    force=True
 
         """
         self._validate_locator(locator)
-        self._lib.input_text(locator, text, clear=clear)
+        self._lib.input_text(locator, text, clear=clear, force_interact=force)
 
     def clear_text(self, locator: str) -> None:
         """Clear text from a text field.
@@ -787,13 +833,13 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
     def wait_until_element_is_visible(
         self,
         locator: str,
-        timeout: Optional[float] = None,
+        timeout=None,
     ) -> None:
         """Wait until an element becomes visible.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
-        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
+        | ``timeout`` | Maximum wait time. Accepts seconds or RF time strings (e.g., ``3s``, ``500ms``). Uses library default if not set. |
 
         Waits until the element exists and is visible (not hidden).
         Raises ``TimeoutError`` if element is not visible within timeout.
@@ -801,21 +847,45 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         Example:
         | Wait Until Element Is Visible    JLabel#status
         | Wait Until Element Is Visible    JLabel#status    timeout=15
+        | Wait Until Element Is Visible    JLabel#status    timeout=3s
 
         """
-        timeout_val = timeout if timeout is not None else self._timeout
+        timeout_val = self._parse_timeout(timeout, self._timeout)
         self._lib.wait_until_element_is_visible(locator, timeout_val)
+
+    def wait_until_element_is_showing(
+        self,
+        locator: str,
+        timeout=None,
+    ) -> None:
+        """Wait until an element is showing (strict visibility).
+
+        Waits until both ``isVisible()`` and ``isShowing()`` return True.
+        This is stricter than ``Wait Until Element Is Visible``.
+
+        | **Argument** | **Description** |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``timeout`` | Maximum wait time. Accepts seconds or RF time strings (e.g., ``3s``, ``500ms``). |
+
+        Example:
+        | Wait Until Element Is Showing    JLabel#status
+        | Wait Until Element Is Showing    JLabel#status    timeout=15
+        | Wait Until Element Is Showing    JLabel#status    timeout=3s
+
+        """
+        timeout_val = self._parse_timeout(timeout, self._timeout)
+        self._lib.wait_until_element_is_showing(locator, timeout_val)
 
     def wait_until_element_is_enabled(
         self,
         locator: str,
-        timeout: Optional[float] = None,
+        timeout=None,
     ) -> None:
         """Wait until an element becomes enabled.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
-        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
+        | ``timeout`` | Maximum wait time. Accepts seconds or RF time strings (e.g., ``3s``, ``500ms``). Uses library default if not set. |
 
         Waits until the element is enabled and can receive user input.
         Raises ``TimeoutError`` if element is not enabled within timeout.
@@ -823,9 +893,10 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         Example:
         | Wait Until Element Is Enabled    JButton#next
         | Wait Until Element Is Enabled    JButton#next    timeout=10
+        | Wait Until Element Is Enabled    JButton#next    timeout=3s
 
         """
-        timeout_val = timeout if timeout is not None else self._timeout
+        timeout_val = self._parse_timeout(timeout, self._timeout)
         self._lib.wait_until_element_is_enabled(locator, timeout_val)
 
     # ==========================================================================
@@ -846,6 +917,25 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
 
         """
         self._lib.element_should_be_visible(locator)
+
+    def element_should_be_showing(self, locator: str) -> None:
+        """Verify that an element is showing (strict visibility).
+
+        Checks both ``isVisible()`` and ``isShowing()``. This is a stricter check
+        than ``Element Should Be Visible`` which only checks ``isVisible()``.
+
+        Use this when you need to verify the component is fully visible in the
+        Swing hierarchy (all parent containers are also showing).
+
+        | **Argument** | **Description** |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+
+        Example:
+        | Element Should Be Showing    JPanel#main
+        | Element Should Be Showing    #loginForm
+
+        """
+        self._lib.element_should_be_showing(locator)
 
     def element_should_not_be_visible(self, locator: str) -> None:
         """Verify that an element is not visible.
@@ -1126,11 +1216,11 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
     # Configuration Keywords
     # ==========================================================================
 
-    def set_timeout(self, timeout: float) -> None:
+    def set_timeout(self, timeout) -> None:
         """Set the default timeout for wait operations.
 
         | **Argument** | **Description** |
-        | ``timeout`` | Timeout in seconds. |
+        | ``timeout`` | Timeout value. Accepts seconds or RF time strings (e.g., ``3s``, ``500ms``, ``1 min``). |
 
         Sets the default timeout used by all wait keywords when no explicit
         timeout is provided.
@@ -1138,10 +1228,44 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         Example:
         | Set Timeout    30
         | Set Timeout    60
+        | Set Timeout    3s
+        | Set Timeout    500ms
 
         """
-        self._timeout = timeout
-        self._lib.set_timeout(timeout)
+        timeout_val = self._parse_timeout(timeout)
+        self._timeout = timeout_val
+        self._lib.set_timeout(timeout_val)
+
+    def set_assertion_timeout(self, timeout) -> None:
+        """Set the default timeout for assertion keywords.
+
+        | **Argument** | **Description** |
+        | ``timeout`` | Timeout value. Accepts seconds or RF time strings (e.g., ``3s``, ``500ms``). |
+
+        Sets the default timeout used by assertion keywords (Get Text, etc.)
+        when performing retrying assertions.
+
+        Example:
+        | Set Assertion Timeout    10
+        | Set Assertion Timeout    5s
+
+        """
+        self._assertion_timeout = self._parse_timeout(timeout)
+
+    def set_assertion_interval(self, interval) -> None:
+        """Set the polling interval for assertion keywords.
+
+        | **Argument** | **Description** |
+        | ``interval`` | Interval value. Accepts seconds or RF time strings (e.g., ``200ms``, ``0.5``). |
+
+        Sets the polling interval used by assertion keywords when retrying.
+
+        Example:
+        | Set Assertion Interval    0.2
+        | Set Assertion Interval    200ms
+
+        """
+        self._assertion_interval = self._parse_timeout(interval)
 
     # ==========================================================================
     # Additional Convenience Keywords
@@ -1184,11 +1308,12 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         # The Rust library handles the actual typing
         self._lib.input_text(locator, text, clear=False)
 
-    def right_click(self, locator: str) -> None:
+    def right_click(self, locator: str, force: bool = False) -> None:
         """Right-click (context click) on an element.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+        | ``force`` | If True, bypass isShowing() check. Use when component is in tree but not showing. Default ``False``. |
 
         Performs a right-click to open context menus.
         Use `Select From Popup Menu` after this to select menu items.
@@ -1196,9 +1321,10 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         Example:
         | Right Click    JTree#fileTree
         | Select From Popup Menu    Delete
+        | Right Click    JTree#hidden    force=True
 
         """
-        self._lib.right_click_element(locator)
+        self._lib.right_click_element(locator, force_interact=force)
 
     def element_should_be_selected(self, locator: str) -> None:
         """Verify that an element is selected (checked).
@@ -1302,7 +1428,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
     def wait_until_element_visible(
         self,
         locator: str,
-        timeout: Optional[float] = None,
+        timeout=None,
     ) -> None:
         """Alias for `Wait Until Element Is Visible`."""
         self.wait_until_element_is_visible(locator, timeout)
@@ -1310,7 +1436,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
     def wait_until_element_enabled(
         self,
         locator: str,
-        timeout: Optional[float] = None,
+        timeout=None,
     ) -> None:
         """Alias for `Wait Until Element Is Enabled`."""
         self.wait_until_element_is_enabled(locator, timeout)
@@ -1318,13 +1444,13 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
     def wait_for_element(
         self,
         locator: str,
-        timeout: Optional[float] = None,
+        timeout=None,
     ) -> "_SwingElement":
         """Wait for an element to exist and return it.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
-        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
+        | ``timeout`` | Maximum wait time. Accepts seconds or RF time strings (e.g., ``3s``, ``500ms``). Uses library default if not set. |
 
         Returns the found ``SwingElement`` after it exists.
         Raises ``TimeoutError`` if element does not exist within timeout.
@@ -1332,9 +1458,10 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         Example:
         | ${elem}=    Wait For Element    JButton#submit
         | ${elem}=    Wait For Element    JButton#submit    timeout=10
+        | ${elem}=    Wait For Element    JButton#submit    timeout=3s
 
         """
-        timeout_val = timeout if timeout is not None else self._timeout
+        timeout_val = self._parse_timeout(timeout, self._timeout)
         self._lib.wait_until_element_exists(locator, timeout_val)
         return self._lib.find_element(locator)
 
@@ -1342,14 +1469,14 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         self,
         locator: str,
         text: str,
-        timeout: Optional[float] = None,
+        timeout=None,
     ) -> None:
         """Wait until element text contains the expected substring.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
         | ``text`` | Text substring to wait for. |
-        | ``timeout`` | Maximum wait time in seconds. Uses library default if not set. |
+        | ``timeout`` | Maximum wait time. Accepts seconds or RF time strings (e.g., ``3s``, ``500ms``). Uses library default if not set. |
 
         Raises ``TimeoutError`` if element text does not contain the expected
         substring within timeout.
@@ -1357,11 +1484,12 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         Example:
         | Wait Until Element Contains    JLabel#status    complete
         | Wait Until Element Contains    JLabel#status    complete    timeout=10
+        | Wait Until Element Contains    JLabel#status    complete    timeout=3s
 
         """
         import time
 
-        timeout_val = timeout if timeout is not None else self._timeout
+        timeout_val = self._parse_timeout(timeout, self._timeout)
         end_time = time.time() + timeout_val
         poll_interval = 0.5
 

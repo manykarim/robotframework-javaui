@@ -41,63 +41,61 @@ public class ActionExecutor {
      * Automatically activates the window if component is not showing.
      */
     public static void click(int componentId) {
+        click(componentId, false);
+    }
+
+    public static void click(int componentId, boolean forceInteract) {
         // Get component from cache (non-EDT operation)
         Component component = ComponentInspector.getComponentById(componentId);
         if (component == null) {
             throw new IllegalArgumentException("Component not found: " + componentId);
         }
 
-        // Check visibility and activate window SYNCHRONOUSLY before async click
-        // This ensures exceptions are properly propagated to RPC caller
+        // Tiered visibility check
         EdtHelper.runOnEdt(() -> {
+            if (forceInteract) {
+                System.err.println("[SwingAgent] Force interact: skipping visibility check for component " + componentId);
+                return;
+            }
             if (!component.isShowing()) {
                 System.err.println("[SwingAgent] Component not showing (ID: " + componentId + "), attempting window activation...");
 
                 // Try to activate the window
                 Window window = SwingUtilities.getWindowAncestor(component);
                 if (window != null) {
-                    // Bring window to front and request focus
                     window.toFront();
                     window.requestFocus();
 
-                    // On Windows, setAlwaysOnTop provides more reliable activation
                     String osName = System.getProperty("os.name").toLowerCase();
                     if (osName.contains("win")) {
                         try {
                             window.setAlwaysOnTop(true);
                             EdtHelper.sleep(50);
                             window.setAlwaysOnTop(false);
-                        } catch (Exception e) {
-                            // Ignore - setAlwaysOnTop may fail in some security contexts
-                        }
+                        } catch (Exception e) { /* ignore */ }
                     }
-
-                    System.err.println("[SwingAgent] Window activated: " + window.getClass().getSimpleName());
-                } else {
-                    System.err.println("[SwingAgent] No ancestor window found for component: " + componentId);
                 }
 
-                // Poll for component visibility with retry (Windows needs more time)
+                // Poll for showing
                 boolean showing = component.isShowing();
                 int retries = 0;
-                while (!showing && retries < 20) {  // Up to 2 seconds (20 * 100ms)
+                while (!showing && retries < 20) {
                     EdtHelper.sleep(100);
                     showing = component.isShowing();
                     retries++;
                 }
 
                 if (!showing) {
-                    throw new IllegalStateException(
-                        "Component not visible for click after window activation: " + componentId +
-                        ". Window may be minimized, hidden, or component is not in a displayable window. " +
-                        "Waited " + (retries * 100) + "ms after activation."
-                    );
-                }
-
-                if (retries > 0) {
-                    System.err.println("[SwingAgent] Component became showing after " + (retries * 100) + "ms wait");
-                } else {
-                    System.err.println("[SwingAgent] Component is now showing after window activation");
+                    // Tier 2 check: allow if isVisible()=true
+                    if (component.isVisible()) {
+                        System.err.println("[SwingAgent] WARNING: Component " + componentId
+                            + " is visible but not showing after " + (retries * 100) + "ms. "
+                            + "Using synthetic dispatch (lenient mode).");
+                    } else {
+                        throw new IllegalStateException(
+                            "Component not visible for click: " + componentId
+                            + ". isVisible()=false. Window may be minimized or component is not in a displayable window.");
+                    }
                 }
             }
         });
@@ -121,15 +119,22 @@ public class ActionExecutor {
      * Automatically activates the window if component is not showing.
      */
     public static void doubleClick(int componentId) {
+        doubleClick(componentId, false);
+    }
+
+    public static void doubleClick(int componentId, boolean forceInteract) {
         // Get component from cache (non-EDT operation)
         Component component = ComponentInspector.getComponentById(componentId);
         if (component == null) {
             throw new IllegalArgumentException("Component not found: " + componentId);
         }
 
-        // Check visibility and activate window SYNCHRONOUSLY before async double-click
-        // This ensures exceptions are properly propagated to RPC caller
+        // Tiered visibility check
         EdtHelper.runOnEdt(() -> {
+            if (forceInteract) {
+                System.err.println("[SwingAgent] Force interact: skipping visibility check for component " + componentId);
+                return;
+            }
             if (!component.isShowing()) {
                 System.err.println("[SwingAgent] Component not showing (ID: " + componentId + "), attempting window activation...");
 
@@ -139,43 +144,36 @@ public class ActionExecutor {
                     window.toFront();
                     window.requestFocus();
 
-                    // On Windows, setAlwaysOnTop provides more reliable activation
                     String osName = System.getProperty("os.name").toLowerCase();
                     if (osName.contains("win")) {
                         try {
                             window.setAlwaysOnTop(true);
                             EdtHelper.sleep(50);
                             window.setAlwaysOnTop(false);
-                        } catch (Exception e) {
-                            // Ignore - setAlwaysOnTop may fail in some security contexts
-                        }
+                        } catch (Exception e) { /* ignore */ }
                     }
-
-                    System.err.println("[SwingAgent] Window activated: " + window.getClass().getSimpleName());
-                } else {
-                    System.err.println("[SwingAgent] No ancestor window found for component: " + componentId);
                 }
 
-                // Poll for component visibility with retry (Windows needs more time)
+                // Poll for showing
                 boolean showing = component.isShowing();
                 int retries = 0;
-                while (!showing && retries < 20) {  // Up to 2 seconds (20 * 100ms)
+                while (!showing && retries < 20) {
                     EdtHelper.sleep(100);
                     showing = component.isShowing();
                     retries++;
                 }
 
                 if (!showing) {
-                    throw new IllegalStateException(
-                        "Component not visible for double-click after window activation: " + componentId +
-                        ". Waited " + (retries * 100) + "ms after activation."
-                    );
-                }
-
-                if (retries > 0) {
-                    System.err.println("[SwingAgent] Component became showing after " + (retries * 100) + "ms wait");
-                } else {
-                    System.err.println("[SwingAgent] Component is now showing after window activation");
+                    // Tier 2 check: allow if isVisible()=true
+                    if (component.isVisible()) {
+                        System.err.println("[SwingAgent] WARNING: Component " + componentId
+                            + " is visible but not showing after " + (retries * 100) + "ms. "
+                            + "Using synthetic dispatch for double-click (lenient mode).");
+                    } else {
+                        throw new IllegalStateException(
+                            "Component not visible for double-click: " + componentId
+                            + ". isVisible()=false. Window may be minimized or component is not in a displayable window.");
+                    }
                 }
             }
         });
@@ -203,10 +201,14 @@ public class ActionExecutor {
      * when the MouseEvent constructor has popupTrigger=true.
      */
     public static void rightClick(int componentId) {
+        rightClick(componentId, false);
+    }
+
+    public static void rightClick(int componentId, boolean forceInteract) {
         // Get component on EDT - use runOnEdtAndReturn for synchronous access
         Component component = EdtHelper.runOnEdtAndReturn(() -> {
             Component c = getComponent(componentId);
-            ensureVisible(c);
+            ensureVisible(c, componentId, forceInteract);
             return c;
         });
 
@@ -259,9 +261,13 @@ public class ActionExecutor {
      * Type text into a component.
      */
     public static void typeText(int componentId, String text) {
+        typeText(componentId, text, false);
+    }
+
+    public static void typeText(int componentId, String text, boolean forceInteract) {
         EdtHelper.runOnEdt(() -> {
             Component component = getComponent(componentId);
-            ensureVisible(component);
+            ensureVisible(component, componentId, forceInteract);
 
             if (component instanceof JTextComponent) {
                 JTextComponent textComp = (JTextComponent) component;
@@ -1059,10 +1065,33 @@ public class ActionExecutor {
         return component;
     }
 
+    /**
+     * Tiered visibility check:
+     * - Tier 1: isShowing()=true -> proceed normally
+     * - Tier 2: isVisible()=true, isShowing()=false -> warn and allow synthetic dispatch
+     * - Tier 3: isVisible()=false -> throw (component truly not visible)
+     */
     private static void ensureVisible(Component component) {
-        if (!component.isShowing()) {
-            throw new IllegalStateException("Component is not visible");
+        ensureVisible(component, -1, false);
+    }
+
+    private static void ensureVisible(Component component, int componentId, boolean forceInteract) {
+        if (forceInteract) {
+            System.err.println("[SwingAgent] Force interact enabled for component " + componentId + ", skipping visibility check");
+            return;
         }
+        if (component.isShowing()) {
+            return; // Tier 1: fully visible
+        }
+        if (component.isVisible()) {
+            // Tier 2: visible but not showing (e.g., JGoodies SplitView children)
+            System.err.println("[SwingAgent] WARNING: Component " + componentId + " (" + component.getClass().getSimpleName()
+                + ") is visible but not showing. Parent chain may have a non-showing container. "
+                + "Using synthetic event dispatch (lenient mode).");
+            return; // Allow fallthrough to synthetic dispatch
+        }
+        // Tier 3: truly not visible
+        throw new IllegalStateException("Component is not visible (isVisible=false). Component ID: " + componentId);
     }
 
     private static Point getComponentCenter(Component component) {

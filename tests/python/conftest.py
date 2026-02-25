@@ -179,11 +179,11 @@ class MockSwingLibrary:
     def click(self, locator: str) -> None:
         self.find_element(locator).click()
 
-    def click_element(self, locator: str, click_count: int = 1) -> None:
+    def click_element(self, locator: str, click_count: int = 1, force_interact: bool = False) -> None:
         """Click element with count (new API)."""
         self.find_element(locator).click()
 
-    def click_button(self, locator: str) -> None:
+    def click_button(self, locator: str, force_interact: bool = False) -> None:
         """Click button (new API)."""
         self.find_element(locator).click()
 
@@ -193,11 +193,11 @@ class MockSwingLibrary:
     def right_click(self, locator: str) -> None:
         self.find_element(locator).right_click()
 
-    def right_click_element(self, locator: str) -> None:
+    def right_click_element(self, locator: str, force_interact: bool = False) -> None:
         """Right-click on element (method called by Rust core)."""
         self.find_element(locator).right_click()
 
-    def input_text(self, locator: str, text: str, clear: bool = True) -> None:
+    def input_text(self, locator: str, text: str, clear: bool = True, force_interact: bool = False) -> None:
         elem = self.find_element(locator)
         elem.input_text(text)
 
@@ -285,6 +285,18 @@ class MockSwingLibrary:
         elem = self.find_element(locator)
         if not elem.is_visible:
             raise AssertionError(f"Element not visible: {locator}")
+
+    def element_should_be_showing(self, locator: str) -> None:
+        """Verify element is showing (strict visibility)."""
+        elem = self.find_element(locator)
+        if not elem.is_visible:
+            raise AssertionError(f"Element not showing: {locator}")
+
+    def wait_until_element_is_showing(self, locator: str, timeout: float = 10.0) -> None:
+        """Wait until element is showing (strict visibility)."""
+        elem = self.find_element(locator)
+        if not elem.is_visible:
+            raise TimeoutError(f"Element not showing: {locator}")
 
     def element_should_be_enabled(self, locator: str) -> None:
         elem = self.find_element(locator)

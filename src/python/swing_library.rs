@@ -483,7 +483,24 @@ impl SwingLibrary {
         locator: &str,
         timeout: Option<f64>,
     ) -> PyResult<SwingElement> {
-        self.wait_for_element_condition(locator, timeout, |e| e.visible && e.showing, "visible")
+        self.wait_for_element_condition(locator, timeout, |e| e.visible, "visible")
+    }
+
+    /// Wait until element is showing (strict visibility)
+    ///
+    /// Args:
+    ///     locator: Element locator
+    ///     timeout: Maximum wait time in seconds
+    ///
+    /// Example:
+    ///     | Wait Until Element Is Showing | name:resultPanel |
+    #[pyo3(signature = (locator, timeout=None))]
+    pub fn wait_until_element_is_showing(
+        &self,
+        locator: &str,
+        timeout: Option<f64>,
+    ) -> PyResult<SwingElement> {
+        self.wait_for_element_condition(locator, timeout, |e| e.visible && e.showing, "showing")
     }
 
     // ========================
@@ -499,22 +516,26 @@ impl SwingLibrary {
     /// Example:
     ///     | Click Element | name:okButton |
     ///     | Click Element | name:listItem | click_count=2 |
-    #[pyo3(signature = (locator, click_count=1))]
-    pub fn click_element(&self, locator: &str, click_count: u32) -> PyResult<()> {
+    ///     | Click Element | name:hiddenBtn | force_interact=${True} |
+    #[pyo3(signature = (locator, click_count=1, force_interact=false))]
+    pub fn click_element(&self, locator: &str, click_count: u32, force_interact: bool) -> PyResult<()> {
         self.ensure_connected()?;
 
         // Find the element and get its component ID
         let component_id = self.get_component_id(locator)?;
 
+        let mut params = serde_json::json!({
+            "componentId": component_id
+        });
+        if force_interact {
+            params.as_object_mut().unwrap().insert("forceInteract".to_string(), serde_json::json!(true));
+        }
+
         // Use RPC to click element with component ID
         if click_count == 2 {
-            self.send_rpc_request("doubleClick", serde_json::json!({
-                "componentId": component_id
-            }))?;
+            self.send_rpc_request("doubleClick", params)?;
         } else {
-            self.send_rpc_request("click", serde_json::json!({
-                "componentId": component_id
-            }))?;
+            self.send_rpc_request("click", params)?;
         }
 
         Ok(())
@@ -531,17 +552,22 @@ impl SwingLibrary {
     /// Example:
     ///     | Right Click Element | JTree#fileTree |
     ///     | Select From Popup Menu | Delete |
-    #[pyo3(signature = (locator))]
-    pub fn right_click_element(&self, locator: &str) -> PyResult<()> {
+    #[pyo3(signature = (locator, force_interact=false))]
+    pub fn right_click_element(&self, locator: &str, force_interact: bool) -> PyResult<()> {
         self.ensure_connected()?;
 
         // Find the element and get its component ID
         let component_id = self.get_component_id(locator)?;
 
-        // Use RPC to right-click element with component ID
-        self.send_rpc_request("rightClick", serde_json::json!({
+        let mut params = serde_json::json!({
             "componentId": component_id
-        }))?;
+        });
+        if force_interact {
+            params.as_object_mut().unwrap().insert("forceInteract".to_string(), serde_json::json!(true));
+        }
+
+        // Use RPC to right-click element with component ID
+        self.send_rpc_request("rightClick", params)?;
 
         Ok(())
     }
@@ -556,8 +582,8 @@ impl SwingLibrary {
     /// Example:
     ///     | Click Button | Save |
     ///     | Click Button | name:cancelButton |
-    #[pyo3(signature = (identifier))]
-    pub fn click_button(&self, identifier: &str) -> PyResult<()> {
+    #[pyo3(signature = (identifier, force_interact=false))]
+    pub fn click_button(&self, identifier: &str, force_interact: bool) -> PyResult<()> {
         self.ensure_connected()?;
 
         // Try to find by text first, then by locator
@@ -568,7 +594,7 @@ impl SwingLibrary {
             format!("JButton[text=\"{}\"]", identifier)
         };
 
-        self.click_element(&locator, 1)
+        self.click_element(&locator, 1, force_interact)
     }
 
     /// Input text into a text field
@@ -583,8 +609,9 @@ impl SwingLibrary {
     /// Example:
     ///     | Input Text | name:username | testuser |
     ///     | Input Text | name:search | new query | clear=${False} |
-    #[pyo3(signature = (locator, text, clear=true))]
-    pub fn input_text(&self, locator: &str, text: &str, clear: bool) -> PyResult<()> {
+    ///     | Input Text | name:hidden | text | force_interact=${True} |
+    #[pyo3(signature = (locator, text, clear=true, force_interact=false))]
+    pub fn input_text(&self, locator: &str, text: &str, clear: bool, force_interact: bool) -> PyResult<()> {
         self.ensure_connected()?;
 
         // Find the element and get its component ID
@@ -592,16 +619,24 @@ impl SwingLibrary {
 
         // Clear existing text if requested
         if clear {
-            self.send_rpc_request("clearText", serde_json::json!({
+            let mut clear_params = serde_json::json!({
                 "componentId": component_id
-            }))?;
+            });
+            if force_interact {
+                clear_params.as_object_mut().unwrap().insert("forceInteract".to_string(), serde_json::json!(true));
+            }
+            self.send_rpc_request("clearText", clear_params)?;
         }
 
         // Type text
-        self.send_rpc_request("typeText", serde_json::json!({
+        let mut type_params = serde_json::json!({
             "componentId": component_id,
             "text": text
-        }))?;
+        });
+        if force_interact {
+            type_params.as_object_mut().unwrap().insert("forceInteract".to_string(), serde_json::json!(true));
+        }
+        self.send_rpc_request("typeText", type_params)?;
 
         Ok(())
     }
@@ -1323,10 +1358,34 @@ impl SwingLibrary {
         self.ensure_connected()?;
 
         let element = self.find_element(locator)?;
+        if !element.visible {
+            return Err(pyo3::exceptions::PyAssertionError::new_err(format!(
+                "Element '{}' is not visible (isVisible=false)",
+                locator
+            )));
+        }
+        Ok(())
+    }
+
+    /// Verify that an element is showing (strict visibility check)
+    ///
+    /// Checks both isVisible() and isShowing(). Use this when you need to verify
+    /// that a component is fully visible in the Swing component hierarchy.
+    ///
+    /// Args:
+    ///     locator: Element locator
+    ///
+    /// Example:
+    ///     | Element Should Be Showing | name:mainPanel |
+    #[pyo3(signature = (locator))]
+    pub fn element_should_be_showing(&self, locator: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        let element = self.find_element(locator)?;
         if !element.visible || !element.showing {
             return Err(pyo3::exceptions::PyAssertionError::new_err(format!(
-                "Element '{}' is not visible",
-                locator
+                "Element '{}' is not showing (visible={}, showing={})",
+                locator, element.visible, element.showing
             )));
         }
         Ok(())
@@ -1351,7 +1410,7 @@ impl SwingLibrary {
             Ok(elements) if elements.is_empty() => Ok(()),
             Ok(elements) => {
                 let element = &elements[0];
-                if element.visible && element.showing {
+                if element.visible {
                     Err(pyo3::exceptions::PyAssertionError::new_err(format!(
                         "Element '{}' is visible",
                         locator
