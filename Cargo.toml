@@ -1,6 +1,6 @@
 [package]
 name = "robotframework-javagui"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "High-performance Robot Framework library for Java GUI automation (Swing, SWT, Eclipse RCP)"
