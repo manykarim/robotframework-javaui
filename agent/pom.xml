@@ -69,6 +69,7 @@
                             <Agent-Class>com.robotframework.UnifiedAgent</Agent-Class>
                             <Can-Redefine-Classes>true</Can-Redefine-Classes>
                             <Can-Retransform-Classes>true</Can-Retransform-Classes>
+                            <Agent-Version>${project.version}</Agent-Version>
                         </manifestEntries>
                     </archive>
                 </configuration>
@@ -92,6 +93,7 @@
                                         <Agent-Class>com.robotframework.UnifiedAgent</Agent-Class>
                                         <Can-Redefine-Classes>true</Can-Redefine-Classes>
                                         <Can-Retransform-Classes>true</Can-Retransform-Classes>
+                                        <Agent-Version>${project.version}</Agent-Version>
                                     </manifestEntries>
                                 </transformer>
                             </transformers>

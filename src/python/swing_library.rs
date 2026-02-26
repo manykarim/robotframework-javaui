@@ -1423,6 +1423,40 @@ impl SwingLibrary {
         }
     }
 
+    /// Verify element is not showing
+    ///
+    /// Checks both isVisible() and isShowing(). Passes if element is not showing
+    /// or does not exist.
+    ///
+    /// Args:
+    ///     locator: Element locator
+    ///
+    /// Raises:
+    ///     AssertionError: If element is showing
+    ///
+    /// Example:
+    ///     | Element Should Not Be Showing | name:loadingSpinner |
+    #[pyo3(signature = (locator))]
+    pub fn element_should_not_be_showing(&self, locator: &str) -> PyResult<()> {
+        self.ensure_connected()?;
+
+        match self.find_elements_internal(locator) {
+            Ok(elements) if elements.is_empty() => Ok(()),
+            Ok(elements) => {
+                let element = &elements[0];
+                if element.visible && element.showing {
+                    Err(pyo3::exceptions::PyAssertionError::new_err(format!(
+                        "Element '{}' is showing (visible={}, showing={})",
+                        locator, element.visible, element.showing
+                    )))
+                } else {
+                    Ok(())
+                }
+            }
+            Err(_) => Ok(()),
+        }
+    }
+
     /// Verify element text equals expected value
     ///
     /// Args:
@@ -1604,14 +1638,10 @@ impl SwingLibrary {
 
         // Get base tree (full or subtree) with depth control at Java layer for performance
         let tree = if let Some(loc) = locator {
-            // Get subtree starting from locator
-            let _element = self.find_element(loc)?;
-            // For now, we'll get the full tree and filter from there
-            // In a full implementation, we'd request a subtree from the agent
-            // Use depth control at Java layer if specified
-            self.get_or_refresh_tree_with_depth(max_depth)?
+            // Get scoped subtree starting from the matched component
+            let element = self.find_element(loc)?;
+            self.fetch_scoped_tree_from_agent(element.hash_code as i32, max_depth)?
         } else {
-            // Use depth control at Java layer if specified for performance
             self.get_or_refresh_tree_with_depth(max_depth)?
         };
 
@@ -2907,6 +2937,24 @@ impl SwingLibrary {
         }
 
         Ok(tree)
+    }
+
+    /// Fetch a subtree from Java agent starting at a specific component
+    fn fetch_scoped_tree_from_agent(&self, component_id: i32, max_depth: Option<u32>) -> PyResult<UITree> {
+        let params = serde_json::json!({
+            "componentId": component_id,
+            "maxDepth": max_depth.unwrap_or(10)
+        });
+
+        let result = self.send_rpc_request("getComponentTree", params)?;
+
+        // Java agent returns a single component node for scoped queries.
+        // Wrap it in a "roots" array to reuse the existing parser.
+        let wrapped = serde_json::json!({
+            "roots": [result],
+            "timestamp": result.get("timestamp").cloned().unwrap_or(serde_json::json!(0))
+        });
+        self.json_to_ui_tree(&wrapped)
     }
 
     /// Convert JSON response to UITree

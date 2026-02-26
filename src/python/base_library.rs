@@ -213,8 +213,8 @@ impl JavaGuiLibrary {
         let stream = TcpStream::connect_timeout(&socket_addr, timeout_duration)
             .map_err(|e| SwingError::connection(format!("Failed to connect to {}: {}", addr, e)))?;
 
-        stream.set_read_timeout(Some(Duration::from_secs(30))).ok();
-        stream.set_write_timeout(Some(Duration::from_secs(30))).ok();
+        stream.set_read_timeout(Some(Duration::from_secs(300))).ok();
+        stream.set_write_timeout(Some(Duration::from_secs(300))).ok();
         stream.set_nodelay(true).ok();
 
         conn.stream = Some(stream);
@@ -951,19 +951,59 @@ impl JavaGuiLibrary {
             SwingError::connection(format!("Failed to serialize request: {}", e))
         })?;
 
+        // Try to send request; auto-reconnect on broken pipe
+        let mut reconnected = false;
+        {
+            let stream = conn.stream.as_mut().ok_or_else(|| {
+                SwingError::connection("No active connection stream")
+            })?;
+            stream.set_nonblocking(false).ok();
+            stream.set_read_timeout(Some(Duration::from_secs(300))).ok();
+            stream.set_nodelay(true).ok();
+
+            if let Err(e) = writeln!(stream, "{}", request_str) {
+                let err_msg = format!("{}", e);
+                if err_msg.contains("Broken pipe") || err_msg.contains("os error 32") || err_msg.contains("Connection reset") {
+                    // Mark for reconnect — stream borrow must be dropped first
+                    reconnected = true;
+                } else {
+                    return Err(SwingError::connection(format!("Failed to send request: {}", e)).into());
+                }
+            } else {
+                stream.flush().map_err(|e| {
+                    SwingError::connection(format!("Failed to flush request: {}", e))
+                })?;
+            }
+        }
+
+        // Auto-reconnect: establish new connection and resend
+        if reconnected {
+            if let (Some(host), Some(port)) = (conn.host.clone(), conn.port) {
+                let addr = format!("{}:{}", host, port);
+                let socket_addr: std::net::SocketAddr = addr.parse().map_err(|_| {
+                    SwingError::connection(format!("Failed to parse address for reconnect: {}", addr))
+                })?;
+                let new_stream = TcpStream::connect_timeout(&socket_addr, Duration::from_secs(10))
+                    .map_err(|re| SwingError::connection(format!("Auto-reconnect failed: {}", re)))?;
+                new_stream.set_read_timeout(Some(Duration::from_secs(300))).ok();
+                new_stream.set_write_timeout(Some(Duration::from_secs(300))).ok();
+                new_stream.set_nodelay(true).ok();
+                conn.stream = Some(new_stream);
+                let stream = conn.stream.as_mut().unwrap();
+                writeln!(stream, "{}", request_str).map_err(|e| {
+                    SwingError::connection(format!("Failed to send request after reconnect: {}", e))
+                })?;
+                stream.flush().map_err(|e| {
+                    SwingError::connection(format!("Failed to flush after reconnect: {}", e))
+                })?;
+            } else {
+                return Err(SwingError::connection("Broken pipe and no host/port for reconnect").into());
+            }
+        }
+
+        // Re-borrow stream for reading response
         let stream = conn.stream.as_mut().ok_or_else(|| {
             SwingError::connection("No active connection stream")
-        })?;
-
-        stream.set_nonblocking(false).ok();
-        stream.set_read_timeout(Some(Duration::from_secs(30))).ok();
-        stream.set_nodelay(true).ok();
-
-        writeln!(stream, "{}", request_str).map_err(|e| {
-            SwingError::connection(format!("Failed to send request: {}", e))
-        })?;
-        stream.flush().map_err(|e| {
-            SwingError::connection(format!("Failed to flush request: {}", e))
         })?;
 
         // Read response - track JSON depth
@@ -1012,7 +1052,7 @@ impl JavaGuiLibrary {
                                 if byte_buf[0] == b'\r' {
                                     let _ = stream.read(&mut byte_buf);
                                 }
-                                stream.set_read_timeout(Some(Duration::from_secs(30))).ok();
+                                stream.set_read_timeout(Some(Duration::from_secs(300))).ok();
                                 break;
                             }
                         }

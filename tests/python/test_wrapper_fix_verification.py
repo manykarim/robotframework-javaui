@@ -96,8 +96,8 @@ class TestGetComponentTreeFix:
             focusable_only=False
         )
 
-    def test_locator_shows_deprecation_warning(self):
-        """Verify locator parameter shows deprecation warning."""
+    def test_locator_passes_through_to_backend(self):
+        """Verify locator parameter is passed to backend (scoping now supported)."""
         from JavaGui import SwingLibrary
 
         mock_lib = Mock()
@@ -106,11 +106,9 @@ class TestGetComponentTreeFix:
         lib = SwingLibrary()
         lib._lib = mock_lib
 
-        # Call with locator should trigger warning
-        with pytest.warns(DeprecationWarning, match="locator.*not yet supported"):
-            result = lib.get_component_tree(locator="JPanel#main")
+        # Locator scoping is now implemented — no warning expected
+        result = lib.get_component_tree(locator="JPanel#main")
 
-        # Verify locator was passed (backend ignores it)
         mock_lib.get_component_tree.assert_called_once_with(
             locator="JPanel#main",
             format="text",

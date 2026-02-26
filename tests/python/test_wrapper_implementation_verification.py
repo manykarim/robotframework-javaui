@@ -152,8 +152,8 @@ class TestParameterValidation:
 class TestLocatorDeprecationWarning:
     """Test that locator parameter shows deprecation warning."""
 
-    def test_get_component_tree_warns_on_locator(self):
-        """Verify deprecation warning when locator is used."""
+    def test_get_component_tree_locator_passes_through(self):
+        """Verify locator parameter is passed to backend (scoping now supported)."""
         from JavaGui import SwingLibrary
         import warnings
 
@@ -161,37 +161,34 @@ class TestLocatorDeprecationWarning:
         lib._lib = Mock()
         lib._lib.get_component_tree = Mock(return_value="mock tree")
 
-        # Should show DeprecationWarning
+        # Locator scoping is now implemented — no deprecation warning
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             lib.get_component_tree(locator="JPanel#main")
 
-            assert len(w) == 1
-            assert issubclass(w[0].category, DeprecationWarning)
-            assert "locator" in str(w[0].message).lower()
-            assert "not yet supported" in str(w[0].message).lower()
+            deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning) and "locator" in str(x.message).lower()]
+            assert len(deprecation_warnings) == 0
 
-    def test_save_ui_tree_warns_on_locator(self):
-        """Verify deprecation warning in save_ui_tree when locator is used."""
+    def test_save_ui_tree_locator_uses_scoped_tree(self):
+        """Verify save_ui_tree with locator uses scoped component tree."""
         from JavaGui import SwingLibrary
         import warnings
 
         lib = SwingLibrary()
         lib._lib = Mock()
-        lib._lib.get_ui_tree = Mock(return_value="mock tree")
+        lib._lib.get_component_tree = Mock(return_value="scoped tree")
 
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
             temp_file = f.name
 
         try:
-            # Should show DeprecationWarning
+            # Locator scoping now implemented — no deprecation warning
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 lib.save_ui_tree(temp_file, locator="JPanel#main")
 
-                assert len(w) == 1
-                assert issubclass(w[0].category, DeprecationWarning)
-                assert "locator" in str(w[0].message).lower()
+                deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning) and "locator" in str(x.message).lower()]
+                assert len(deprecation_warnings) == 0
         finally:
             if os.path.exists(temp_file):
                 os.unlink(temp_file)

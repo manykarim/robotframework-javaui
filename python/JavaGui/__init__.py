@@ -146,7 +146,11 @@ except ImportError as e:
     _IMPORT_ERROR = str(e)
 
 
-__version__ = "0.1.0"
+try:
+    from importlib.metadata import version as _pkg_version
+    __version__ = _pkg_version("robotframework-javagui")
+except Exception:
+    __version__ = "0.0.0"
 __all__ = [
     # Main library classes (preferred names)
     "Swing",
@@ -937,6 +941,24 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         """
         self._lib.element_should_be_showing(locator)
 
+    def element_should_not_be_showing(self, locator: str) -> None:
+        """Verify that an element is NOT showing.
+
+        Uses the strict ``isVisible()`` AND ``isShowing()`` check. Passes if:
+        - Element does not exist
+        - Element exists but ``isShowing()`` is false
+
+        | **Argument** | **Description** |
+        | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
+
+        Example:
+        | Element Should Not Be Showing    name:loadingSpinner
+        | Element Should Not Be Showing    #hiddenPanel
+
+        """
+        self._validate_locator(locator)
+        self._lib.element_should_not_be_showing(locator)
+
     def element_should_not_be_visible(self, locator: str) -> None:
         """Verify that an element is not visible.
 
@@ -1146,18 +1168,13 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Save UI Tree    tree.json    format=json    max_depth=5
 
         """
-        # Note: locator parameter is currently not supported by the Rust backend
+        # Use scoped tree if locator provided, otherwise full tree
         if locator is not None:
-            import warnings
-            warnings.warn(
-                "The 'locator' parameter is not yet supported in save_ui_tree. "
-                "Saving full component tree instead.",
-                DeprecationWarning,
-                stacklevel=2
+            tree_content = self.get_component_tree(
+                locator=locator, format=format, max_depth=max_depth
             )
-
-        # Get the tree with the specified format and depth
-        tree_content = self._lib.get_ui_tree(format, max_depth, False)
+        else:
+            tree_content = self._lib.get_ui_tree(format, max_depth, False)
 
         # Write to file
         with open(filename, 'w', encoding='utf-8') as f:
@@ -1430,7 +1447,12 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         locator: str,
         timeout=None,
     ) -> None:
-        """Alias for `Wait Until Element Is Visible`."""
+        """*DEPRECATED* Use ``Wait Until Element Is Visible`` instead."""
+        import warnings
+        warnings.warn(
+            "'Wait Until Element Visible' is deprecated. Use 'Wait Until Element Is Visible' instead.",
+            DeprecationWarning, stacklevel=2,
+        )
         self.wait_until_element_is_visible(locator, timeout)
 
     def wait_until_element_enabled(
@@ -1438,7 +1460,12 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         locator: str,
         timeout=None,
     ) -> None:
-        """Alias for `Wait Until Element Is Enabled`."""
+        """*DEPRECATED* Use ``Wait Until Element Is Enabled`` instead."""
+        import warnings
+        warnings.warn(
+            "'Wait Until Element Enabled' is deprecated. Use 'Wait Until Element Is Enabled' instead.",
+            DeprecationWarning, stacklevel=2,
+        )
         self.wait_until_element_is_enabled(locator, timeout)
 
     def wait_for_element(
@@ -1588,15 +1615,7 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
             if max_depth < 0:
                 raise ValueError(f"max_depth must be >= 0, got {max_depth}")
 
-        # Note: locator parameter is currently not supported by the Rust backend
-        if locator is not None:
-            import warnings
-            warnings.warn(
-                "The 'locator' parameter is not yet supported in get_component_tree. "
-                "Returning full component tree instead.",
-                DeprecationWarning,
-                stacklevel=2
-            )
+        # Locator scoping is now supported via componentId in the Java agent
 
         # Call the Rust implementation with all filter parameters
         return self._lib.get_component_tree(

@@ -199,8 +199,8 @@ impl SwingConnection {
             timeout_ms: timeout.as_millis() as u64,
         })?;
 
-        stream.set_read_timeout(Some(Duration::from_secs(30))).ok();
-        stream.set_write_timeout(Some(Duration::from_secs(30))).ok();
+        stream.set_read_timeout(Some(Duration::from_secs(300))).ok();  // 5 minutes
+        stream.set_write_timeout(Some(Duration::from_secs(300))).ok();
 
         Ok(Self {
             pid,

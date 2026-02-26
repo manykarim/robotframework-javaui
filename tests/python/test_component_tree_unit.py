@@ -100,8 +100,8 @@ class TestGetComponentTreeParameterPassing:
             focusable_only=False
         )
 
-    def test_locator_parameter_deprecated(self):
-        """Test that locator parameter shows deprecation warning."""
+    def test_locator_parameter_passes_through(self):
+        """Test that locator parameter is passed to backend (scoping now supported)."""
         from JavaGui import SwingLibrary
 
         mock_lib = Mock()
@@ -110,11 +110,9 @@ class TestGetComponentTreeParameterPassing:
         lib = SwingLibrary()
         lib._lib = mock_lib
 
-        # Call with locator parameter should trigger warning
-        with pytest.warns(DeprecationWarning, match="locator.*not yet supported"):
-            result = lib.get_component_tree(locator="JPanel#main")
+        # Locator scoping is now implemented — no warning expected
+        result = lib.get_component_tree(locator="JPanel#main")
 
-        # Should still call get_component_tree with locator passed (but backend ignores it)
         mock_lib.get_component_tree.assert_called_once_with(
             locator="JPanel#main",
             format="text",
@@ -243,12 +241,12 @@ class TestSaveUITreeParameterPassing:
             if os.path.exists(temp_file):
                 os.unlink(temp_file)
 
-    def test_locator_parameter_deprecated_in_save(self):
-        """Test that locator parameter shows deprecation warning in save_ui_tree."""
+    def test_locator_parameter_in_save_uses_scoped_tree(self):
+        """Test that locator parameter in save_ui_tree uses scoped tree."""
         from JavaGui import SwingLibrary
 
         mock_lib = Mock()
-        mock_lib.get_ui_tree = Mock(return_value="JFrame test tree")
+        mock_lib.get_component_tree = Mock(return_value="JPanel scoped tree")
 
         lib = SwingLibrary()
         lib._lib = mock_lib
@@ -257,12 +255,13 @@ class TestSaveUITreeParameterPassing:
             temp_file = f.name
 
         try:
-            # Call with locator parameter should trigger warning
-            with pytest.warns(DeprecationWarning, match="locator.*not yet supported"):
-                lib.save_ui_tree(temp_file, locator="JPanel#main")
+            # Locator scoping now works — no warning, uses get_component_tree
+            lib.save_ui_tree(temp_file, locator="JPanel#main")
 
-            # Should still save the file
             assert os.path.exists(temp_file)
+            with open(temp_file) as fh:
+                content = fh.read()
+            assert "scoped tree" in content
         finally:
             if os.path.exists(temp_file):
                 os.unlink(temp_file)

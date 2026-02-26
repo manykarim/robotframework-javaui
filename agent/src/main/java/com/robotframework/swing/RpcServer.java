@@ -62,7 +62,8 @@ public class RpcServer implements Runnable {
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()), true)
         ) {
-            socket.setSoTimeout(30000);
+            socket.setSoTimeout(300000);  // 5 minutes (was 30s)
+            socket.setKeepAlive(true);     // TCP keepalive
 
             String line;
             while ((line = reader.readLine()) != null) {

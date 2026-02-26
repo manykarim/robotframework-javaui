@@ -97,33 +97,29 @@ class TestGetComponentTree:
         assert isinstance(tree, str)
         assert tree is not None
 
-    def test_get_component_tree_locator_warning(self, mock_rust_core):
-        """Test that locator parameter raises deprecation warning."""
+    def test_get_component_tree_locator_passes_through(self, mock_rust_core):
+        """Test that locator parameter is passed to backend (scoping now supported)."""
         from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
 
-        # Should raise DeprecationWarning about unsupported locator
-        with pytest.warns(DeprecationWarning, match="locator.*not yet supported"):
-            tree = lib.get_component_tree(locator="JPanel#main")
-
-        # Should still return tree (ignoring locator)
+        # Locator scoping is now implemented — no warning expected
+        tree = lib.get_component_tree(locator="JPanel#main")
         assert isinstance(tree, str)
 
     def test_get_component_tree_all_parameters(self, mock_rust_core):
-        """Test get_component_tree with all parameters including unsupported locator."""
+        """Test get_component_tree with all parameters including locator."""
         from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
         lib.connect_to_application(pid=12345)
 
-        with pytest.warns(DeprecationWarning):
-            tree = lib.get_component_tree(
-                locator="JButton#test",
-                format="json",
-                max_depth=10
-            )
+        tree = lib.get_component_tree(
+            locator="JButton#test",
+            format="json",
+            max_depth=10
+        )
 
         assert isinstance(tree, str)
 
@@ -266,8 +262,8 @@ class TestSaveUITree:
             if os.path.exists(temp_file):
                 os.unlink(temp_file)
 
-    def test_save_ui_tree_locator_warning(self, mock_rust_core):
-        """Test that locator parameter raises deprecation warning."""
+    def test_save_ui_tree_locator_uses_scoped_tree(self, mock_rust_core):
+        """Test that locator parameter uses scoped tree (no warning)."""
         from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
@@ -277,9 +273,7 @@ class TestSaveUITree:
             temp_file = f.name
 
         try:
-            with pytest.warns(DeprecationWarning, match="locator.*not yet supported"):
-                lib.save_ui_tree(temp_file, locator="JPanel#main")
-
+            lib.save_ui_tree(temp_file, locator="JPanel#main")
             assert os.path.exists(temp_file)
         finally:
             if os.path.exists(temp_file):
@@ -296,13 +290,12 @@ class TestSaveUITree:
             temp_file = f.name
 
         try:
-            with pytest.warns(DeprecationWarning):
-                lib.save_ui_tree(
-                    temp_file,
-                    locator="JButton#test",
-                    format="json",
-                    max_depth=10
-                )
+            lib.save_ui_tree(
+                temp_file,
+                locator="JButton#test",
+                format="json",
+                max_depth=10
+            )
 
             assert os.path.exists(temp_file)
             with open(temp_file, 'r', encoding='utf-8') as f:
@@ -445,9 +438,8 @@ class TestBackwardCompatibility:
             lib.save_ui_tree(temp_file)
             assert os.path.exists(temp_file)
 
-            # Old usage with locator
-            with pytest.warns(DeprecationWarning):
-                lib.save_ui_tree(temp_file, "JPanel#main")
+            # Old usage with locator — now uses scoped tree
+            lib.save_ui_tree(temp_file, "JPanel#main")
             assert os.path.exists(temp_file)
         finally:
             if os.path.exists(temp_file):
