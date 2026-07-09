@@ -76,6 +76,18 @@ Navigate And Verify Section
     Open Section    ${section}
     Element Should Be Selected    NavigationToggleButton[text='${section}']
 
+Open Demo Tile
+    [Documentation]    Navigate from the Start hub to a demo page by clicking its tile.
+    ...                The tile's title is a listener-less FormsLabel on a clickable card;
+    ...                this works only because the agent retargets the synthetic click to the
+    ...                card's MouseListener (the click-retargeting fix). Returns to the hub first.
+    [Arguments]    ${tile}
+    Ensure Connected
+    Open Section    Start
+    Click    FormsLabel[text='${tile}']
+    Sleep    ${NAV_WAIT}
+    Refresh UI Tree
+
 # ----- Validated action helpers (action + independent read-back) -----
 
 Enter And Verify Text

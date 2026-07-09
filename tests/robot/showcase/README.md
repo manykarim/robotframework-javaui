@@ -73,11 +73,15 @@ Per the proof's contract, defects found are reported, not hidden:
    detection artifact — the destination pages hold `ReadOnlyTextField`/sub-hubs, not the
    `JRadioButton`/`JTable` types being counted, so a successful navigation was misread.)
 
-   The geometry-locator approach is functional but brittle (hardcoded coordinates). The
-   proper fix is to make `Click` replicate `LightweightDispatcher` retargeting so clicking
-   the label just works — proposed under the `click-retargeting-and-locator-fixes` change.
-   Once that lands, this suite should be extended to drive the radio/table/tree demo pages
-   directly (see that change's tasks).
+   **RESOLVED (by `click-retargeting-and-locator-fixes`).** The agent now retargets a
+   synthetic click to the nearest listener-bearing ancestor (replicating
+   `LightweightDispatcher`), so `Click FormsLabel[text='Input']` navigates directly — no
+   geometry coordinates needed. `03_tile_navigation.robot` proves this live: the tile click
+   reaches the "Input Dialogs" demo page, different tiles reach different pages, and the
+   accompanying locator-engine fixes (capture filtering; deep `>` chains) resolve against the
+   live app. Driving the individual radio/table/tree widgets that sit behind each demo page's
+   deeper pivot sub-navigation is left as further showcase work; the navigation that unlocks
+   them now works.
 
 3. **Minor — `Element Text Should Be` and `Get Element Text` diverge on the search field.**
    `Get Element Text` returns the entered value; `Element Text Should Be` read empty. The
