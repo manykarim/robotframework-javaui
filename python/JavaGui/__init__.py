@@ -1084,8 +1084,10 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         | Log UI Tree    JPanel#main
 
         """
-        # Get tree as text and log it
-        tree = self.get_ui_tree(format="text")
+        # Get tree as text and log it. When a locator is given, scope the tree
+        # to the matched component (the Java agent supports componentId scoping);
+        # otherwise log the full tree.
+        tree = self._lib.get_component_tree(locator=locator, format="text")
         logger.info(tree)
 
     def get_ui_tree(
@@ -1307,22 +1309,22 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         self._lib.select_tab(locator, str(tab_identifier))
 
     def type_text(self, locator: str, text: str) -> None:
-        """Type text character by character into a text field.
+        """Append text into a text field without clearing existing content.
 
         | **Argument** | **Description** |
         | ``locator`` | CSS or XPath-like locator string. See `Locator Syntax`. |
-        | ``text`` | Text to type character by character. |
+        | ``text`` | Text to enter. |
 
-        Simulates actual key presses rather than setting the text directly.
-        Does not clear existing text - use `Clear Text` first if needed.
+        This keyword enters ``text`` via the same mechanism as `Input Text`
+        (it does not simulate individual key-press events), but leaves any
+        existing text in place. Use `Clear Text` first if you need to replace
+        the current content, or use `Input Text` with ``clear=${True}``.
 
         Example:
         | Type Text    #searchField    hello
         | Type Text    JTextField#input    test@example.com
 
         """
-        # For now, use input_text as the underlying implementation
-        # The Rust library handles the actual typing
         self._lib.input_text(locator, text, clear=False)
 
     def right_click(self, locator: str, force: bool = False) -> None:
@@ -1636,18 +1638,21 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
     def list_applications(self) -> List[str]:
         """List available Java applications to connect to.
 
-        Returns a list of available application identifiers that can be
-        used with `Connect To Application`.
-
-        *Note:* This is a placeholder - actual discovery requires JVM enumeration.
+        *Not implemented.* Automatic JVM/agent discovery is not available in this
+        release. This keyword raises an error rather than returning misleading
+        empty results. To connect, launch the target application with the
+        ``javagui-agent`` attached and use `Connect To Application` with an
+        explicit ``port`` (and optionally ``host``/``title``/``main_class``).
 
         Example:
-        | ${apps}=    List Applications
-        | Log Many    @{apps}
+        | Connect To Application    port=18080
 
         """
-        # Placeholder - actual implementation would use JVM discovery
-        return []
+        raise NotImplementedError(
+            "List Applications is not implemented: automatic Java application "
+            "discovery is unavailable. Use 'Connect To Application' with an "
+            "explicit port instead."
+        )
 
     # ==========================================================================
     # List Operations
@@ -2713,7 +2718,11 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
         | ${enabled}=    Get Element Property    Button#save    enabled
 
         """
-        return self._lib.get_widget_property(locator, property_name)
+        # The Rust core has no single-property accessor; read the widget's full
+        # property map via find_widget().to_dict() and return the named value.
+        widget = self._lib.find_widget(locator)
+        props = widget.to_dict() if widget is not None else {}
+        return props.get(property_name)
 
     # Configuration Keywords
     def set_timeout(self, timeout: float) -> float:

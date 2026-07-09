@@ -1049,6 +1049,18 @@ public class SwtReflectionRpcServer implements Runnable {
                 return result;
             }
         }
+
+        if (EclipseWorkbenchHelper.isEclipseAvailable()) {
+            String perspId = EclipseWorkbenchHelper.getActivePerspectiveId();
+            JsonObject result = new JsonObject();
+            result.addProperty("info", "Eclipse RCP Workbench");
+            result.addProperty("windowCount", 1);
+            result.addProperty("activePerspective", perspId != null ? perspId : "");
+            result.addProperty("viewCount", EclipseWorkbenchHelper.getOpenViews().size());
+            result.addProperty("editorCount", EclipseWorkbenchHelper.getOpenEditors().size());
+            return result;
+        }
+
         JsonObject result = new JsonObject();
         result.addProperty("error", "No RCP workbench available");
         return result;

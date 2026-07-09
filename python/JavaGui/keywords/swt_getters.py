@@ -17,6 +17,19 @@ from ..assertions import (
 from ..validation import validate_locator
 
 
+def _swt_widget_property(rust_lib, locator, property_name):
+    """Read a single SWT widget property from the Rust core's property map.
+
+    The Rust core exposes the full widget property map via
+    ``find_widget().to_dict()`` but has no single-property accessor, so all
+    per-property reads go through this helper.
+    """
+    widget = rust_lib.find_widget(locator)
+    _swt_widget_property_map = widget.to_dict() if widget is not None else {}
+    return _swt_widget_property_map.get(property_name)
+
+
+
 class SwtGetterKeywords:
     """Mixin class providing SWT Get keywords with assertion support.
 
@@ -67,7 +80,7 @@ Get Widget Text    Text#input    matches    \\\\d+ items
             widget = self._lib.find_widget(locator)
             # Get text via property - SWT widgets commonly have getText()
             try:
-                return self._lib.get_widget_property(locator, "text")
+                return _swt_widget_property(self._lib, locator, "text")
             except Exception:
                 # Fallback to widget's text attribute if available
                 return getattr(widget, "text", "")
@@ -156,7 +169,11 @@ Get Widget Property    Combo#country    selectionIndex    >=    0
         msg = message or f"Widget '{locator}' property '{property_name}'"
 
         def get_prop():
-            return self._lib.get_widget_property(locator, property_name)
+            # The Rust core has no single-property accessor; read the widget's
+            # full property map via find_widget().to_dict() and pick the value.
+            widget = self._lib.find_widget(locator)
+            props = widget.to_dict() if widget is not None else {}
+            return props.get(property_name)
 
         return with_retry_assertion(
             get_prop,
@@ -198,7 +215,7 @@ Is Widget Enabled    Button#next    ==    ${False}
 
         def get_enabled():
             try:
-                return self._lib.get_widget_property(locator, "enabled")
+                return _swt_widget_property(self._lib, locator, "enabled")
             except Exception:
                 # Try isEnabled if property access fails
                 widget = self._lib.find_widget(locator)
@@ -244,7 +261,7 @@ Is Widget Visible    Label#error    ==    ${False}
 
         def get_visible():
             try:
-                return self._lib.get_widget_property(locator, "visible")
+                return _swt_widget_property(self._lib, locator, "visible")
             except Exception:
                 # Try isVisible if property access fails
                 widget = self._lib.find_widget(locator)
@@ -290,7 +307,7 @@ Is Widget Focused    Button#cancel    ==    ${False}
 
         def get_focused():
             try:
-                return self._lib.get_widget_property(locator, "focused")
+                return _swt_widget_property(self._lib, locator, "focused")
             except Exception:
                 # Fallback - check if widget is the focus control
                 widget = self._lib.find_widget(locator)
@@ -344,7 +361,7 @@ Get Widget States    Button#check    contains    checked
 
             # Get visibility
             try:
-                visible = self._lib.get_widget_property(locator, "visible")
+                visible = _swt_widget_property(self._lib, locator, "visible")
                 if visible:
                     states |= ElementState.visible
                 else:
@@ -355,7 +372,7 @@ Get Widget States    Button#check    contains    checked
 
             # Get enabled
             try:
-                enabled = self._lib.get_widget_property(locator, "enabled")
+                enabled = _swt_widget_property(self._lib, locator, "enabled")
                 if enabled:
                     states |= ElementState.enabled
                 else:
@@ -365,7 +382,7 @@ Get Widget States    Button#check    contains    checked
 
             # Get selection state (for checkboxes, radio buttons)
             try:
-                selection = self._lib.get_widget_property(locator, "selection")
+                selection = _swt_widget_property(self._lib, locator, "selection")
                 if selection:
                     states |= ElementState.selected
                     states |= ElementState.checked
@@ -377,7 +394,7 @@ Get Widget States    Button#check    contains    checked
 
             # Get focused
             try:
-                focused = self._lib.get_widget_property(locator, "focused")
+                focused = _swt_widget_property(self._lib, locator, "focused")
                 if focused:
                     states |= ElementState.focused
                 else:
@@ -387,7 +404,7 @@ Get Widget States    Button#check    contains    checked
 
             # Get editable (for Text widgets)
             try:
-                editable = self._lib.get_widget_property(locator, "editable")
+                editable = _swt_widget_property(self._lib, locator, "editable")
                 if editable:
                     states |= ElementState.editable
                 else:
@@ -435,14 +452,21 @@ Get Widget Properties    Button#submit    contains    {'enabled': True}
         """
         msg = message or f"Widget '{locator}' properties"
 
-        properties = {}
-        prop_names = ["text", "enabled", "visible", "data", "toolTipText"]
-
-        for prop in prop_names:
+        # Read the widget's full property map from the Rust core. Retry briefly to
+        # tolerate transient lookup failures right after other rapid RPC calls.
+        properties: Dict[str, Any] = {}
+        last_err = None
+        for _ in range(3):
             try:
-                properties[prop] = self._lib.get_widget_property(locator, prop)
-            except Exception:
-                pass
+                widget = self._lib.find_widget(locator)
+                properties = widget.to_dict() if widget is not None else {}
+                break
+            except Exception as e:  # noqa: BLE001
+                last_err = e
+                time.sleep(0.2)
+        else:
+            if last_err is not None:
+                raise last_err
 
         if assertion_operator is not None and dict_verify_assertion is not None:
             dict_verify_assertion(properties, assertion_operator, expected, msg, message)

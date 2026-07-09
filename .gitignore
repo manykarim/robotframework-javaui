@@ -143,3 +143,6 @@ claude-flow
 
 # Bundled JARs (copied from agent/target during build)
 python/JavaGui/jars/
+
+# Third-party demo/showcase binaries used for manual exploration (do not ship)
+example-apps/*.jar

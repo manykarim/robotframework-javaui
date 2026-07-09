@@ -91,7 +91,7 @@ class TestFullWorkflow:
         lib.clear_text("JTextField#username")
         lib.input_text("JTextField#username", "jane.doe")
 
-        # Type text character by character
+        # Append text via Type Text (input_text path, no clear)
         lib.type_text("JTextField#username", "test")
 
         lib.disconnect()
