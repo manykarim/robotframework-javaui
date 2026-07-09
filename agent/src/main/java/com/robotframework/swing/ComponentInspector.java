@@ -65,12 +65,18 @@ public class ComponentInspector {
     }
 
     /**
-     * Get the full component tree starting from root frames with default depth.
+     * Get the full component tree starting from root frames.
      *
-     * @return JsonObject representing the component tree
+     * When no explicit depth is requested this returns the COMPLETE tree
+     * (unbounded depth). A shallow default (previously 10) silently hid deeply
+     * nested widgets from the locator engine, which fetches with no maxDepth —
+     * real applications (e.g. the JGoodies Showcase) nest interactive widgets
+     * well below depth 10, making them unreachable by find/click.
+     *
+     * @return JsonObject representing the full component tree
      */
     public static JsonObject getComponentTree() {
-        return getComponentTree(10);  // Default max depth of 10
+        return getComponentTree(Integer.MAX_VALUE);  // Unbounded: "no maxDepth" means the full tree
     }
 
     /**

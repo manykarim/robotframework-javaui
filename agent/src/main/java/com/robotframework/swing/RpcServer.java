@@ -130,7 +130,8 @@ public class RpcServer implements Runnable {
             case "getComponentTree":
                 if (paramsObj.has("componentId")) {
                     int compId = paramsObj.get("componentId").getAsInt();
-                    int maxDepth = paramsObj.has("maxDepth") ? paramsObj.get("maxDepth").getAsInt() : 10;
+                    // No maxDepth => full subtree (matches the client's "None = full tree" semantics)
+                    int maxDepth = paramsObj.has("maxDepth") ? paramsObj.get("maxDepth").getAsInt() : Integer.MAX_VALUE;
                     return ComponentInspector.getComponentTree(compId, maxDepth);
                 }
                 // Support maxDepth for root tree as well

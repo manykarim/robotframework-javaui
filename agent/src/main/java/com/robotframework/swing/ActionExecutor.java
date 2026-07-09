@@ -212,16 +212,20 @@ public class ActionExecutor {
             return c;
         });
 
+        // Retarget to the nearest listener-bearing ancestor (LightweightDispatcher-style), so a
+        // right click on a listener-less child reaches the handler a real click would.
+        final Component target = resolveClickTarget(component);
+
         // Dispatch synthetic mouse events asynchronously to avoid blocking
         // Both mousePressed and mouseReleased are checked for popup trigger
         // (Windows triggers on pressed, Linux/Mac on released)
         EdtHelper.runOnEdtLater(() -> {
-            Point center = getComponentCenter(component);
+            Point center = getComponentCenter(target);
             long time = System.currentTimeMillis();
 
             // MOUSE_PRESSED with popupTrigger=true
             MouseEvent pressEvent = new MouseEvent(
-                component,
+                target,
                 MouseEvent.MOUSE_PRESSED,
                 time,
                 InputEvent.BUTTON3_DOWN_MASK,
@@ -230,18 +234,18 @@ public class ActionExecutor {
                 true,  // popupTrigger - THIS IS KEY
                 MouseEvent.BUTTON3
             );
-            component.dispatchEvent(pressEvent);
+            target.dispatchEvent(pressEvent);
         });
 
         EdtHelper.sleep(50);
 
         EdtHelper.runOnEdtLater(() -> {
-            Point center = getComponentCenter(component);
+            Point center = getComponentCenter(target);
             long time = System.currentTimeMillis();
 
             // MOUSE_RELEASED with popupTrigger=true
             MouseEvent releaseEvent = new MouseEvent(
-                component,
+                target,
                 MouseEvent.MOUSE_RELEASED,
                 time,
                 InputEvent.BUTTON3_DOWN_MASK,
@@ -250,7 +254,7 @@ public class ActionExecutor {
                 true,  // popupTrigger - THIS IS KEY
                 MouseEvent.BUTTON3
             );
-            component.dispatchEvent(releaseEvent);
+            target.dispatchEvent(releaseEvent);
         });
 
         // Give the popup time to appear
@@ -1100,11 +1104,46 @@ public class ActionExecutor {
         return new Point(x, y);
     }
 
-    private static void performMouseClick(Component component, int clickCount) {
+    /**
+     * Resolve the component that should actually receive a synthetic click, replicating AWT's
+     * {@code LightweightDispatcher} retargeting.
+     *
+     * <p>A real OS click is delivered to the deepest component that actually has mouse
+     * listeners; a listener-less child (e.g. a label rendered on a clickable "card" panel whose
+     * {@code MouseListener} performs the action) never handles the event itself. Dispatching a
+     * synthetic event straight to the located component skips this, so clicking such a child
+     * would do nothing. When the target has no mouse listeners, walk up to the nearest ancestor
+     * that does (stopping at the {@link Window}); otherwise keep the original target.
+     *
+     * @return the component to dispatch to (the original when it has listeners or no
+     *         listener-bearing ancestor exists below the Window)
+     */
+    static Component resolveClickTarget(Component component) {
+        if (component.getMouseListeners().length > 0) {
+            return component;
+        }
+        Component ancestor = component.getParent();
+        while (ancestor != null && !(ancestor instanceof Window)
+                && ancestor.getMouseListeners().length == 0) {
+            ancestor = ancestor.getParent();
+        }
+        if (ancestor != null && !(ancestor instanceof Window)
+                && ancestor.getMouseListeners().length > 0) {
+            return ancestor;
+        }
+        return component;
+    }
+
+    static void performMouseClick(Component component, int clickCount) {
         Point center = getComponentCenter(component);
 
+        Component target = resolveClickTarget(component);
+        if (target != component) {
+            center = SwingUtilities.convertPoint(component, center, target);
+        }
+
         MouseEvent pressed = new MouseEvent(
-            component,
+            target,
             MouseEvent.MOUSE_PRESSED,
             System.currentTimeMillis(),
             InputEvent.BUTTON1_DOWN_MASK,
@@ -1113,7 +1152,7 @@ public class ActionExecutor {
         );
 
         MouseEvent released = new MouseEvent(
-            component,
+            target,
             MouseEvent.MOUSE_RELEASED,
             System.currentTimeMillis(),
             InputEvent.BUTTON1_DOWN_MASK,
@@ -1122,7 +1161,7 @@ public class ActionExecutor {
         );
 
         MouseEvent clicked = new MouseEvent(
-            component,
+            target,
             MouseEvent.MOUSE_CLICKED,
             System.currentTimeMillis(),
             InputEvent.BUTTON1_DOWN_MASK,
@@ -1130,9 +1169,9 @@ public class ActionExecutor {
             clickCount, false, MouseEvent.BUTTON1
         );
 
-        component.dispatchEvent(pressed);
-        component.dispatchEvent(released);
-        component.dispatchEvent(clicked);
+        target.dispatchEvent(pressed);
+        target.dispatchEvent(released);
+        target.dispatchEvent(clicked);
     }
 
     private static String getComponentText(Component component) {

@@ -230,8 +230,13 @@ impl Evaluator {
         _target: &UIComponent,
         context: &MatchContext,
     ) -> MatchResult {
-        // Walk through compounds from right to left
-        let current_context = context;
+        // Walk through compounds from right to left. `cursor` tracks how far up the
+        // ancestor chain we have consumed (ancestors[0] = immediate parent). Advancing it as
+        // Child/Descendant combinators are consumed makes chains of 3+ levels match — before,
+        // every compound was checked against the target's immediate parent, so only 2-level
+        // chains ever worked.
+        let ancestors = &context.ancestors;
+        let mut cursor: usize = 0;
 
         for i in (0..selector.compounds.len()).rev() {
             let compound = &selector.compounds[i];
@@ -246,39 +251,46 @@ impl Evaluator {
 
             // Find matching ancestor/sibling based on combinator
             match combinator {
-                Combinator::Descendant => {
-                    // Any ancestor must match - iterate through all ancestors
-                    let mut found = false;
-                    for ancestor in &current_context.ancestors {
+                Combinator::Descendant | Combinator::Cascaded => {
+                    // Some ancestor at or above the current position must match.
+                    let mut found: Option<usize> = None;
+                    for j in cursor..ancestors.len() {
+                        let ancestor = ancestors[j];
                         let ancestor_ctx = MatchContext::new(ancestor);
                         if self.evaluate_compound_selector(compound, ancestor, &ancestor_ctx).matches {
-                            found = true;
+                            found = Some(j);
                             break;
                         }
                     }
-                    if !found {
-                        return MatchResult::not_matched();
+                    match found {
+                        Some(j) => cursor = j + 1,
+                        None => return MatchResult::not_matched(),
                     }
                 }
                 Combinator::Child => {
-                    // Direct parent must match
-                    if let Some(parent) = current_context.parent {
-                        let parent_ctx = MatchContext::new(parent);
-                        if self.evaluate_compound_selector(compound, parent, &parent_ctx).matches {
-                            continue;
-                        }
+                    // The direct parent at the current level must match.
+                    if cursor >= ancestors.len() {
+                        return MatchResult::not_matched();
                     }
-                    return MatchResult::not_matched();
+                    let parent = ancestors[cursor];
+                    let parent_ctx = MatchContext::new(parent);
+                    if self.evaluate_compound_selector(compound, parent, &parent_ctx).matches {
+                        cursor += 1;
+                    } else {
+                        return MatchResult::not_matched();
+                    }
                 }
                 Combinator::AdjacentSibling => {
-                    // Previous sibling must match
-                    if current_context.sibling_index > 0 {
-                        let prev_sibling = current_context.siblings[current_context.sibling_index - 1];
+                    // Sibling combinators operate at the target's level (the only level for
+                    // which sibling context is available) — correct for the common single-level
+                    // case; deeper sibling chains remain a pre-existing limitation.
+                    if context.sibling_index > 0 {
+                        let prev_sibling = context.siblings[context.sibling_index - 1];
                         let sibling_ctx = MatchContext::with_parent(
                             prev_sibling,
-                            current_context.parent.unwrap_or(context.root),
-                            current_context.siblings.clone(),
-                            current_context.sibling_index - 1,
+                            context.parent.unwrap_or(context.root),
+                            context.siblings.clone(),
+                            context.sibling_index - 1,
                         );
                         if self.evaluate_compound_selector(compound, prev_sibling, &sibling_ctx).matches {
                             continue;
@@ -287,31 +299,20 @@ impl Evaluator {
                     return MatchResult::not_matched();
                 }
                 Combinator::GeneralSibling => {
-                    // Any previous sibling must match
-                    for idx in 0..current_context.sibling_index {
-                        let sibling = current_context.siblings[idx];
+                    // Any previous sibling must match.
+                    if context.sibling_index == 0 {
+                        return MatchResult::not_matched();
+                    }
+                    let mut found = false;
+                    for idx in 0..context.sibling_index {
+                        let sibling = context.siblings[idx];
                         let sibling_ctx = MatchContext::with_parent(
                             sibling,
-                            current_context.parent.unwrap_or(context.root),
-                            current_context.siblings.clone(),
+                            context.parent.unwrap_or(context.root),
+                            context.siblings.clone(),
                             idx,
                         );
                         if self.evaluate_compound_selector(compound, sibling, &sibling_ctx).matches {
-                            // Found a matching sibling
-                            break;
-                        }
-                        if idx == current_context.sibling_index - 1 {
-                            return MatchResult::not_matched();
-                        }
-                    }
-                }
-                Combinator::Cascaded => {
-                    // Cascaded >> is like descendant but semantically means "find within"
-                    // Any ancestor must match - iterate through all ancestors
-                    let mut found = false;
-                    for ancestor in &current_context.ancestors {
-                        let ancestor_ctx = MatchContext::new(ancestor);
-                        if self.evaluate_compound_selector(compound, ancestor, &ancestor_ctx).matches {
                             found = true;
                             break;
                         }
@@ -930,8 +931,35 @@ fn find_cascaded_with_capture<'a>(
         current_contexts = next_contexts;
     }
 
-    // Return captured elements if any, otherwise final results
-    Ok(captured_elements.unwrap_or(current_contexts))
+    // Return captured elements filtered to those whose subtree actually contains a final
+    // match — so `*JPanel >> FormsLabel[text='Input']` returns only the JPanel(s) that contain
+    // a matching FormsLabel, not every JPanel. Previously the captured segment was returned
+    // unfiltered. Without capture, return the final results.
+    match captured_elements {
+        Some(captured) => {
+            let filtered: Vec<&UIComponent> = captured
+                .into_iter()
+                .filter(|cap| current_contexts.iter().any(|f| subtree_contains(cap, f)))
+                .collect();
+            Ok(filtered)
+        }
+        None => Ok(current_contexts),
+    }
+}
+
+/// True if `target` is `node` itself or appears anywhere in `node`'s subtree (by id).
+fn subtree_contains(node: &UIComponent, target: &UIComponent) -> bool {
+    if node.id == target.id {
+        return true;
+    }
+    if let Some(ref children) = node.children {
+        for child in children {
+            if subtree_contains(child, target) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Find elements matching a cascaded locator (without capture)
@@ -1067,6 +1095,7 @@ fn find_recursive<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::locator::parser::parse_locator;
     use crate::model::*;
 
     fn create_test_component(name: &str, type_name: &str) -> UIComponent {
@@ -1291,5 +1320,54 @@ mod tests {
             "25",
             &AttributeValue::Number(50.0)
         ));
+    }
+
+    /// Build a component with a unique id, type, optional text, and children.
+    fn mk(hash: i64, type_name: &str, text: Option<&str>, children: Vec<UIComponent>) -> UIComponent {
+        let mut c = create_test_component("n", type_name);
+        c.id = ComponentId::new(hash, hash.to_string(), 0);
+        c.identity.text = text.map(|s| s.to_string());
+        c.children = if children.is_empty() { None } else { Some(children) };
+        c
+    }
+
+    #[test]
+    fn test_deep_child_chain_matches_three_levels() {
+        // JViewport > JPanel > JPanel   (regression: previously returned 0 for 3+ levels)
+        let inner = mk(3, "JPanel", None, vec![]);
+        let mid = mk(2, "JPanel", None, vec![inner]);
+        let root = mk(1, "JViewport", None, vec![mid]);
+        let evaluator = Evaluator::new();
+        let loc = parse_locator("JViewport > JPanel > JPanel").unwrap();
+        let ids: Vec<i64> = find_matching_components(&loc, &root, &evaluator)
+            .iter().map(|c| c.id.hash_code).collect();
+        assert_eq!(ids, vec![3], "3-level child chain should match the innermost JPanel");
+    }
+
+    #[test]
+    fn test_two_level_child_chain_still_matches() {
+        let inner = mk(3, "JPanel", None, vec![]);
+        let mid = mk(2, "JPanel", None, vec![inner]);
+        let root = mk(1, "JViewport", None, vec![mid]);
+        let evaluator = Evaluator::new();
+        let loc = parse_locator("JViewport > JPanel").unwrap();
+        let ids: Vec<i64> = find_matching_components(&loc, &root, &evaluator)
+            .iter().map(|c| c.id.hash_code).collect();
+        assert_eq!(ids, vec![2], "2-level child chain matches only the direct child JPanel");
+    }
+
+    #[test]
+    fn test_capture_on_cascaded_filters_by_final_segment() {
+        // *JPanel >> FormsLabel[text='Input']  must return only JPanels whose subtree
+        // contains a matching FormsLabel — not every JPanel.
+        let card_a = mk(10, "JPanel", None, vec![mk(11, "FormsLabel", Some("Input"), vec![])]);
+        let card_b = mk(20, "JPanel", None, vec![mk(21, "FormsLabel", Some("Other"), vec![])]);
+        let root = mk(1, "JPanel", None, vec![card_a, card_b]);
+        let evaluator = Evaluator::new();
+        let loc = parse_locator("*JPanel >> FormsLabel[text='Input']").unwrap();
+        let ids: Vec<i64> = find_matching_components(&loc, &root, &evaluator)
+            .iter().map(|c| c.id.hash_code).collect();
+        assert!(ids.contains(&10), "the JPanel containing the matching label must be returned");
+        assert!(!ids.contains(&20), "the JPanel without the matching label must be filtered out");
     }
 }
