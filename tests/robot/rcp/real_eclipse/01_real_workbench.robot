@@ -56,6 +56,12 @@ Open Views Come From The Live Workbench
 *** Keywords ***
 Connect To Real Eclipse
     [Documentation]    Connect to the already-running real Eclipse RCP app + agent.
+    ...                This is an OPT-IN suite: it self-skips unless the real Eclipse
+    ...                RCP app is already running on ${AGENT_PORT} (launched via
+    ...                tests/apps/rcp/build-and-run-real-eclipse.sh), so the default
+    ...                CI run does not fail when that app is absent.
+    ${reachable}=    Evaluate    __import__('socket').socket().connect_ex(('${AGENT_HOST}', ${AGENT_PORT})) == 0
+    Skip If    not ${reachable}    Real Eclipse RCP app not running on port ${AGENT_PORT} (opt-in suite; see tests/apps/rcp/build-and-run-real-eclipse.sh)
     Connect To Swt Application    rcp    ${AGENT_HOST}    ${AGENT_PORT}    ${CONNECT_TMO}
     ${connected}=    Is Connected
     Should Be True    ${connected}
