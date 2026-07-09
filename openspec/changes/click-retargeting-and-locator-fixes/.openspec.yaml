@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-07-09
+goal: "Guarantee: if a user can steer the app, the library can too"

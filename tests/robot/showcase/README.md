@@ -48,15 +48,36 @@ Per the proof's contract, defects found are reported, not hidden:
    also fixes the surprisingly shallow default of `Get UI Tree`. This is the enabling fix
    for everything above.
 
-2. **Limitation — the showcase's tile navigation is not activatable via the locator.** The
-   Start "hub" navigates to demo pages through custom, unnamed nested `JPanel` tile cards
-   (with a `com.jgoodies…$FormsLabel` label). Clicking the label — including double-click —
-   does not trigger navigation, and the cards carry no stable name/id. As a result the
-   descriptive demo pages (which might host radio buttons, tables, or trees) could not be
-   reached on this particular app. The categories proven above are those reachable via the
-   working `NavigationToggleButton` navigation and the top-level search field. Radio/table/
-   tree validation was therefore not possible against *this* app; it is covered against the
-   library's own test apps in `tests/robot/swing/`.
+2. **Tile navigation IS reachable — via geometry locators today; a click-fidelity gap
+   otherwise.** The Start "hub" navigates through custom `JGoodies` tile *cards*
+   (`com.jgoodies.fluent.tiles.AbstractTileView`). Decompilation confirmed the card's
+   `MouseHandler` is registered on the **card `JPanel`**, not on the visible
+   `com.jgoodies…$FormsLabel` — and navigation fires on `mouseReleased`. The library's
+   `Click` dispatches a synthetic mouse event **directly to the located component**; when you
+   locate the label, that event never reaches the card's listener (a real OS click works
+   because AWT's `LightweightDispatcher` retargets the event up to the nearest ancestor that
+   *has* mouse listeners — synthetic dispatch does not).
+
+   Consequence: `Click FormsLabel[text='Input']` does nothing, but clicking the **card**
+   works. Because the matcher supports geometry attributes (`x/y/width/height`), the tiles
+   are reachable **today**:
+
+   ```robotframework
+   Click    JPanel[x='232'][y='38'][width='228'][height='112']     # Input tile → "Input Dialogs"
+   Click    JPanel[x='232'][y='154'][width='228'][height='112']    # Selection tile → PivotBar + JList
+   ```
+
+   Verified live: the Input card opens the "Input Dialogs" page; the Selection card opens a
+   `PivotBar` of `NavigationToggleButton`s plus a `JList` — all automatable with existing
+   keywords from there. (An earlier note here wrongly called this "unreachable"; that was a
+   detection artifact — the destination pages hold `ReadOnlyTextField`/sub-hubs, not the
+   `JRadioButton`/`JTable` types being counted, so a successful navigation was misread.)
+
+   The geometry-locator approach is functional but brittle (hardcoded coordinates). The
+   proper fix is to make `Click` replicate `LightweightDispatcher` retargeting so clicking
+   the label just works — proposed under the `click-retargeting-and-locator-fixes` change.
+   Once that lands, this suite should be extended to drive the radio/table/tree demo pages
+   directly (see that change's tasks).
 
 3. **Minor — `Element Text Should Be` and `Get Element Text` diverge on the search field.**
    `Get Element Text` returns the entered value; `Element Text Should Be` read empty. The
