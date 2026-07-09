@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "robotframework-javagui"
-version = "0.4.1"
+version = "0.5.0"
 description = "High-performance Robot Framework library for Java GUI automation (Swing, SWT, Eclipse RCP)"
 readme = "README.md"
 license = { text = "Apache-2.0" }

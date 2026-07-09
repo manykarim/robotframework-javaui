@@ -101,13 +101,17 @@ class TestConnectionKeywords:
         assert lib._lib._connected is False
 
     def test_list_applications(self, mock_rust_core):
-        """Test listing running applications."""
+        """List Applications is not implemented and must fail loudly.
+
+        It must not return misleading empty results (see keyword-honesty spec).
+        """
+        import pytest
+
         from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
-        apps = lib.list_applications()
-        # Returns empty list - actual discovery requires JVM enumeration
-        assert isinstance(apps, list)
+        with pytest.raises(NotImplementedError):
+            lib.list_applications()
 
 
 class TestElementFindingKeywords:
@@ -199,7 +203,7 @@ class TestInputKeywords:
         lib.clear_text("JTextField#username")
 
     def test_type_text(self, mock_rust_core):
-        """Test typing text character by character."""
+        """Test Type Text appends text (via the input_text path)."""
         from JavaGui import SwingLibrary
 
         lib = SwingLibrary()

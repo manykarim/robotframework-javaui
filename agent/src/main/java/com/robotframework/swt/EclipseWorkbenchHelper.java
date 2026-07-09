@@ -28,6 +28,17 @@ public class EclipseWorkbenchHelper {
 
     private static boolean eclipseChecked = false;
     private static boolean eclipseAvailable = false;
+    /**
+     * Classloader that can see the Eclipse UI bundle classes.
+     *
+     * In an OSGi/Equinox runtime the Eclipse UI packages live in bundle
+     * classloaders that are NOT visible to this agent's own classloader, so a
+     * bare {@code Class.forName("org.eclipse.ui.PlatformUI")} fails. We instead
+     * discover the {@code org.eclipse.ui} bundle classloader once the workbench
+     * has loaded (via the agent Instrumentation) and route all Eclipse
+     * reflection through it.
+     */
+    private static volatile ClassLoader eclipseClassLoader;
     private static Class<?> platformUIClass;
     private static Class<?> workbenchClass;
     private static Class<?> workbenchWindowClass;
@@ -40,20 +51,69 @@ public class EclipseWorkbenchHelper {
     private static Class<?> handlerServiceClass;
 
     /**
+     * Locate the classloader that owns {@code org.eclipse.ui.PlatformUI}.
+     *
+     * Scans the classes loaded by the JVM (via the agent Instrumentation) for
+     * the Eclipse UI entry point. This only succeeds once the Eclipse workbench
+     * has started loading its bundles, so callers must be prepared to retry.
+     */
+    private static ClassLoader discoverEclipseClassLoader() {
+        if (eclipseClassLoader != null) {
+            return eclipseClassLoader;
+        }
+        try {
+            java.lang.instrument.Instrumentation inst =
+                com.robotframework.UnifiedAgent.getInstrumentation();
+            if (inst == null) {
+                return null;
+            }
+            for (Class<?> clazz : inst.getAllLoadedClasses()) {
+                if ("org.eclipse.ui.PlatformUI".equals(clazz.getName())) {
+                    eclipseClassLoader = clazz.getClassLoader();
+                    System.out.println("[EclipseWorkbenchHelper] Resolved Eclipse UI classloader: "
+                            + eclipseClassLoader);
+                    return eclipseClassLoader;
+                }
+            }
+        } catch (Throwable t) {
+            System.err.println("[EclipseWorkbenchHelper] Eclipse classloader discovery failed: " + t.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Resolve an Eclipse class through the OSGi-aware Eclipse classloader,
+     * falling back to the agent classloader for non-OSGi (plain SWT) apps.
+     */
+    private static Class<?> resolveClass(String name) throws ClassNotFoundException {
+        ClassLoader cl = discoverEclipseClassLoader();
+        if (cl != null) {
+            try {
+                return Class.forName(name, false, cl);
+            } catch (ClassNotFoundException ignored) {
+                // fall through to the agent classloader
+            }
+        }
+        return Class.forName(name);
+    }
+
+    /**
      * Check if Eclipse Workbench APIs are available at runtime.
      */
     public static boolean isEclipseAvailable() {
-        if (!eclipseChecked) {
+        // Do not permanently cache a negative result: the workbench may not have
+        // finished loading the first time this is called. Only latch to true.
+        if (!eclipseAvailable) {
             eclipseChecked = true;
             try {
-                platformUIClass = Class.forName("org.eclipse.ui.PlatformUI");
-                workbenchClass = Class.forName("org.eclipse.ui.IWorkbench");
-                workbenchWindowClass = Class.forName("org.eclipse.ui.IWorkbenchWindow");
-                workbenchPageClass = Class.forName("org.eclipse.ui.IWorkbenchPage");
-                perspectiveDescriptorClass = Class.forName("org.eclipse.ui.IPerspectiveDescriptor");
-                viewReferenceClass = Class.forName("org.eclipse.ui.IViewReference");
-                editorReferenceClass = Class.forName("org.eclipse.ui.IEditorReference");
-                editorInputClass = Class.forName("org.eclipse.ui.IEditorInput");
+                platformUIClass = resolveClass("org.eclipse.ui.PlatformUI");
+                workbenchClass = resolveClass("org.eclipse.ui.IWorkbench");
+                workbenchWindowClass = resolveClass("org.eclipse.ui.IWorkbenchWindow");
+                workbenchPageClass = resolveClass("org.eclipse.ui.IWorkbenchPage");
+                perspectiveDescriptorClass = resolveClass("org.eclipse.ui.IPerspectiveDescriptor");
+                viewReferenceClass = resolveClass("org.eclipse.ui.IViewReference");
+                editorReferenceClass = resolveClass("org.eclipse.ui.IEditorReference");
+                editorInputClass = resolveClass("org.eclipse.ui.IEditorInput");
 
                 // Try to get the workbench to confirm it's running
                 Method getWorkbench = platformUIClass.getMethod("getWorkbench");
@@ -91,11 +151,14 @@ public class EclipseWorkbenchHelper {
      * Get the active workbench window.
      */
     public static Object getActiveWindow() {
-        Object workbench = getWorkbench();
+        final Object workbench = getWorkbench();
         if (workbench == null) return null;
         try {
-            Method getActiveWindow = workbenchClass.getMethod("getActiveWorkbenchWindow");
-            return getActiveWindow.invoke(workbench);
+            // getActiveWorkbenchWindow() returns null unless called on the SWT UI thread.
+            return SwtReflectionBridge.syncExec(() -> {
+                Method getActiveWindow = workbenchClass.getMethod("getActiveWorkbenchWindow");
+                return getActiveWindow.invoke(workbench);
+            });
         } catch (Exception e) {
             return null;
         }
@@ -105,11 +168,13 @@ public class EclipseWorkbenchHelper {
      * Get the active workbench page.
      */
     public static Object getActivePage() {
-        Object window = getActiveWindow();
+        final Object window = getActiveWindow();
         if (window == null) return null;
         try {
-            Method getActivePage = workbenchWindowClass.getMethod("getActivePage");
-            return getActivePage.invoke(window);
+            return SwtReflectionBridge.syncExec(() -> {
+                Method getActivePage = workbenchWindowClass.getMethod("getActivePage");
+                return getActivePage.invoke(window);
+            });
         } catch (Exception e) {
             return null;
         }
@@ -170,7 +235,7 @@ public class EclipseWorkbenchHelper {
             Object registry = getPerspectiveRegistry.invoke(workbench);
             if (registry == null) return result;
 
-            Class<?> registryClass = Class.forName("org.eclipse.ui.IPerspectiveRegistry");
+            Class<?> registryClass = resolveClass("org.eclipse.ui.IPerspectiveRegistry");
             Method getPerspectives = registryClass.getMethod("getPerspectives");
             Object[] perspectives = (Object[]) getPerspectives.invoke(registry);
 
@@ -204,7 +269,7 @@ public class EclipseWorkbenchHelper {
             Method getPerspectiveRegistry = workbenchClass.getMethod("getPerspectiveRegistry");
             Object registry = getPerspectiveRegistry.invoke(workbench);
 
-            Class<?> registryClass = Class.forName("org.eclipse.ui.IPerspectiveRegistry");
+            Class<?> registryClass = resolveClass("org.eclipse.ui.IPerspectiveRegistry");
             Method findPerspective = registryClass.getMethod("findPerspectiveWithId", String.class);
             Object perspective = findPerspective.invoke(registry, perspectiveId);
 
@@ -317,7 +382,7 @@ public class EclipseWorkbenchHelper {
             Object view = findView.invoke(page, viewId);
             if (view == null) return false;
 
-            Method activate = workbenchPageClass.getMethod("activate", Class.forName("org.eclipse.ui.IWorkbenchPart"));
+            Method activate = workbenchPageClass.getMethod("activate", resolveClass("org.eclipse.ui.IWorkbenchPart"));
             activate.invoke(page, view);
             return true;
         } catch (Exception e) {
@@ -358,12 +423,12 @@ public class EclipseWorkbenchHelper {
                         if (input != null) {
                             // Try IFileEditorInput
                             try {
-                                Class<?> fileEditorInputClass = Class.forName("org.eclipse.ui.IFileEditorInput");
+                                Class<?> fileEditorInputClass = resolveClass("org.eclipse.ui.IFileEditorInput");
                                 if (fileEditorInputClass.isInstance(input)) {
                                     Method getFile = fileEditorInputClass.getMethod("getFile");
                                     Object file = getFile.invoke(input);
                                     if (file != null) {
-                                        Class<?> iFileClass = Class.forName("org.eclipse.core.resources.IFile");
+                                        Class<?> iFileClass = resolveClass("org.eclipse.core.resources.IFile");
                                         Method getFullPath = iFileClass.getMethod("getFullPath");
                                         Object path = getFullPath.invoke(file);
                                         if (path != null) {
@@ -377,7 +442,7 @@ public class EclipseWorkbenchHelper {
 
                             // Try IPathEditorInput
                             try {
-                                Class<?> pathEditorInputClass = Class.forName("org.eclipse.ui.IPathEditorInput");
+                                Class<?> pathEditorInputClass = resolveClass("org.eclipse.ui.IPathEditorInput");
                                 if (pathEditorInputClass.isInstance(input)) {
                                     Method getPath = pathEditorInputClass.getMethod("getPath");
                                     Object path = getPath.invoke(input);
@@ -414,7 +479,7 @@ public class EclipseWorkbenchHelper {
             Object editor = getActiveEditor.invoke(page);
             if (editor == null) return null;
 
-            Class<?> editorPartClass = Class.forName("org.eclipse.ui.IEditorPart");
+            Class<?> editorPartClass = resolveClass("org.eclipse.ui.IEditorPart");
             Method getTitle = editorPartClass.getMethod("getTitle");
             Method isDirty = editorPartClass.getMethod("isDirty");
             Method getEditorInput = editorPartClass.getMethod("getEditorInput");
@@ -495,7 +560,7 @@ public class EclipseWorkbenchHelper {
         try {
             // Get handler service
             Method getService = workbenchClass.getMethod("getService", Class.class);
-            Class<?> handlerServiceClass = Class.forName("org.eclipse.ui.handlers.IHandlerService");
+            Class<?> handlerServiceClass = resolveClass("org.eclipse.ui.handlers.IHandlerService");
             Object handlerService = getService.invoke(workbench, handlerServiceClass);
 
             if (handlerService == null) return false;
@@ -538,7 +603,7 @@ public class EclipseWorkbenchHelper {
             Object shell = getShell.invoke(window);
             if (shell == null) return null;
 
-            Class<?> shellClass = Class.forName("org.eclipse.swt.widgets.Shell");
+            Class<?> shellClass = resolveClass("org.eclipse.swt.widgets.Shell");
             Method getText = shellClass.getMethod("getText");
             return (String) getText.invoke(shell);
         } catch (Exception e) {

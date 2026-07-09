@@ -5,13 +5,25 @@ A high-performance Robot Framework library for automating Java **Swing**, **SWT*
 ## Features
 
 - **High Performance**: Core library written in Rust with PyO3 bindings for Python
-- **Multi-Framework Support**: Java Swing, SWT (Standard Widget Toolkit), and Eclipse RCP
+- **Multi-Toolkit Support**: Java Swing, SWT, and Eclipse RCP — see the maturity table below for the support level of each
 - **Inline Assertions**: Browser Library-style assertions with automatic retry (via `robotframework-assertion-engine`)
 - **CSS-like Selectors**: Intuitive element locators similar to web testing
-- **XPath Support**: Full XPath-style locator syntax for complex queries
+- **XPath Support**: XPath-style locator syntax for complex queries
 - **Comprehensive Component Support**: Buttons, text fields, tables, trees, lists, menus, and more
 - **Java Agent**: Non-invasive instrumentation via Java agent
-- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Cross-Platform**: Designed for Windows, macOS, and Linux
+
+### Toolkit Support & Maturity
+
+The three toolkits are not at the same level of maturity. Support level reflects how thoroughly each is verified against real applications:
+
+| Toolkit | Import | Keywords | Maturity | Notes |
+|---------|--------|----------|----------|-------|
+| **Swing** | `JavaGui.Swing` | ~108 | **Stable** | Fully implemented and exercised end-to-end against real Swing apps. Recommended for production use. |
+| **SWT** | `JavaGui.Swt` | ~71 | **Stable** | Fully implemented and exercised end-to-end against a real SWT app (widgets, shells, tables, trees, text, selection). |
+| **Eclipse RCP** | `JavaGui.Rcp` | ~75 | **Experimental — requires real Eclipse** | Perspective/view/editor and workbench-introspection keywords are backed by real Eclipse Workbench reflection. Introspection keywords (`Get All Rcp Views`, `Get All Rcp Editors`, `Get Rcp Component Tree`) require a running Eclipse RCP application; they are not usable against non-Eclipse targets. |
+
+> **Note:** Keyword counts include deprecated aliases retained for backward compatibility. RCP support targets applications built on the Eclipse Rich Client Platform; validate against your specific application before relying on it in production.
 
 ## Table of Contents
 

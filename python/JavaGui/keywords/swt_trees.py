@@ -138,8 +138,12 @@ class SwtTreeKeywords:
             if parent_path:
                 # Expand to ensure children are loaded
                 self._lib.expand_tree_item(locator, parent_path)
-            # Use tree itemCount property for root-level count
-            count = self._lib.get_widget_property(locator, "itemCount")
+            # Read the tree's child count from the widget property map exposed by
+            # the Rust core (find_widget().to_dict()); the SWT model reports the
+            # root item count as ``child_count``.
+            widget = self._lib.find_widget(locator)
+            props = widget.to_dict() if widget is not None else {}
+            count = props.get("child_count")
             return int(count) if count is not None else 0
 
         return numeric_assertion_with_retry(

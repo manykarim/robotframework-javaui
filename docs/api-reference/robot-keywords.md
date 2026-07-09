@@ -1,5 +1,12 @@
 # Robot Framework Keywords Reference
 
+> **Canonical source:** the authoritative, always-current keyword reference is the generated
+> libdoc HTML in [`docs/keywords/`](../keywords/) (`Swing.html`, `Swt.html`, `Rcp.html`),
+> produced directly from the library source with
+> `python -m robot.libdoc JavaGui.<Swing|Swt|Rcp> docs/keywords/<Lib>.html`.
+> This markdown page is a convenience overview and may lag behind the libdoc; when in doubt,
+> trust the libdoc.
+
 Complete reference for all Robot Framework keywords in the JavaGui library.
 
 ## Component Tree Keywords
