@@ -137,6 +137,55 @@ impl RcpLibrary {
         self.swt_lib.is_connected()
     }
 
+    /// Wait until the SWT/RCP agent reports that SWT is ready.
+    ///
+    /// Invokes the agent's ``waitForSwtReady`` RPC, which blocks (up to
+    /// ``timeout_ms``) until the SWT display and workbench have finished
+    /// starting. Useful immediately after connecting to an application whose
+    /// agent attaches before SWT has fully initialized.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``timeout_ms`` | Maximum time to wait for readiness, in milliseconds. Default ``30000``. |
+    ///
+    /// Returns ``True`` when SWT became ready, ``False`` otherwise.
+    ///
+    /// Example:
+    /// | ${ready}= | `Wait Until Swt Ready` |
+    /// | ${ready}= | `Wait Until Swt Ready` | timeout_ms=60000 |
+    #[pyo3(signature = (timeout_ms=30000))]
+    pub fn wait_for_swt_ready(&self, timeout_ms: u64) -> PyResult<bool> {
+        self.ensure_connected()?;
+
+        let result = self.send_rpc_request("waitForSwtReady", serde_json::json!({
+            "timeoutMs": timeout_ms
+        }))?;
+
+        Ok(result.get("ready").and_then(|v| v.as_bool()).unwrap_or(false))
+    }
+
+    /// Capture a screenshot of the display or a single widget.
+    ///
+    /// Delegates to the underlying SWT library: requests a screenshot from the
+    /// agent, decodes the returned PNG, and writes it to disk.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``filename`` | Output filename. Auto-generated with a timestamp if omitted. |
+    /// | ``locator`` | Optional widget locator for a partial screenshot. Captures the full display when omitted. |
+    ///
+    /// Returns the absolute path to the saved screenshot.
+    ///
+    /// Example:
+    /// | ${path}= | `Capture Screenshot` |
+    /// | ${path}= | `Capture Screenshot` | workbench.png |
+    #[pyo3(signature = (filename=None, locator=None))]
+    pub fn capture_screenshot(
+        &self,
+        filename: Option<&str>,
+        locator: Option<&str>,
+    ) -> PyResult<String> {
+        self.swt_lib.capture_screenshot(filename, locator)
+    }
+
     // ========================
     // Delegated Shell Keywords
     // ========================
@@ -534,6 +583,86 @@ impl RcpLibrary {
             }
         }
         Ok(dict.into())
+    }
+
+    /// Get the RCP component tree hierarchy.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``max_depth`` | Maximum depth for SWT widget trees. Default ``5``. |
+    /// | ``format`` | Output format: ``json``, ``text``, or ``yaml``. Default ``json``. |
+    ///
+    /// Returns the RCP component tree as a string in the requested format.
+    ///
+    /// Example:
+    /// | ${tree}= | `Get Rcp Component Tree` |
+    /// | ${tree}= | `Get Rcp Component Tree` | max_depth=3 | format=text |
+    #[pyo3(signature = (max_depth=5, format="json"))]
+    pub fn get_rcp_component_tree(&self, max_depth: u32, format: &str) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let params = serde_json::json!({
+            "maxDepth": max_depth
+        });
+
+        let tree = self.send_rpc_request("rcp.getComponentTree", params)?;
+
+        match format.to_lowercase().as_str() {
+            "json" => serde_json::to_string_pretty(&tree)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string())),
+            "text" => Ok(self.rcp_tree_to_text(&tree, 0)),
+            "yaml" | "yml" => serde_yaml::to_string(&tree)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string())),
+            _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Unknown format: {}. Supported: json, text, yaml",
+                format
+            ))),
+        }
+    }
+
+    /// Get all RCP views with optional SWT widget information.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``include_swt_widgets`` | Include underlying SWT widget trees. Default ``False``. |
+    ///
+    /// Returns a JSON array of all open views.
+    ///
+    /// Example:
+    /// | ${views}= | `Get All Rcp Views` |
+    /// | ${views}= | `Get All Rcp Views` | include_swt_widgets=True |
+    #[pyo3(signature = (include_swt_widgets=false))]
+    pub fn get_all_rcp_views(&self, include_swt_widgets: bool) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let params = serde_json::json!({
+            "includeSwtWidgets": include_swt_widgets
+        });
+
+        let result = self.send_rpc_request("rcp.getAllViews", params)?;
+        serde_json::to_string_pretty(&result)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    /// Get all RCP editors with optional SWT widget information.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``include_swt_widgets`` | Include underlying SWT widget trees. Default ``False``. |
+    ///
+    /// Returns a JSON array of all open editors.
+    ///
+    /// Example:
+    /// | ${editors}= | `Get All Rcp Editors` |
+    /// | ${editors}= | `Get All Rcp Editors` | include_swt_widgets=True |
+    #[pyo3(signature = (include_swt_widgets=false))]
+    pub fn get_all_rcp_editors(&self, include_swt_widgets: bool) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let params = serde_json::json!({
+            "includeSwtWidgets": include_swt_widgets
+        });
+
+        let result = self.send_rpc_request("rcp.getAllEditors", params)?;
+        serde_json::to_string_pretty(&result)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     // ========================
@@ -1999,6 +2128,49 @@ impl RcpLibrary {
     fn send_rpc_request(&self, method: &str, params: serde_json::Value) -> PyResult<serde_json::Value> {
         // Delegate to the underlying SwtLibrary's public send_rpc_request method
         self.swt_lib.send_rpc_request(method, params)
+    }
+
+    /// Render an RCP component tree as an indented text representation.
+    fn rcp_tree_to_text(&self, tree: &serde_json::Value, indent: usize) -> String {
+        let mut text = String::new();
+        let spaces = "  ".repeat(indent);
+
+        if let Some(obj) = tree.as_object() {
+            let comp_type = obj.get("type").and_then(|v| v.as_str()).unwrap_or("Unknown");
+
+            let identifier = obj.get("title")
+                .or(obj.get("name"))
+                .or(obj.get("id"))
+                .or(obj.get("label"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            if identifier.is_empty() {
+                text.push_str(&format!("{}{}\n", spaces, comp_type));
+            } else {
+                text.push_str(&format!("{}{}: {}\n", spaces, comp_type, identifier));
+            }
+
+            if let Some(dirty) = obj.get("dirty").and_then(|v| v.as_bool()) {
+                text.push_str(&format!("{}  dirty: {}\n", spaces, dirty));
+            }
+            if let Some(file_path) = obj.get("filePath").and_then(|v| v.as_str()) {
+                text.push_str(&format!("{}  file: {}\n", spaces, file_path));
+            }
+            if let Some(swt_id) = obj.get("swtShellId").or(obj.get("swtControlId")).and_then(|v| v.as_i64()) {
+                text.push_str(&format!("{}  swtId: {}\n", spaces, swt_id));
+            }
+
+            for child_key in ["windows", "pages", "views", "editors", "children"] {
+                if let Some(children) = obj.get(child_key).and_then(|v| v.as_array()) {
+                    for child in children {
+                        text.push_str(&self.rcp_tree_to_text(child, indent + 1));
+                    }
+                }
+            }
+        }
+
+        text
     }
 
     /// Get widget ID by locator (delegated)

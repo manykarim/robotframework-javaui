@@ -37,6 +37,20 @@ from JavaGui.validation import validate_locator
 
 logger = logging.getLogger(__name__)
 
+
+def _embed_screenshot_in_log(path: str) -> None:
+    """Embed a saved screenshot into the Robot Framework log (best-effort).
+
+    Uses Robot Framework's HTML logging to render the image inline in the log.
+    Falls back silently when running outside a Robot Framework context.
+    """
+    try:
+        from robot.api import logger as rf_logger
+
+        rf_logger.info(f'<img src="{path}">', html=True)
+    except Exception:  # pragma: no cover - non-Robot execution context
+        pass
+
 # AssertionEngine integration imports
 try:
     from assertionengine import AssertionOperator
@@ -1200,21 +1214,28 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
     # Screenshot Keywords
     # ==========================================================================
 
-    def capture_screenshot(self, filename: Optional[str] = None) -> str:
-        """Capture a screenshot of the application.
+    def capture_screenshot(
+        self, filename: Optional[str] = None, locator: Optional[str] = None
+    ) -> str:
+        """Capture a screenshot of the application and embed it in the Robot log.
 
         | **Argument** | **Description** |
         | ``filename`` | Optional filename for the screenshot. Auto-generated if not specified. |
+        | ``locator`` | Optional element locator for a partial screenshot. Captures the full screen when omitted. |
 
-        Returns the path to the saved screenshot file.
+        Returns the path to the saved screenshot file. The captured image is
+        also embedded into the Robot Framework log.
 
         Example:
         | ${path}=    Capture Screenshot
         | ${path}=    Capture Screenshot    filename=error.png
+        | ${path}=    Capture Screenshot    locator=name:errorDialog
         | Log    Screenshot saved to: ${path}
 
         """
-        return self._lib.capture_screenshot(filename)
+        path = self._lib.capture_screenshot(filename, locator)
+        _embed_screenshot_in_log(path)
+        return path
 
     def set_screenshot_directory(self, directory: str) -> None:
         """Set the directory for saving screenshots.
@@ -2524,6 +2545,27 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
         """Check if connected to an SWT application."""
         return self._lib.is_connected()
 
+    def capture_screenshot(
+        self, filename: Optional[str] = None, locator: Optional[str] = None
+    ) -> str:
+        """Capture a screenshot of the display and embed it in the Robot log.
+
+        | **Argument** | **Description** |
+        | ``filename`` | Optional filename for the screenshot. Auto-generated if not specified. |
+        | ``locator`` | Optional widget locator for a partial screenshot. Captures the full display when omitted. |
+
+        Returns the path to the saved screenshot file. The captured image is
+        also embedded into the Robot Framework log.
+
+        Example:
+        | ${path}=    Capture Screenshot
+        | ${path}=    Capture Screenshot    filename=error.png
+        | ${path}=    Capture Screenshot    locator=name:mainShell
+        """
+        path = self._lib.capture_screenshot(filename, locator)
+        _embed_screenshot_in_log(path)
+        return path
+
     # Shell Keywords
     def get_shells(self):
         """Get all shells."""
@@ -3319,8 +3361,27 @@ class RcpLibrary(RcpKeywords):
     def connect_to_swt_application(
         self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None
     ):
-        """Connect to an RCP/SWT application."""
-        return self._lib.connect_to_swt_application(app, host, port, timeout)
+        """Connect to an RCP/SWT application.
+
+        Tolerates an agent that is still starting: if the connection or a
+        readiness check fails with an ``SWT_NOT_READY`` error, the connection is
+        retried until the connect timeout elapses. This is common for Eclipse
+        RCP applications whose agent attaches before SWT has fully initialized.
+        """
+        import time
+
+        connect_timeout = float(timeout if timeout is not None else self._timeout)
+        deadline = time.monotonic() + connect_timeout
+        poll_interval = 0.5
+
+        while True:
+            try:
+                return self._lib.connect_to_swt_application(app, host, port, timeout)
+            except Exception as exc:  # noqa: BLE001 - re-raised unless SWT_NOT_READY
+                if "SWT_NOT_READY" in str(exc) and time.monotonic() < deadline:
+                    time.sleep(poll_interval)
+                    continue
+                raise
 
     def connect_to_application(
         self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None
@@ -3335,6 +3396,48 @@ class RcpLibrary(RcpKeywords):
     def is_connected(self) -> bool:
         """Check if connected to an RCP application."""
         return self._lib.is_connected()
+
+    def wait_until_swt_ready(self, timeout: float = 30.0) -> bool:
+        """Wait until the SWT/RCP agent reports that SWT is ready.
+
+        Invokes the agent's ``waitForSwtReady`` RPC, which blocks until the SWT
+        display and workbench have finished starting (or the timeout elapses).
+
+        | **Argument** | **Description** |
+        | ``timeout`` | Maximum time to wait for readiness, in seconds. Default ``30``. |
+
+        Returns ``True`` when SWT became ready, ``False`` otherwise.
+
+        Example:
+        | Wait Until Swt Ready
+        | ${ready}=    Wait Until Swt Ready    timeout=60
+        """
+        try:
+            timeout_secs = float(timeout)
+        except (TypeError, ValueError):
+            timeout_secs = 30.0
+        timeout_ms = int(timeout_secs * 1000)
+        return self._lib.wait_for_swt_ready(timeout_ms)
+
+    def capture_screenshot(
+        self, filename: Optional[str] = None, locator: Optional[str] = None
+    ) -> str:
+        """Capture a screenshot of the workbench and embed it in the Robot log.
+
+        | **Argument** | **Description** |
+        | ``filename`` | Optional filename for the screenshot. Auto-generated if not specified. |
+        | ``locator`` | Optional widget locator for a partial screenshot. Captures the full display when omitted. |
+
+        Returns the path to the saved screenshot file. The captured image is
+        also embedded into the Robot Framework log.
+
+        Example:
+        | ${path}=    Capture Screenshot
+        | ${path}=    Capture Screenshot    filename=workbench.png
+        """
+        path = self._lib.capture_screenshot(filename, locator)
+        _embed_screenshot_in_log(path)
+        return path
 
     # Shell Keywords
     def get_shells(self):
@@ -3464,6 +3567,20 @@ class RcpLibrary(RcpKeywords):
         """Verify widget text."""
         return self._lib.widget_text_should_be(locator, expected)
 
+    def get_widget_property(self, locator: str, property_name: str):
+        """Get a property value from an SWT/RCP widget.
+
+        | **Argument** | **Description** |
+        | ``locator`` | Widget locator. |
+        | ``property_name`` | Property name (``text``, ``enabled``, ``visible``, ``focused``, ``selection``, ...). |
+
+        Reads the widget's full property map via ``find_widget().to_dict()`` and returns the
+        named value (``None`` if absent). Mirrors the SWT library keyword for API consistency.
+        """
+        widget = self._lib.find_widget(locator)
+        props = widget.to_dict() if widget is not None else {}
+        return props.get(property_name)
+
     # Configuration Keywords
     def set_timeout(self, timeout: float) -> float:
         """Set the default timeout."""
@@ -3474,6 +3591,53 @@ class RcpLibrary(RcpKeywords):
     def get_workbench_info(self):
         """Get workbench information."""
         return self._lib.get_workbench_info()
+
+    def get_rcp_component_tree(self, max_depth: int = 5, format: str = "json") -> str:
+        """Get RCP component tree hierarchy.
+
+        Returns a hierarchical representation of Eclipse RCP components including
+        workbench windows, perspectives, views, and editors with their underlying
+        SWT widgets exposed.
+
+        | **Argument** | **Description** |
+        | ``max_depth`` | Maximum depth for SWT widget trees (default: 5). |
+        | ``format`` | Output format: json, text, or yaml (default: json). |
+
+        Returns RCP component tree as a string in the specified format.
+
+        Example:
+        | ${tree}=    Get RCP Component Tree
+        | ${tree}=    Get RCP Component Tree    max_depth=3    format=text
+        """
+        return self._lib.get_rcp_component_tree(max_depth, format)
+
+    def get_all_rcp_views(self, include_swt_widgets: bool = False) -> str:
+        """Get all RCP views with optional SWT widget information.
+
+        | **Argument** | **Description** |
+        | ``include_swt_widgets`` | Include underlying SWT widget trees (default: False). |
+
+        Returns JSON array of all open views.
+
+        Example:
+        | ${views}=    Get All RCP Views
+        | ${views}=    Get All RCP Views    include_swt_widgets=True
+        """
+        return self._lib.get_all_rcp_views(include_swt_widgets)
+
+    def get_all_rcp_editors(self, include_swt_widgets: bool = False) -> str:
+        """Get all RCP editors with optional SWT widget information.
+
+        | **Argument** | **Description** |
+        | ``include_swt_widgets`` | Include underlying SWT widget trees (default: False). |
+
+        Returns JSON array of all open editors.
+
+        Example:
+        | ${editors}=    Get All RCP Editors
+        | ${editors}=    Get All RCP Editors    include_swt_widgets=True
+        """
+        return self._lib.get_all_rcp_editors(include_swt_widgets)
 
     def get_active_perspective(self) -> str:
         """Get the active perspective ID."""

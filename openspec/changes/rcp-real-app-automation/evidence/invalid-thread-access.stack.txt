@@ -1,0 +1,14 @@
+org.eclipse.swt.SWTException: Invalid thread access
+	at org.eclipse.swt.SWT.error(SWT.java:4934)
+	at org.eclipse.swt.SWT.error(SWT.java:4849)
+	at org.eclipse.swt.SWT.error(SWT.java:4820)
+	at org.eclipse.swt.widgets.Display.error(Display.java:1579)
+	at org.eclipse.swt.widgets.Display.checkDevice(Display.java:1004)
+	at org.eclipse.swt.widgets.Display.getActiveShell(Display.java:1783)
+	at org.eclipse.ui.internal.services.WorkbenchSourceProvider.getActiveWindow(WorkbenchSourceProvider.java:412)
+	at org.eclipse.ui.internal.services.WorkbenchSourceProvider.updateActivePart(WorkbenchSourceProvider.java:440)
+	at org.eclipse.ui.internal.services.WorkbenchSourceProvider.checkActivePart(WorkbenchSourceProvider.java:283)
+	at org.eclipse.ui.internal.services.WorkbenchSourceProvider.checkActivePart(WorkbenchSourceProvider.java:278)
+	at org.eclipse.ui.internal.services.WorkbenchSourceProvider$1.partDeactivated(WorkbenchSourceProvider.java:223)
+	at org.eclipse.ui.internal.PartService$4.run(PartService.java:121)
+--
