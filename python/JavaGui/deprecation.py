@@ -121,9 +121,15 @@ def create_keyword_alias(
         return original_method(*args, **kwargs)
 
     alias_wrapper.__name__ = alias_name
+    _rep_kw = original_name.replace("_", " ").title()
+    _alias_kw = alias_name.replace("_", " ").title()
     alias_wrapper.__doc__ = (
-        f"*DEPRECATED* Alias for `{original_name}`.\n\n"
-        f"Use `{original_name}` instead."
+        f"*DEPRECATED* Alias for `{_rep_kw}`. Forwards the same arguments, so the "
+        f"usage is identical.\n\n"
+        f"Use `{_rep_kw}` instead.\n\n"
+        f"Example:\n"
+        f"| # `{_alias_kw}` still works but warns — prefer `{_rep_kw}`:\n"
+        f"| {_rep_kw}    name:element\n"
     )
     alias_wrapper._deprecated = True
     alias_wrapper._is_alias_for = original_name
