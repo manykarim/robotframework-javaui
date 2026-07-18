@@ -62,12 +62,13 @@ class SwtGetterKeywords:
         - Raises ``AssertionError`` if assertion fails after timeout
         - Raises ``ElementNotFoundError`` if widget not found
 
-        Example:
-        ${text}=    Get Widget Text    Label#status         Get Widget Text | Label#status | == | Ready | |
-Get Widget Text    Label#status    contains    Success    timeout=10
-Get Widget Text    Text#input    matches    \\\\d+ items    
         Supported operators: ==, !=, <, >, <=, >=, contains, not contains,
         starts, ends, matches, validate, then
+
+        Example:
+        | ${text}=    Get Widget Text    type:Text |
+        | Get Widget Text    type:Text    ==    Ready |
+        | Get Widget Text    name:textUsername    contains    admin |
         """
         # Validate input before any connection-dependent operations
         validate_locator(locator)
@@ -116,9 +117,8 @@ Get Widget Text    Text#input    matches    \\\\d+ items
         - Raises ``AssertionError`` if assertion fails after timeout
 
         Example:
-        ${count}=    Get Widget Count    Button         Get Widget Count | Button | > | 0 | |
-Get Widget Count    Table >> row    ==    5    
-Get Widget Count    Button:enabled    >=    1    
+        | ${count}=    Get Widget Count    type:Button |
+        | Get Widget Count    type:Button    >    0 |
         """
         timeout_val = timeout if timeout is not None else self._assertion_timeout
         msg = message or f"Widget count for '{locator}'"
@@ -160,10 +160,8 @@ Get Widget Count    Button:enabled    >=    1
         - Raises ``ElementNotFoundError`` if widget not found
 
         Example:
-        ${text}=    Get Widget Property    Label#title    text    
-Get Widget Property    Button#save    enabled    ==    ${True}    
-Get Widget Property    Text#name    text    contains    John    
-Get Widget Property    Combo#country    selectionIndex    >=    0    
+        | ${text}=    Get Widget Property    type:Label    text |
+        | Get Widget Property    type:Button    enabled    ==    ${True} |
         """
         timeout_val = timeout if timeout is not None else self._assertion_timeout
         msg = message or f"Widget '{locator}' property '{property_name}'"
@@ -207,8 +205,8 @@ Get Widget Property    Combo#country    selectionIndex    >=    0
         - Raises ``ElementNotFoundError`` if widget not found
 
         Example:
-        ${enabled}=    Is Widget Enabled    Button#submit         Is Widget Enabled | Button#submit | == | ${True} | |
-Is Widget Enabled    Button#next    ==    ${False}    
+        | ${enabled}=    Is Widget Enabled    type:Button |
+        | Is Widget Enabled    text:OK    ==    ${True} |
         """
         timeout_val = timeout if timeout is not None else self._assertion_timeout
         msg = message or f"Widget '{locator}' enabled state"
@@ -253,8 +251,8 @@ Is Widget Enabled    Button#next    ==    ${False}
         - Raises ``ElementNotFoundError`` if widget not found
 
         Example:
-        ${visible}=    Is Widget Visible    Shell#main         Is Widget Visible | Group#options | == | ${True} | |
-Is Widget Visible    Label#error    ==    ${False}    
+        | ${visible}=    Is Widget Visible    type:Button |
+        | Is Widget Visible    text:OK    ==    ${True} |
         """
         timeout_val = timeout if timeout is not None else self._assertion_timeout
         msg = message or f"Widget '{locator}' visible state"
@@ -299,8 +297,8 @@ Is Widget Visible    Label#error    ==    ${False}
         - Raises ``ElementNotFoundError`` if widget not found
 
         Example:
-        ${focused}=    Is Widget Focused    Text#input         Is Widget Focused | Text#username | == | ${True} | |
-Is Widget Focused    Button#cancel    ==    ${False}    
+        | ${focused}=    Is Widget Focused    type:Text |
+        | Is Widget Focused    name:textUsername    ==    ${True} |
         """
         timeout_val = timeout if timeout is not None else self._assertion_timeout
         msg = message or f"Widget '{locator}' focused state"
@@ -349,9 +347,8 @@ Is Widget Focused    Button#cancel    ==    ${False}
         - Raises ``ElementNotFoundError`` if widget not found
 
         Example:
-        ${states}=    Get Widget States    Button#submit         Get Widget States | Button#submit | contains | visible, enabled | |
-Get Widget States    Text#input    not contains    readonly    
-Get Widget States    Button#check    contains    checked    
+        | ${states}=    Get Widget States    type:Button |
+        | Get Widget States    type:Button    contains    enabled |
         """
         timeout_val = timeout if timeout is not None else self._assertion_timeout
         msg = message or f"Widget '{locator}' states"
@@ -447,8 +444,8 @@ Get Widget States    Button#check    contains    checked
         - Raises ``ElementNotFoundError`` if widget not found
 
         Example:
-        ${props}=    Get Widget Properties    Button#submit         Should Be True    ${props}[enabled]        
-Get Widget Properties    Button#submit    contains    {'enabled': True}    
+        | ${props}=    Get Widget Properties    type:Button |
+        | Get Widget Properties    type:Button    contains    {'enabled': True} |
         """
         msg = message or f"Widget '{locator}' properties"
 
@@ -480,7 +477,7 @@ Get Widget Properties    Button#submit    contains    {'enabled': True}
         Returns the previous timeout value.
 
         Example:
-        ${old}=    Set Swt Assertion Timeout    10        # ... operations with 10s timeout ... Set Swt Assertion Timeout | ${old} |
+        | ${old}=    Set Swt Assertion Timeout    10 |
         """
         old = self._assertion_timeout
         self._assertion_timeout = timeout
@@ -491,7 +488,8 @@ Get Widget Properties    Button#submit    contains    {'enabled': True}
 =Argument=    =Description=
 ``interval``    Interval in seconds between assertion retries.    Returns the previous interval value.
 
-        Example:    ${old}=    Set Swt Assertion Interval    0.5
+        Example:
+        | ${old}=    Set Swt Assertion Interval    0.5 |
         """
         old = self._assertion_interval
         self._assertion_interval = interval
