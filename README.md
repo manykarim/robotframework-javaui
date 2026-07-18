@@ -1,6 +1,8 @@
 # Robot Framework Java GUI Library
 
-A high-performance Robot Framework library for automating Java **Swing**, **SWT**, and **Eclipse RCP** applications. Built with Rust and PyO3 for optimal performance, this library provides comprehensive support for testing Java desktop applications with modern inline assertions.
+Automate Java desktop apps — **Swing**, **SWT**, and **Eclipse RCP** — straight from Robot Framework. A Rust + PyO3 core does the heavy lifting so you write plain, readable test cases with inline assertions. Real widgets, real clicks, real screenshots. No brittle pixel-matching, no vendor lock-in.
+
+The Swiss Army knife for Java GUI testing: one library, three toolkits, human-readable tests.
 
 ## Features
 
@@ -21,9 +23,9 @@ The three toolkits are not at the same level of maturity. Support level reflects
 |---------|--------|----------|----------|-------|
 | **Swing** | `JavaGui.Swing` | ~108 | **Stable** | Fully implemented and exercised end-to-end against real Swing apps. Recommended for production use. |
 | **SWT** | `JavaGui.Swt` | ~71 | **Stable** | Fully implemented and exercised end-to-end against a real SWT app (widgets, shells, tables, trees, text, selection). |
-| **Eclipse RCP** | `JavaGui.Rcp` | ~75 | **Experimental — requires real Eclipse** | Perspective/view/editor and workbench-introspection keywords are backed by real Eclipse Workbench reflection. Introspection keywords (`Get All Rcp Views`, `Get All Rcp Editors`, `Get Rcp Component Tree`) require a running Eclipse RCP application; they are not usable against non-Eclipse targets. |
+| **Eclipse RCP** | `JavaGui.Rcp` | ~75 | **Beta — validated on real Eclipse & DBeaver** | Introspection (workbench, perspectives, views, editors) plus actions (show/close view, open perspective, execute command) run against a live Eclipse workbench — and are proven headless against **DBeaver Community Edition**, a real public RCP product, in the Docker harness under `tests/docker/rcp`. State-changing actions run on the SWT UI thread; generic widget keywords (`Find Widget`, `Input Text`, `Check Button`, `type:` locators) reach the workbench window. Needs a running Eclipse RCP app; not usable against non-Eclipse targets. |
 
-> **Note:** Keyword counts include deprecated aliases retained for backward compatibility. RCP support targets applications built on the Eclipse Rich Client Platform; validate against your specific application before relying on it in production.
+> **Note:** Keyword counts include deprecated aliases retained for backward compatibility. RCP targets applications built on the Eclipse Rich Client Platform — validate against your specific app before production. Want proof it works on a real product? Run `docker build -t rcp-dbeaver-harness tests/docker/rcp && docker run --rm -v "$PWD":/work rcp-dbeaver-harness` and read the embedded screenshots in `results/dbeaver/log.html`.
 
 ## Table of Contents
 
@@ -157,6 +159,8 @@ This package provides three libraries for different Java GUI frameworks:
 | **Swing** | `Library    JavaGui.Swing` | Java Swing applications (JButton, JTable, etc.) |
 | **Swt** | `Library    JavaGui.Swt` | SWT applications (Eclipse widgets) |
 | **Rcp** | `Library    JavaGui.Rcp` | Eclipse RCP applications (views, editors, perspectives) |
+
+**Full keyword reference:** every keyword — with a runnable example — lives in the generated Libdoc HTML: [`docs/keywords/Swing.html`](docs/keywords/Swing.html), [`docs/keywords/Swt.html`](docs/keywords/Swt.html), [`docs/keywords/Rcp.html`](docs/keywords/Rcp.html). Regenerate any time with `uv run invoke docs`.
 
 ### Library Import Options
 

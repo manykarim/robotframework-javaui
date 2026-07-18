@@ -192,3 +192,68 @@ jobs:
             agent/target/*.jar
             python/JavaGui/jars/*.jar
           if-no-files-found: warn
+
+  # Full RCP proof against a REAL public Eclipse RCP product (DBeaver Community
+  # Edition), headless in Docker. The test application is downloaded during the
+  # run (DBeaver + a full JDK are pulled into the harness image), the workbench
+  # is driven with the agent, and the run leaves framebuffer screenshots.
+  real-rcp-dbeaver:
+    name: Real RCP (DBeaver) headless
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          version: latest
+
+      - name: Setup Python
+        run: uv python install 3.12
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install build tools
+        run: uv tool install maturin
+
+      - name: Install dependencies (dev)
+        run: uv sync --all-extras --group dev
+
+      - name: Build agent + in-source Rust extension
+        run: |
+          uv run invoke build
+          uv run maturin develop --release
+
+      - name: Build harness image (downloads DBeaver + JDK)
+        run: docker build -t rcp-dbeaver-harness tests/docker/rcp
+
+      - name: Run + assert real DBeaver workbench suite (headless)
+        run: |
+          docker run --rm --shm-size=512m -v "$PWD":/work rcp-dbeaver-harness
+          python3 tests/docker/rcp/assert_results.py
+
+      - name: Run + assert real DBeaver widget suite (headless)
+        run: |
+          docker run --rm --shm-size=512m -e SUITE_DIR=/work/tests/robot/rcp/dbeaver_widgets -v "$PWD":/work rcp-dbeaver-harness
+          python3 tests/docker/rcp/assert_results.py
+
+      - name: Upload real RCP evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-rcp-dbeaver-evidence
+          path: |
+            results/dbeaver/log.html
+            results/dbeaver/report.html
+            results/dbeaver/shots/**
+            results/dbeaver/logs/**
+          if-no-files-found: warn

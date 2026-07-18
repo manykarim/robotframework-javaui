@@ -1363,6 +1363,58 @@ impl SwtLibrary {
         Ok(old)
     }
 
+    /// Capture a screenshot of the display or a single widget.
+    ///
+    /// Requests a screenshot from the SWT agent, decodes the returned PNG image,
+    /// and writes it to disk under the configured screenshot directory.
+    ///
+    /// | =Argument= | =Description= |
+    /// | ``filename`` | Output filename. Auto-generated with a timestamp if omitted. |
+    /// | ``locator`` | Optional widget locator for a partial screenshot. Captures the full display when omitted. |
+    ///
+    /// Returns the absolute path to the saved screenshot.
+    ///
+    /// Example:
+    /// | ${path}= | `Capture Screenshot` |
+    /// | ${path}= | `Capture Screenshot` | login.png |
+    /// | ${path}= | `Capture Screenshot` | locator=name:mainShell |
+    #[pyo3(signature = (filename=None, locator=None))]
+    pub fn capture_screenshot(
+        &self,
+        filename: Option<&str>,
+        locator: Option<&str>,
+    ) -> PyResult<String> {
+        self.ensure_connected()?;
+
+        let config = self.config.read().map_err(|_| {
+            SwingError::connection("Failed to acquire config lock")
+        })?;
+
+        let filename = filename.map(String::from).unwrap_or_else(|| {
+            let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S").to_string();
+            format!("screenshot_{}.{}", timestamp, config.screenshot_format)
+        });
+
+        let filepath = format!("{}/{}", config.screenshot_directory, filename);
+        drop(config);
+
+        // Resolve the target widget id (full-display capture when no locator).
+        let widget_id = match locator {
+            Some(loc) => self.get_widget_id(loc)?,
+            None => -1,
+        };
+
+        let result = self.send_rpc_request("captureScreenshot", serde_json::json!({
+            "widgetId": widget_id
+        }))?;
+
+        let data_url = result.as_str().ok_or_else(|| {
+            SwingError::connection("captureScreenshot did not return an image string")
+        })?;
+
+        crate::python::base_library::save_screenshot_data_url(data_url, &filepath)
+    }
+
     /// Check if connected to an SWT application.
     ///
     /// Returns ``True`` if connected to an SWT application, ``False`` otherwise.
@@ -1563,7 +1615,7 @@ impl SwtLibrary {
             let type_part = &locator[..eq_pos];
             let value_part = &locator[eq_pos + 1..];
             match type_part {
-                "class" | "name" | "text" | "index" | "id" => {
+                "class" | "name" | "text" | "type" | "index" | "id" => {
                     return (type_part.to_string(), value_part.to_string());
                 }
                 _ => {}
@@ -1575,7 +1627,7 @@ impl SwtLibrary {
             let type_part = &locator[..colon_pos];
             let value_part = &locator[colon_pos + 1..];
             match type_part {
-                "class" | "name" | "text" | "index" | "id" => {
+                "class" | "name" | "text" | "type" | "index" | "id" => {
                     return (type_part.to_string(), value_part.to_string());
                 }
                 _ => {}

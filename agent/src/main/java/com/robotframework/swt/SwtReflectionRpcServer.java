@@ -102,11 +102,21 @@ public class SwtReflectionRpcServer implements Runnable {
             String method = req.get("method").getAsString();
             JsonObject params = req.has("params") ? req.getAsJsonObject("params") : new JsonObject();
 
+            // Readiness/liveness methods must work BEFORE the Display exists (the RPC port
+            // opens ~6s before SWT loads). Everything else needs a live Display.
+            boolean requiresDisplay = !(method.equals("ping")
+                    || method.equals("waitForSwtReady")
+                    || method.equals("initialize")
+                    || method.equals("isInitialized"));
+
             // Ensure bridge is initialized
-            if (!SwtReflectionBridge.isInitialized()) {
+            if (requiresDisplay && !SwtReflectionBridge.isInitialized()) {
                 boolean initialized = SwtReflectionBridge.initialize();
                 if (!initialized) {
-                    response.add("error", createError(-32000, "SWT not initialized. Display not found."));
+                    // SWT_NOT_READY token lets the client distinguish "retry later"
+                    // (Display not loaded yet) from a hard failure.
+                    response.add("error", createError(-32000,
+                        "SWT_NOT_READY: SWT Display not initialized yet. Retry after waitForSwtReady."));
                     return gson.toJson(response);
                 }
             }
@@ -134,6 +144,14 @@ public class SwtReflectionRpcServer implements Runnable {
             case "isInitialized":
                 return new JsonPrimitive(SwtReflectionBridge.isInitialized());
 
+            case "waitForSwtReady": {
+                long timeoutMs = params.has("timeoutMs") ? params.get("timeoutMs").getAsLong() : 30000L;
+                boolean swtReady = SwtReflectionBridge.waitForSwtReady(timeoutMs);
+                JsonObject readyResult = new JsonObject();
+                readyResult.addProperty("ready", swtReady);
+                return readyResult;
+            }
+
             case "getShells":
             case "listShells":  // Add alias for compatibility with different test naming
                 return SwtReflectionBridge.getShells();
@@ -145,6 +163,11 @@ public class SwtReflectionRpcServer implements Runnable {
             case "getWidgetTree":
             case "getComponentTree":
                 return SwtReflectionBridge.getWidgetTree();
+
+            case "captureScreenshot":
+                return new JsonPrimitive(SwtReflectionBridge.captureScreenshotDataUrl(
+                        params.has("widgetId") ? params.get("widgetId").getAsInt()
+                        : params.has("componentId") ? params.get("componentId").getAsInt() : -1));
 
             case "click":
                 SwtReflectionBridge.click(getWidgetId(params));

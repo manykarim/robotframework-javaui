@@ -37,6 +37,20 @@ from JavaGui.validation import validate_locator
 
 logger = logging.getLogger(__name__)
 
+
+def _embed_screenshot_in_log(path: str) -> None:
+    """Embed a saved screenshot into the Robot Framework log (best-effort).
+
+    Uses Robot Framework's HTML logging to render the image inline in the log.
+    Falls back silently when running outside a Robot Framework context.
+    """
+    try:
+        from robot.api import logger as rf_logger
+
+        rf_logger.info(f'<img src="{path}">', html=True)
+    except Exception:  # pragma: no cover - non-Robot execution context
+        pass
+
 # AssertionEngine integration imports
 try:
     from assertionengine import AssertionOperator
@@ -1200,21 +1214,28 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
     # Screenshot Keywords
     # ==========================================================================
 
-    def capture_screenshot(self, filename: Optional[str] = None) -> str:
-        """Capture a screenshot of the application.
+    def capture_screenshot(
+        self, filename: Optional[str] = None, locator: Optional[str] = None
+    ) -> str:
+        """Capture a screenshot of the application and embed it in the Robot log.
 
         | **Argument** | **Description** |
         | ``filename`` | Optional filename for the screenshot. Auto-generated if not specified. |
+        | ``locator`` | Optional element locator for a partial screenshot. Captures the full screen when omitted. |
 
-        Returns the path to the saved screenshot file.
+        Returns the path to the saved screenshot file. The captured image is
+        also embedded into the Robot Framework log.
 
         Example:
         | ${path}=    Capture Screenshot
         | ${path}=    Capture Screenshot    filename=error.png
+        | ${path}=    Capture Screenshot    locator=name:errorDialog
         | Log    Screenshot saved to: ${path}
 
         """
-        return self._lib.capture_screenshot(filename)
+        path = self._lib.capture_screenshot(filename, locator)
+        _embed_screenshot_in_log(path)
+        return path
 
     def set_screenshot_directory(self, directory: str) -> None:
         """Set the directory for saving screenshots.
@@ -1449,7 +1470,11 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         locator: str,
         timeout=None,
     ) -> None:
-        """*DEPRECATED* Use ``Wait Until Element Is Visible`` instead."""
+        """*DEPRECATED* Use ``Wait Until Element Is Visible`` instead.
+
+        Example:
+        | Wait Until Element Visible    JButton#submit
+        """
         import warnings
         warnings.warn(
             "'Wait Until Element Visible' is deprecated. Use 'Wait Until Element Is Visible' instead.",
@@ -1462,7 +1487,11 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         locator: str,
         timeout=None,
     ) -> None:
-        """*DEPRECATED* Use ``Wait Until Element Is Enabled`` instead."""
+        """*DEPRECATED* Use ``Wait Until Element Is Enabled`` instead.
+
+        Example:
+        | Wait Until Element Enabled    JButton#next
+        """
         import warnings
         warnings.warn(
             "'Wait Until Element Enabled' is deprecated. Use 'Wait Until Element Is Enabled' instead.",
@@ -1632,7 +1661,12 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         )
 
     def log_component_tree(self, locator: Optional[str] = None) -> None:
-        """Alias for `Log UI Tree`."""
+        """Alias for `Log UI Tree`.
+
+        Example:
+        | Log Component Tree
+        | Log Component Tree    JPanel#main
+        """
         self._lib.log_ui_tree(locator)
 
     def list_applications(self) -> List[str]:
@@ -2513,20 +2547,59 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
     def connect_to_swt_application(
         self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None
     ):
-        """Connect to an SWT application."""
+        """Connect to an SWT application.
+
+        Example:
+        | Connect To Swt Application    MyApp
+        | Connect To Swt Application    MyApp    host=localhost    port=5679
+        """
         return self._lib.connect_to_swt_application(app, host, port, timeout)
 
     def disconnect(self):
-        """Disconnect from the SWT application."""
+        """Disconnect from the SWT application.
+
+        Example:
+        | Disconnect
+        """
         return self._lib.disconnect()
 
     def is_connected(self) -> bool:
-        """Check if connected to an SWT application."""
+        """Check if connected to an SWT application.
+
+        Example:
+        | ${connected}=    Is Connected
+        | Should Be True    ${connected}
+        """
         return self._lib.is_connected()
+
+    def capture_screenshot(
+        self, filename: Optional[str] = None, locator: Optional[str] = None
+    ) -> str:
+        """Capture a screenshot of the display and embed it in the Robot log.
+
+        | **Argument** | **Description** |
+        | ``filename`` | Optional filename for the screenshot. Auto-generated if not specified. |
+        | ``locator`` | Optional widget locator for a partial screenshot. Captures the full display when omitted. |
+
+        Returns the path to the saved screenshot file. The captured image is
+        also embedded into the Robot Framework log.
+
+        Example:
+        | ${path}=    Capture Screenshot
+        | ${path}=    Capture Screenshot    filename=error.png
+        | ${path}=    Capture Screenshot    locator=name:mainShell
+        """
+        path = self._lib.capture_screenshot(filename, locator)
+        _embed_screenshot_in_log(path)
+        return path
 
     # Shell Keywords
     def get_shells(self):
-        """Get all shells."""
+        """Get all shells.
+
+        Example:
+        | ${shells}=    Get Shells
+        """
         return self._lib.get_shells()
 
     def get_all_shells(self):
@@ -2542,166 +2615,317 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
         return self._lib.get_shells()
 
     def activate_shell(self, locator: str):
-        """Activate a shell."""
+        """Activate a shell.
+
+        Example:
+        | Activate Shell    name:mainShell
+        """
         self._validate_locator(locator)
         return self._lib.activate_shell(locator)
 
     def close_shell(self, locator: str):
-        """Close a shell."""
+        """Close a shell.
+
+        Example:
+        | Close Shell    name:dialogShell
+        """
         self._validate_locator(locator)
         return self._lib.close_shell(locator)
 
     # Widget Finding Keywords
     def find_widget(self, locator: str):
-        """Find a single widget."""
+        """Find a single widget.
+
+        Example:
+        | ${widget}=    Find Widget    type:Button
+        | ${widget}=    Find Widget    name:username
+        """
         self._validate_locator(locator)
         return self._lib.find_widget(locator)
 
     def find_widgets(self, locator: str):
-        """Find all matching widgets."""
+        """Find all matching widgets.
+
+        Example:
+        | ${widgets}=    Find Widgets    type:Button
+        """
         self._validate_locator(locator)
         return self._lib.find_widgets(locator)
 
     # Click Keywords
     def click_widget(self, locator: str):
-        """Click on a widget."""
+        """Click on a widget.
+
+        Example:
+        | Click Widget    type:Button
+        | Click Widget    text:OK
+        """
         self._validate_locator(locator)
         return self._lib.click_widget(locator)
 
     def double_click_widget(self, locator: str):
-        """Double-click on a widget."""
+        """Double-click on a widget.
+
+        Example:
+        | Double Click Widget    name:fileTree
+        """
         self._validate_locator(locator)
         return self._lib.double_click_widget(locator)
 
     # Text Input Keywords
     def input_text(self, locator: str, text: str, clear: bool = True):
-        """Input text into a widget."""
+        """Input text into a widget.
+
+        Example:
+        | Input Text    name:username    admin
+        | Input Text    type:Text    hello    clear=False
+        """
         self._validate_locator(locator)
         return self._lib.input_text(locator, text, clear)
 
     def clear_text(self, locator: str):
-        """Clear text from a widget."""
+        """Clear text from a widget.
+
+        Example:
+        | Clear Text    name:username
+        """
         self._validate_locator(locator)
         return self._lib.clear_text(locator)
 
     # Selection Keywords
     def select_combo_item(self, locator: str, item: str):
-        """Select an item from a combo box."""
+        """Select an item from a combo box.
+
+        Example:
+        | Select Combo Item    name:country    Canada
+        """
         self._validate_locator(locator)
         return self._lib.select_combo_item(locator, item)
 
     def select_list_item(self, locator: str, item: str):
-        """Select an item from a list."""
+        """Select an item from a list.
+
+        Example:
+        | Select List Item    name:itemList    Item 1
+        """
         return self._lib.select_list_item(locator, item)
 
     def check_button(self, locator: str):
-        """Check a checkbox or toggle button."""
+        """Check a checkbox or toggle button.
+
+        Example:
+        | Check Button    text:Remember me
+        """
         self._validate_locator(locator)
         return self._lib.check_button(locator)
 
     def uncheck_button(self, locator: str):
-        """Uncheck a checkbox or toggle button."""
+        """Uncheck a checkbox or toggle button.
+
+        Example:
+        | Uncheck Button    text:Remember me
+        """
         self._validate_locator(locator)
         return self._lib.uncheck_button(locator)
 
     # Table Keywords
     def get_table_row_count(self, locator: str) -> int:
-        """Get the number of rows in a table."""
+        """Get the number of rows in a table.
+
+        Example:
+        | ${count}=    Get Table Row Count    name:dataTable
+        """
         return self._lib.get_table_row_count(locator)
 
     def get_table_cell(self, locator: str, row: int, col: int) -> str:
-        """Get the value of a table cell."""
+        """Get the value of a table cell.
+
+        Example:
+        | ${value}=    Get Table Cell    name:dataTable    0    1
+        """
         return self._lib.get_table_cell(locator, row, col)
 
     def select_table_row(self, locator: str, row: int):
-        """Select a table row."""
+        """Select a table row.
+
+        Example:
+        | Select Table Row    name:dataTable    2
+        """
         return self._lib.select_table_row(locator, row)
 
     def get_table_row_values(self, locator: str, row: int):
-        """Get all values from a table row."""
+        """Get all values from a table row.
+
+        Example:
+        | ${values}=    Get Table Row Values    name:dataTable    0
+        """
         return self._lib.get_table_row_values(locator, row)
 
     def select_table_rows(self, locator: str, rows: List[int]):
-        """Select multiple table rows."""
+        """Select multiple table rows.
+
+        Example:
+        | @{rows}=    Create List    0    2    4
+        | Select Table Rows    name:dataTable    ${rows}
+        """
         return self._lib.select_table_rows(locator, rows)
 
     def deselect_all_table_rows(self, locator: str):
-        """Deselect all table rows."""
+        """Deselect all table rows.
+
+        Example:
+        | Deselect All Table Rows    name:dataTable
+        """
         return self._lib.deselect_all_table_rows(locator)
 
     def select_table_row_by_value(self, locator: str, column: int, value: str) -> int:
-        """Select a table row by cell value."""
+        """Select a table row by cell value.
+
+        Example:
+        | ${row}=    Select Table Row By Value    name:dataTable    0    Alice
+        """
         return self._lib.select_table_row_by_value(locator, column, value)
 
     def select_table_row_range(self, locator: str, start_row: int, end_row: int):
-        """Select a range of table rows."""
+        """Select a range of table rows.
+
+        Example:
+        | Select Table Row Range    name:dataTable    1    3
+        """
         return self._lib.select_table_row_range(locator, start_row, end_row)
 
     def click_table_column_header(self, locator: str, column: int):
-        """Click a table column header."""
+        """Click a table column header.
+
+        Example:
+        | Click Table Column Header    name:dataTable    0
+        """
         return self._lib.click_table_column_header(locator, column)
 
     def get_table_columns(self, locator: str):
-        """Get table column headers."""
+        """Get table column headers.
+
+        Example:
+        | ${columns}=    Get Table Columns    name:dataTable
+        """
         return self._lib.get_table_columns(locator)
 
     # Tree Keywords
     def expand_tree_item(self, locator: str, path: str):
-        """Expand a tree item."""
+        """Expand a tree item.
+
+        Example:
+        | Expand Tree Item    name:fileTree    Project A
+        """
         return self._lib.expand_tree_item(locator, path)
 
     def collapse_tree_item(self, locator: str, path: str):
-        """Collapse a tree item."""
+        """Collapse a tree item.
+
+        Example:
+        | Collapse Tree Item    name:fileTree    Project A
+        """
         return self._lib.collapse_tree_item(locator, path)
 
     def select_tree_item(self, locator: str, path: str):
-        """Select a tree item."""
+        """Select a tree item.
+
+        Example:
+        | Select Tree Item    name:fileTree    Project A|src
+        """
         return self._lib.select_tree_item(locator, path)
 
     def select_tree_nodes(self, locator: str, paths: List[str]):
-        """Select multiple tree nodes."""
+        """Select multiple tree nodes.
+
+        Example:
+        | @{paths}=    Create List    Project A    Project B
+        | Select Tree Nodes    name:fileTree    ${paths}
+        """
         return self._lib.select_tree_nodes(locator, paths)
 
     def get_tree_node_parent(self, locator: str, node_name: str) -> str:
-        """Get the parent of a tree node."""
+        """Get the parent of a tree node.
+
+        Example:
+        | ${parent}=    Get Tree Node Parent    name:fileTree    src
+        """
         return self._lib.get_tree_node_parent(locator, node_name)
 
     def get_tree_node_level(self, locator: str, node_name: str) -> int:
-        """Get the level of a tree node."""
+        """Get the level of a tree node.
+
+        Example:
+        | ${level}=    Get Tree Node Level    name:fileTree    src
+        """
         return self._lib.get_tree_node_level(locator, node_name)
 
     def tree_node_exists(self, locator: str, node_name: str) -> bool:
-        """Check if a tree node exists."""
+        """Check if a tree node exists.
+
+        Example:
+        | ${exists}=    Tree Node Exists    name:fileTree    Project A
+        """
         return self._lib.tree_node_exists(locator, node_name)
 
     def get_selected_tree_nodes(self, locator: str):
-        """Get selected tree nodes."""
+        """Get selected tree nodes.
+
+        Example:
+        | ${nodes}=    Get Selected Tree Nodes    name:fileTree
+        """
         return self._lib.get_selected_tree_nodes(locator)
 
     def deselect_all_tree_nodes(self, locator: str):
-        """Deselect all tree nodes."""
+        """Deselect all tree nodes.
+
+        Example:
+        | Deselect All Tree Nodes    name:fileTree
+        """
         return self._lib.deselect_all_tree_nodes(locator)
 
     # Wait Keywords
     def wait_until_widget_exists(self, locator: str, timeout: Optional[float] = None):
-        """Wait until a widget exists."""
+        """Wait until a widget exists.
+
+        Example:
+        | Wait Until Widget Exists    name:username
+        | Wait Until Widget Exists    type:Button    timeout=10
+        """
         return self._lib.wait_until_widget_exists(locator, timeout)
 
     def wait_until_widget_enabled(self, locator: str, timeout: Optional[float] = None):
-        """Wait until a widget is enabled."""
+        """Wait until a widget is enabled.
+
+        Example:
+        | Wait Until Widget Enabled    type:Button
+        | Wait Until Widget Enabled    text:Submit    timeout=10
+        """
         return self._lib.wait_until_widget_enabled(locator, timeout)
 
     # Verification Keywords
     def widget_should_be_visible(self, locator: str):
-        """Verify that a widget is visible."""
+        """Verify that a widget is visible.
+
+        Example:
+        | Widget Should Be Visible    name:username
+        """
         return self._lib.widget_should_be_visible(locator)
 
     def widget_should_be_enabled(self, locator: str):
-        """Verify that a widget is enabled."""
+        """Verify that a widget is enabled.
+
+        Example:
+        | Widget Should Be Enabled    text:Submit
+        """
         return self._lib.widget_should_be_enabled(locator)
 
     def widget_text_should_be(self, locator: str, expected: str):
-        """Verify widget text."""
+        """Verify widget text.
+
+        Example:
+        | Widget Text Should Be    name:status    Ready
+        """
         return self._lib.widget_text_should_be(locator, expected)
 
     def get_widget_property(self, locator: str, property_name: str) -> Any:
@@ -2726,7 +2950,11 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
 
     # Configuration Keywords
     def set_timeout(self, timeout: float) -> float:
-        """Set the default timeout."""
+        """Set the default timeout.
+
+        Example:
+        | Set Timeout    30
+        """
         self._timeout = timeout
         return self._lib.set_timeout(timeout)
 
@@ -3319,26 +3547,108 @@ class RcpLibrary(RcpKeywords):
     def connect_to_swt_application(
         self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None
     ):
-        """Connect to an RCP/SWT application."""
-        return self._lib.connect_to_swt_application(app, host, port, timeout)
+        """Connect to an RCP/SWT application.
+
+        Tolerates an agent that is still starting: if the connection or a
+        readiness check fails with an ``SWT_NOT_READY`` error, the connection is
+        retried until the connect timeout elapses. This is common for Eclipse
+        RCP applications whose agent attaches before SWT has fully initialized.
+
+        Example:
+        | Connect To Swt Application    MyRcpApp
+        | Connect To Swt Application    MyRcpApp    host=localhost    port=5679
+        """
+        import time
+
+        connect_timeout = float(timeout if timeout is not None else self._timeout)
+        deadline = time.monotonic() + connect_timeout
+        poll_interval = 0.5
+
+        while True:
+            try:
+                return self._lib.connect_to_swt_application(app, host, port, timeout)
+            except Exception as exc:  # noqa: BLE001 - re-raised unless SWT_NOT_READY
+                if "SWT_NOT_READY" in str(exc) and time.monotonic() < deadline:
+                    time.sleep(poll_interval)
+                    continue
+                raise
 
     def connect_to_application(
         self, app: str, host: str = "localhost", port: int = 5679, timeout: Optional[float] = None
     ):
-        """Connect to an RCP application (alias)."""
+        """Connect to an RCP application (alias).
+
+        Example:
+        | Connect To Application    MyRcpApp    port=5679
+        """
         return self._lib.connect_to_application(app, host, port, timeout)
 
     def disconnect(self):
-        """Disconnect from the RCP application."""
+        """Disconnect from the RCP application.
+
+        Example:
+        | Disconnect
+        """
         return self._lib.disconnect()
 
     def is_connected(self) -> bool:
-        """Check if connected to an RCP application."""
+        """Check if connected to an RCP application.
+
+        Example:
+        | ${connected}=    Is Connected
+        | Should Be True    ${connected}
+        """
         return self._lib.is_connected()
+
+    def wait_until_swt_ready(self, timeout: float = 30.0) -> bool:
+        """Wait until the SWT/RCP agent reports that SWT is ready.
+
+        Invokes the agent's ``waitForSwtReady`` RPC, which blocks until the SWT
+        display and workbench have finished starting (or the timeout elapses).
+
+        | **Argument** | **Description** |
+        | ``timeout`` | Maximum time to wait for readiness, in seconds. Default ``30``. |
+
+        Returns ``True`` when SWT became ready, ``False`` otherwise.
+
+        Example:
+        | Wait Until Swt Ready
+        | ${ready}=    Wait Until Swt Ready    timeout=60
+        """
+        try:
+            timeout_secs = float(timeout)
+        except (TypeError, ValueError):
+            timeout_secs = 30.0
+        timeout_ms = int(timeout_secs * 1000)
+        return self._lib.wait_for_swt_ready(timeout_ms)
+
+    def capture_screenshot(
+        self, filename: Optional[str] = None, locator: Optional[str] = None
+    ) -> str:
+        """Capture a screenshot of the workbench and embed it in the Robot log.
+
+        | **Argument** | **Description** |
+        | ``filename`` | Optional filename for the screenshot. Auto-generated if not specified. |
+        | ``locator`` | Optional widget locator for a partial screenshot. Captures the full display when omitted. |
+
+        Returns the path to the saved screenshot file. The captured image is
+        also embedded into the Robot Framework log.
+
+        Example:
+        | ${path}=    Capture Screenshot
+        | ${path}=    Capture Screenshot    filename=workbench.png
+        """
+        path = self._lib.capture_screenshot(filename, locator)
+        _embed_screenshot_in_log(path)
+        return path
 
     # Shell Keywords
     def get_shells(self):
-        """Get all shells."""
+        """Get all shells.
+
+        Example:
+        | ${shells}=    Get Shells
+        """
         return self._lib.get_shells()
 
     def get_all_shells(self):
@@ -3354,169 +3664,382 @@ class RcpLibrary(RcpKeywords):
         return self._lib.get_shells()
 
     def activate_shell(self, locator: str):
-        """Activate a shell."""
+        """Activate a shell.
+
+        Example:
+        | Activate Shell    name:mainShell
+        """
         self._validate_locator(locator)
         return self._lib.activate_shell(locator)
 
     def close_shell(self, locator: str):
-        """Close a shell."""
+        """Close a shell.
+
+        Example:
+        | Close Shell    name:dialogShell
+        """
         self._validate_locator(locator)
         return self._lib.close_shell(locator)
 
     # Widget Finding Keywords
     def find_widget(self, locator: str):
-        """Find a single widget."""
+        """Find a single widget.
+
+        Example:
+        | ${widget}=    Find Widget    type:Button
+        | ${widget}=    Find Widget    name:username
+        """
         self._validate_locator(locator)
         return self._lib.find_widget(locator)
 
     def find_widgets(self, locator: str):
-        """Find all matching widgets."""
+        """Find all matching widgets.
+
+        Example:
+        | ${widgets}=    Find Widgets    type:Button
+        """
         self._validate_locator(locator)
         return self._lib.find_widgets(locator)
 
     # Click Keywords
     def click_widget(self, locator: str):
-        """Click on a widget."""
+        """Click on a widget.
+
+        Example:
+        | Click Widget    type:Button
+        | Click Widget    text:OK
+        """
         self._validate_locator(locator)
         return self._lib.click_widget(locator)
 
     def double_click_widget(self, locator: str):
-        """Double-click on a widget."""
+        """Double-click on a widget.
+
+        Example:
+        | Double Click Widget    name:fileTree
+        """
         self._validate_locator(locator)
         return self._lib.double_click_widget(locator)
 
     # Text Input Keywords
     def input_text(self, locator: str, text: str, clear: bool = True):
-        """Input text into a widget."""
+        """Input text into a widget.
+
+        Example:
+        | Input Text    name:username    admin
+        | Input Text    type:Text    hello    clear=False
+        """
         self._validate_locator(locator)
         return self._lib.input_text(locator, text, clear)
 
     def clear_text(self, locator: str):
-        """Clear text from a widget."""
+        """Clear text from a widget.
+
+        Example:
+        | Clear Text    name:username
+        """
         self._validate_locator(locator)
         return self._lib.clear_text(locator)
 
     # Selection Keywords
     def select_combo_item(self, locator: str, item: str):
-        """Select an item from a combo box."""
+        """Select an item from a combo box.
+
+        Example:
+        | Select Combo Item    name:country    Canada
+        """
         self._validate_locator(locator)
         return self._lib.select_combo_item(locator, item)
 
     def select_list_item(self, locator: str, item: str):
-        """Select an item from a list."""
+        """Select an item from a list.
+
+        Example:
+        | Select List Item    name:itemList    Item 1
+        """
         return self._lib.select_list_item(locator, item)
 
     def check_button(self, locator: str):
-        """Check a checkbox or toggle button."""
+        """Check a checkbox or toggle button.
+
+        Example:
+        | Check Button    text:Remember me
+        """
         self._validate_locator(locator)
         return self._lib.check_button(locator)
 
     def uncheck_button(self, locator: str):
-        """Uncheck a checkbox or toggle button."""
+        """Uncheck a checkbox or toggle button.
+
+        Example:
+        | Uncheck Button    text:Remember me
+        """
         self._validate_locator(locator)
         return self._lib.uncheck_button(locator)
 
     # Table Keywords
     def get_table_row_count(self, locator: str) -> int:
-        """Get the number of rows in a table."""
+        """Get the number of rows in a table.
+
+        Example:
+        | ${count}=    Get Table Row Count    name:dataTable
+        """
         return self._lib.get_table_row_count(locator)
 
     def get_table_cell(self, locator: str, row: int, col: int) -> str:
-        """Get the value of a table cell."""
+        """Get the value of a table cell.
+
+        Example:
+        | ${value}=    Get Table Cell    name:dataTable    0    1
+        """
         return self._lib.get_table_cell(locator, row, col)
 
     def select_table_row(self, locator: str, row: int):
-        """Select a table row."""
+        """Select a table row.
+
+        Example:
+        | Select Table Row    name:dataTable    2
+        """
         return self._lib.select_table_row(locator, row)
 
     # Tree Keywords
     def expand_tree_item(self, locator: str, path: str):
-        """Expand a tree item."""
+        """Expand a tree item.
+
+        Example:
+        | Expand Tree Item    name:fileTree    Project A
+        """
         return self._lib.expand_tree_item(locator, path)
 
     def collapse_tree_item(self, locator: str, path: str):
-        """Collapse a tree item."""
+        """Collapse a tree item.
+
+        Example:
+        | Collapse Tree Item    name:fileTree    Project A
+        """
         return self._lib.collapse_tree_item(locator, path)
 
     def select_tree_item(self, locator: str, path: str):
-        """Select a tree item."""
+        """Select a tree item.
+
+        Example:
+        | Select Tree Item    name:fileTree    Project A|src
+        """
         return self._lib.select_tree_item(locator, path)
 
     # Wait Keywords
     def wait_until_widget_exists(self, locator: str, timeout: Optional[float] = None):
-        """Wait until a widget exists."""
+        """Wait until a widget exists.
+
+        Example:
+        | Wait Until Widget Exists    name:username
+        | Wait Until Widget Exists    type:Button    timeout=10
+        """
         return self._lib.wait_until_widget_exists(locator, timeout)
 
     def wait_until_widget_enabled(self, locator: str, timeout: Optional[float] = None):
-        """Wait until a widget is enabled."""
+        """Wait until a widget is enabled.
+
+        Example:
+        | Wait Until Widget Enabled    type:Button    timeout=10
+        """
         return self._lib.wait_until_widget_enabled(locator, timeout)
 
     # Verification Keywords
     def widget_should_be_visible(self, locator: str):
-        """Verify that a widget is visible."""
+        """Verify that a widget is visible.
+
+        Example:
+        | Widget Should Be Visible    name:username
+        """
         return self._lib.widget_should_be_visible(locator)
 
     def widget_should_be_enabled(self, locator: str):
-        """Verify that a widget is enabled."""
+        """Verify that a widget is enabled.
+
+        Example:
+        | Widget Should Be Enabled    text:Submit
+        """
         return self._lib.widget_should_be_enabled(locator)
 
     def widget_text_should_be(self, locator: str, expected: str):
-        """Verify widget text."""
+        """Verify widget text.
+
+        Example:
+        | Widget Text Should Be    name:status    Ready
+        """
         return self._lib.widget_text_should_be(locator, expected)
+
+    def get_widget_property(self, locator: str, property_name: str):
+        """Get a property value from an SWT/RCP widget.
+
+        | **Argument** | **Description** |
+        | ``locator`` | Widget locator. |
+        | ``property_name`` | Property name (``text``, ``enabled``, ``visible``, ``focused``, ``selection``, ...). |
+
+        Reads the widget's full property map via ``find_widget().to_dict()`` and returns the
+        named value (``None`` if absent). Mirrors the SWT library keyword for API consistency.
+
+        Example:
+        | ${text}=    Get Widget Property    name:username    text
+        | ${enabled}=    Get Widget Property    text:Submit    enabled
+        """
+        widget = self._lib.find_widget(locator)
+        props = widget.to_dict() if widget is not None else {}
+        return props.get(property_name)
 
     # Configuration Keywords
     def set_timeout(self, timeout: float) -> float:
-        """Set the default timeout."""
+        """Set the default timeout.
+
+        Example:
+        | Set Timeout    30
+        """
         self._timeout = timeout
         return self._lib.set_timeout(timeout)
 
     # RCP-Specific Keywords
     def get_workbench_info(self):
-        """Get workbench information."""
+        """Get workbench information.
+
+        Example:
+        | ${info}=    Get Workbench Info
+        """
         return self._lib.get_workbench_info()
 
+    def get_rcp_component_tree(self, max_depth: int = 5, format: str = "json") -> str:
+        """Get RCP component tree hierarchy.
+
+        Returns a hierarchical representation of Eclipse RCP components including
+        workbench windows, perspectives, views, and editors with their underlying
+        SWT widgets exposed.
+
+        | **Argument** | **Description** |
+        | ``max_depth`` | Maximum depth for SWT widget trees (default: 5). |
+        | ``format`` | Output format: json, text, or yaml (default: json). |
+
+        Returns RCP component tree as a string in the specified format.
+
+        Example:
+        | ${tree}=    Get RCP Component Tree
+        | ${tree}=    Get RCP Component Tree    max_depth=3    format=text
+        """
+        return self._lib.get_rcp_component_tree(max_depth, format)
+
+    def get_all_rcp_views(self, include_swt_widgets: bool = False) -> str:
+        """Get all RCP views with optional SWT widget information.
+
+        | **Argument** | **Description** |
+        | ``include_swt_widgets`` | Include underlying SWT widget trees (default: False). |
+
+        Returns JSON array of all open views.
+
+        Example:
+        | ${views}=    Get All RCP Views
+        | ${views}=    Get All RCP Views    include_swt_widgets=True
+        """
+        return self._lib.get_all_rcp_views(include_swt_widgets)
+
+    def get_all_rcp_editors(self, include_swt_widgets: bool = False) -> str:
+        """Get all RCP editors with optional SWT widget information.
+
+        | **Argument** | **Description** |
+        | ``include_swt_widgets`` | Include underlying SWT widget trees (default: False). |
+
+        Returns JSON array of all open editors.
+
+        Example:
+        | ${editors}=    Get All RCP Editors
+        | ${editors}=    Get All RCP Editors    include_swt_widgets=True
+        """
+        return self._lib.get_all_rcp_editors(include_swt_widgets)
+
     def get_active_perspective(self) -> str:
-        """Get the active perspective ID."""
+        """Get the active perspective ID.
+
+        Example:
+        | ${perspective}=    Get Active Perspective
+        """
         return self._lib.get_active_perspective()
 
     def open_perspective(self, perspective_id: str):
-        """Open a perspective by ID."""
+        """Open a perspective by ID.
+
+        Example:
+        | Open Perspective    org.eclipse.ui.resourcePerspective
+        """
         return self._lib.open_perspective(perspective_id)
 
     def reset_perspective(self):
-        """Reset the current perspective."""
+        """Reset the current perspective.
+
+        Example:
+        | Reset Perspective
+        """
         return self._lib.reset_perspective()
 
     def get_available_perspectives(self):
-        """Get available perspectives."""
+        """Get available perspectives.
+
+        Example:
+        | ${perspectives}=    Get Available Perspectives
+        """
         return self._lib.get_available_perspectives()
 
     def show_view(self, view_id: str, secondary_id: Optional[str] = None):
-        """Show a view by ID."""
+        """Show a view by ID.
+
+        Example:
+        | Show View    org.eclipse.ui.views.ContentOutline
+        """
         return self._lib.show_view(view_id, secondary_id)
 
     def close_view(self, view_id: str, secondary_id: Optional[str] = None):
-        """Close a view by ID."""
+        """Close a view by ID.
+
+        Example:
+        | Close View    org.eclipse.ui.views.ContentOutline
+        """
         return self._lib.close_view(view_id, secondary_id)
 
     def activate_view(self, view_id: str):
-        """Activate a view."""
+        """Activate a view.
+
+        Example:
+        | Activate View    org.eclipse.ui.views.ProblemView
+        """
         return self._lib.activate_view(view_id)
 
     def view_should_be_visible(self, view_id: str):
-        """Verify view is visible."""
+        """Verify view is visible.
+
+        Example:
+        | View Should Be Visible    org.eclipse.ui.views.ContentOutline
+        """
         return self._lib.view_should_be_visible(view_id)
 
     def get_open_views(self):
-        """Get open views."""
+        """Get open views.
+
+        Example:
+        | ${views}=    Get Open Views
+        """
         return self._lib.get_open_views()
 
     def get_view_widget(self, view_id: str, locator: str):
-        """Get a widget in a view."""
+        """Get a widget in a view.
+
+        Example:
+        | ${widget}=    Get View Widget    org.eclipse.ui.views.ContentOutline    type:Tree
+        """
         return self._lib.get_view_widget(view_id, locator)
 
     def get_active_editor(self):
-        """Get the active editor."""
+        """Get the active editor.
+
+        Example:
+        | ${editor}=    Get Active Editor
+        """
         return self._lib.get_active_editor()
 
     def get_open_editors(self):
@@ -3534,75 +4057,152 @@ class RcpLibrary(RcpKeywords):
         return self._lib.get_open_editors()
 
     def open_editor(self, file_path: str):
-        """Open an editor for a file."""
+        """Open an editor for a file.
+
+        Example:
+        | Open Editor    /test-project/src/Test.java
+        """
         return self._lib.open_editor(file_path)
 
     def close_editor(self, title: str, save: bool = False):
-        """Close an editor."""
+        """Close an editor.
+
+        Example:
+        | Close Editor    Test.java
+        | Close Editor    Test.java    save=True
+        """
         return self._lib.close_editor(title, save)
 
     def close_all_editors(self, save: bool = False) -> bool:
-        """Close all editors."""
+        """Close all editors.
+
+        Example:
+        | Close All Editors
+        | Close All Editors    save=True
+        """
         return self._lib.close_all_editors(save)
 
     def save_editor(self, title: Optional[str] = None):
-        """Save an editor."""
+        """Save an editor.
+
+        Example:
+        | Save Editor
+        | Save Editor    Test.java
+        """
         return self._lib.save_editor(title)
 
     def save_all_editors(self):
-        """Save all editors."""
+        """Save all editors.
+
+        Example:
+        | Save All Editors
+        """
         return self._lib.save_all_editors()
 
     def activate_editor(self, title: str):
-        """Activate an editor."""
+        """Activate an editor.
+
+        Example:
+        | Activate Editor    Test.java
+        """
         return self._lib.activate_editor(title)
 
     def is_editor_dirty(self, file_path: str) -> bool:
-        """Check if an editor has unsaved changes."""
+        """Check if an editor has unsaved changes.
+
+        Example:
+        | ${dirty}=    Is Editor Dirty    /test-project/src/Test.java
+        """
         return self._lib.is_editor_dirty(file_path)
 
     def editor_should_be_dirty(self, file_path: str):
-        """Verify that an editor has unsaved changes."""
+        """Verify that an editor has unsaved changes.
+
+        Example:
+        | Editor Should Be Dirty    /test-project/src/Test.java
+        """
         return self._lib.editor_should_be_dirty(file_path)
 
     def editor_should_not_be_dirty(self, file_path: str):
-        """Verify that an editor has no unsaved changes."""
+        """Verify that an editor has no unsaved changes.
+
+        Example:
+        | Editor Should Not Be Dirty    /test-project/src/Test.java
+        """
         return self._lib.editor_should_not_be_dirty(file_path)
 
     def get_editor_widget(self, title: str, locator: str):
-        """Find a widget within an editor."""
+        """Find a widget within an editor.
+
+        Example:
+        | ${widget}=    Get Editor Widget    Test.java    type:StyledText
+        """
         return self._lib.get_editor_widget(title, locator)
 
     def execute_command(self, command_id: str):
-        """Execute an Eclipse command."""
+        """Execute an Eclipse command.
+
+        Example:
+        | Execute Command    org.eclipse.ui.window.preferences
+        """
         return self._lib.execute_command(command_id)
 
     def get_available_commands(self, category: Optional[str] = None):
-        """Get available commands."""
+        """Get available commands.
+
+        Example:
+        | ${commands}=    Get Available Commands
+        | ${commands}=    Get Available Commands    category=File
+        """
         return self._lib.get_available_commands(category)
 
     def click_toolbar_item(self, tooltip: str):
-        """Click a toolbar item."""
+        """Click a toolbar item.
+
+        Example:
+        | Click Toolbar Item    Save
+        """
         return self._lib.click_toolbar_item(tooltip)
 
     def open_preferences(self):
-        """Open preferences dialog."""
+        """Open preferences dialog.
+
+        Example:
+        | Open Preferences
+        """
         return self._lib.open_preferences()
 
     def navigate_to_preference_page(self, path: str):
-        """Navigate to a preference page."""
+        """Navigate to a preference page.
+
+        Example:
+        | Navigate To Preference Page    General/Editors
+        """
         return self._lib.navigate_to_preference_page(path)
 
     def select_main_menu(self, path: str):
-        """Select main menu item."""
+        """Select main menu item.
+
+        Example:
+        | Select Main Menu    File/New/Project
+        """
         return self._lib.select_main_menu(path)
 
     def select_context_menu(self, locator: str, path: str):
-        """Select context menu item."""
+        """Select context menu item.
+
+        Example:
+        | Select Context Menu    name:fileTree    Copy
+        """
         return self._lib.select_context_menu(locator, path)
 
     def wait_for_workbench(self, timeout: Optional[float] = None):
-        """Wait for workbench to be ready."""
+        """Wait for workbench to be ready.
+
+        Example:
+        | Wait For Workbench
+        | Wait For Workbench    timeout=30
+        """
         return self._lib.wait_for_workbench(timeout)
 
     def __getattr__(self, name: str):

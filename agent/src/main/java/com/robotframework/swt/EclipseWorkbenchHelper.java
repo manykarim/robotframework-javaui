@@ -257,28 +257,51 @@ public class EclipseWorkbenchHelper {
     }
 
     /**
+     * Resolve the active workbench window WITHOUT wrapping in syncExec.
+     * MUST be called from within an existing syncExec (i.e. on the SWT UI thread);
+     * getActiveWorkbenchWindow() returns null off the UI thread.
+     */
+    private static Object activeWindowOnUiThread() throws Exception {
+        Object workbench = getWorkbench();
+        if (workbench == null) return null;
+        Method getActiveWindow = workbenchClass.getMethod("getActiveWorkbenchWindow");
+        return getActiveWindow.invoke(workbench);
+    }
+
+    /**
+     * Resolve the active workbench page WITHOUT wrapping in syncExec.
+     * MUST be called from within an existing syncExec (i.e. on the SWT UI thread).
+     */
+    private static Object activePageOnUiThread() throws Exception {
+        Object window = activeWindowOnUiThread();
+        if (window == null) return null;
+        Method getActivePage = workbenchWindowClass.getMethod("getActivePage");
+        return getActivePage.invoke(window);
+    }
+
+    /**
      * Open a perspective by ID.
+     *
+     * The entire lookup + mutating {@code showPerspective} runs inside ONE syncExec
+     * so the state change happens on the SWT UI thread (otherwise Eclipse raises
+     * {@code SWTException: Invalid thread access}). Delegates straight to
+     * {@code IWorkbench.showPerspective} against the live perspective registry — no
+     * manual {@code findPerspectiveWithId} precheck, which previously rejected valid
+     * ids that the registry can actually resolve.
      */
     public static boolean openPerspective(String perspectiveId) {
-        Object workbench = getWorkbench();
-        Object window = getActiveWindow();
-        if (workbench == null || window == null) return false;
+        final Object workbench = getWorkbench();
+        if (workbench == null) return false;
 
         try {
-            // Get perspective registry
-            Method getPerspectiveRegistry = workbenchClass.getMethod("getPerspectiveRegistry");
-            Object registry = getPerspectiveRegistry.invoke(workbench);
+            return Boolean.TRUE.equals(SwtReflectionBridge.syncExec(() -> {
+                Object window = activeWindowOnUiThread();
+                if (window == null) return false;
 
-            Class<?> registryClass = resolveClass("org.eclipse.ui.IPerspectiveRegistry");
-            Method findPerspective = registryClass.getMethod("findPerspectiveWithId", String.class);
-            Object perspective = findPerspective.invoke(registry, perspectiveId);
-
-            if (perspective == null) return false;
-
-            // Show perspective
-            Method showPerspective = workbenchClass.getMethod("showPerspective", String.class, workbenchWindowClass);
-            showPerspective.invoke(workbench, perspectiveId, window);
-            return true;
+                Method showPerspective = workbenchClass.getMethod("showPerspective", String.class, workbenchWindowClass);
+                showPerspective.invoke(workbench, perspectiveId, window);
+                return true;
+            }));
         } catch (Exception e) {
             System.err.println("[EclipseWorkbenchHelper] Error opening perspective: " + e.getMessage());
             return false;
@@ -320,21 +343,26 @@ public class EclipseWorkbenchHelper {
 
     /**
      * Show a view by ID.
+     *
+     * Runs page lookup + {@code IWorkbenchPage.showView} inside ONE syncExec (SWT UI
+     * thread). Delegates to the live workbench page, which resolves the id against the
+     * running view registry — no manual precheck that could reject a valid id.
      */
     public static boolean showView(String viewId, String secondaryId) {
-        Object page = getActivePage();
-        if (page == null) return false;
-
         try {
-            Method showView;
-            if (secondaryId != null && !secondaryId.isEmpty()) {
-                showView = workbenchPageClass.getMethod("showView", String.class, String.class, int.class);
-                showView.invoke(page, viewId, secondaryId, 1); // IWorkbenchPage.VIEW_ACTIVATE = 1
-            } else {
-                showView = workbenchPageClass.getMethod("showView", String.class);
-                showView.invoke(page, viewId);
-            }
-            return true;
+            return Boolean.TRUE.equals(SwtReflectionBridge.syncExec(() -> {
+                Object page = activePageOnUiThread();
+                if (page == null) return false;
+
+                if (secondaryId != null && !secondaryId.isEmpty()) {
+                    Method showView = workbenchPageClass.getMethod("showView", String.class, String.class, int.class);
+                    showView.invoke(page, viewId, secondaryId, 1); // IWorkbenchPage.VIEW_ACTIVATE = 1
+                } else {
+                    Method showView = workbenchPageClass.getMethod("showView", String.class);
+                    showView.invoke(page, viewId);
+                }
+                return true;
+            }));
         } catch (Exception e) {
             System.err.println("[EclipseWorkbenchHelper] Error showing view: " + e.getMessage());
             return false;
@@ -343,27 +371,41 @@ public class EclipseWorkbenchHelper {
 
     /**
      * Hide/close a view by ID.
+     *
+     * Runs lookup + {@code hideView} + a readback inside ONE syncExec (SWT UI thread).
+     * Returns true ONLY when a readback confirms the view is actually gone, so a caller
+     * never gets a false success from a no-op hide.
      */
     public static boolean hideView(String viewId, String secondaryId) {
-        Object page = getActivePage();
-        if (page == null) return false;
-
         try {
-            Method findViewReference;
-            Object viewRef;
-            if (secondaryId != null && !secondaryId.isEmpty()) {
-                findViewReference = workbenchPageClass.getMethod("findViewReference", String.class, String.class);
-                viewRef = findViewReference.invoke(page, viewId, secondaryId);
-            } else {
-                findViewReference = workbenchPageClass.getMethod("findViewReference", String.class);
-                viewRef = findViewReference.invoke(page, viewId);
-            }
+            return Boolean.TRUE.equals(SwtReflectionBridge.syncExec(() -> {
+                Object page = activePageOnUiThread();
+                if (page == null) return false;
 
-            if (viewRef == null) return false;
+                Method findViewReference;
+                Object viewRef;
+                if (secondaryId != null && !secondaryId.isEmpty()) {
+                    findViewReference = workbenchPageClass.getMethod("findViewReference", String.class, String.class);
+                    viewRef = findViewReference.invoke(page, viewId, secondaryId);
+                } else {
+                    findViewReference = workbenchPageClass.getMethod("findViewReference", String.class);
+                    viewRef = findViewReference.invoke(page, viewId);
+                }
 
-            Method hideView = workbenchPageClass.getMethod("hideView", viewReferenceClass);
-            hideView.invoke(page, viewRef);
-            return true;
+                if (viewRef == null) return false; // view is not open — nothing to hide
+
+                Method hideView = workbenchPageClass.getMethod("hideView", viewReferenceClass);
+                hideView.invoke(page, viewRef);
+
+                // Readback: confirm the view reference is really gone; report failure otherwise.
+                Object stillOpen;
+                if (secondaryId != null && !secondaryId.isEmpty()) {
+                    stillOpen = findViewReference.invoke(page, viewId, secondaryId);
+                } else {
+                    stillOpen = findViewReference.invoke(page, viewId);
+                }
+                return stillOpen == null;
+            }));
         } catch (Exception e) {
             System.err.println("[EclipseWorkbenchHelper] Error hiding view: " + e.getMessage());
             return false;
@@ -372,19 +414,23 @@ public class EclipseWorkbenchHelper {
 
     /**
      * Activate a view by ID.
+     *
+     * Runs lookup + {@code IWorkbenchPage.activate} inside ONE syncExec (SWT UI thread).
      */
     public static boolean activateView(String viewId) {
-        Object page = getActivePage();
-        if (page == null) return false;
-
         try {
-            Method findView = workbenchPageClass.getMethod("findView", String.class);
-            Object view = findView.invoke(page, viewId);
-            if (view == null) return false;
+            return Boolean.TRUE.equals(SwtReflectionBridge.syncExec(() -> {
+                Object page = activePageOnUiThread();
+                if (page == null) return false;
 
-            Method activate = workbenchPageClass.getMethod("activate", resolveClass("org.eclipse.ui.IWorkbenchPart"));
-            activate.invoke(page, view);
-            return true;
+                Method findView = workbenchPageClass.getMethod("findView", String.class);
+                Object view = findView.invoke(page, viewId);
+                if (view == null) return false;
+
+                Method activate = workbenchPageClass.getMethod("activate", resolveClass("org.eclipse.ui.IWorkbenchPart"));
+                activate.invoke(page, view);
+                return true;
+            }));
         } catch (Exception e) {
             System.err.println("[EclipseWorkbenchHelper] Error activating view: " + e.getMessage());
             return false;
@@ -503,14 +549,18 @@ public class EclipseWorkbenchHelper {
 
     /**
      * Close all editors.
+     *
+     * Runs lookup + {@code closeAllEditors} inside ONE syncExec (SWT UI thread).
      */
     public static boolean closeAllEditors(boolean save) {
-        Object page = getActivePage();
-        if (page == null) return false;
-
         try {
-            Method closeAllEditors = workbenchPageClass.getMethod("closeAllEditors", boolean.class);
-            return (Boolean) closeAllEditors.invoke(page, save);
+            return Boolean.TRUE.equals(SwtReflectionBridge.syncExec(() -> {
+                Object page = activePageOnUiThread();
+                if (page == null) return false;
+
+                Method closeAllEditors = workbenchPageClass.getMethod("closeAllEditors", boolean.class);
+                return (Boolean) closeAllEditors.invoke(page, save);
+            }));
         } catch (Exception e) {
             System.err.println("[EclipseWorkbenchHelper] Error closing all editors: " + e.getMessage());
             return false;
@@ -519,14 +569,18 @@ public class EclipseWorkbenchHelper {
 
     /**
      * Save all editors.
+     *
+     * Runs lookup + {@code saveAllEditors} inside ONE syncExec (SWT UI thread).
      */
     public static boolean saveAllEditors(boolean confirm) {
-        Object page = getActivePage();
-        if (page == null) return false;
-
         try {
-            Method saveAllEditors = workbenchPageClass.getMethod("saveAllEditors", boolean.class);
-            return (Boolean) saveAllEditors.invoke(page, confirm);
+            return Boolean.TRUE.equals(SwtReflectionBridge.syncExec(() -> {
+                Object page = activePageOnUiThread();
+                if (page == null) return false;
+
+                Method saveAllEditors = workbenchPageClass.getMethod("saveAllEditors", boolean.class);
+                return (Boolean) saveAllEditors.invoke(page, confirm);
+            }));
         } catch (Exception e) {
             System.err.println("[EclipseWorkbenchHelper] Error saving all editors: " + e.getMessage());
             return false;
@@ -535,15 +589,19 @@ public class EclipseWorkbenchHelper {
 
     /**
      * Reset the current perspective to its default layout.
+     *
+     * Runs lookup + {@code resetPerspective} inside ONE syncExec (SWT UI thread).
      */
     public static boolean resetPerspective() {
-        Object page = getActivePage();
-        if (page == null) return false;
-
         try {
-            Method resetPerspective = workbenchPageClass.getMethod("resetPerspective");
-            resetPerspective.invoke(page);
-            return true;
+            return Boolean.TRUE.equals(SwtReflectionBridge.syncExec(() -> {
+                Object page = activePageOnUiThread();
+                if (page == null) return false;
+
+                Method resetPerspective = workbenchPageClass.getMethod("resetPerspective");
+                resetPerspective.invoke(page);
+                return true;
+            }));
         } catch (Exception e) {
             System.err.println("[EclipseWorkbenchHelper] Error resetting perspective: " + e.getMessage());
             return false;
@@ -552,23 +610,30 @@ public class EclipseWorkbenchHelper {
 
     /**
      * Execute an Eclipse command by ID.
+     *
+     * Runs handler-service lookup + {@code executeCommand} inside ONE syncExec (SWT UI
+     * thread). This was the source of the live {@code SWTException: Invalid thread access}
+     * (e.g. org.eclipse.ui.window.preferences) — the mutating invoke previously ran on
+     * the RPC thread.
      */
     public static boolean executeCommand(String commandId) {
-        Object workbench = getWorkbench();
+        final Object workbench = getWorkbench();
         if (workbench == null) return false;
 
         try {
-            // Get handler service
-            Method getService = workbenchClass.getMethod("getService", Class.class);
-            Class<?> handlerServiceClass = resolveClass("org.eclipse.ui.handlers.IHandlerService");
-            Object handlerService = getService.invoke(workbench, handlerServiceClass);
+            return Boolean.TRUE.equals(SwtReflectionBridge.syncExec(() -> {
+                // Get handler service
+                Method getService = workbenchClass.getMethod("getService", Class.class);
+                Class<?> handlerServiceClass = resolveClass("org.eclipse.ui.handlers.IHandlerService");
+                Object handlerService = getService.invoke(workbench, handlerServiceClass);
 
-            if (handlerService == null) return false;
+                if (handlerService == null) return false;
 
-            // Execute command
-            Method executeCommand = handlerServiceClass.getMethod("executeCommand", String.class, Object.class);
-            executeCommand.invoke(handlerService, commandId, null);
-            return true;
+                // Execute command
+                Method executeCommand = handlerServiceClass.getMethod("executeCommand", String.class, Object.class);
+                executeCommand.invoke(handlerService, commandId, null);
+                return true;
+            }));
         } catch (Exception e) {
             System.err.println("[EclipseWorkbenchHelper] Error executing command: " + e.getMessage());
             return false;

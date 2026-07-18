@@ -1755,11 +1755,11 @@ impl SwingLibrary {
     ///     | ${path}= | Capture Screenshot |
     ///     | ${path}= | Capture Screenshot | login_screen.png |
     ///     | ${path}= | Capture Screenshot | locator=name:errorDialog |
-    #[pyo3(signature = (filename=None, _locator=None))]
+    #[pyo3(signature = (filename=None, locator=None))]
     pub fn capture_screenshot(
         &self,
         filename: Option<&str>,
-        _locator: Option<&str>,
+        locator: Option<&str>,
     ) -> PyResult<String> {
         self.ensure_connected()?;
 
@@ -1775,9 +1775,23 @@ impl SwingLibrary {
         let filepath = format!("{}/{}", config.screenshot_directory, filename);
         drop(config);
 
-        // Capture screenshot (actual implementation would capture from JVM)
-        // For now, return the path that would be used
-        Ok(filepath)
+        // Resolve the target component id (full-screen capture when no locator).
+        let component_id = match locator {
+            Some(loc) => self.get_component_id(loc)?,
+            None => -1,
+        };
+
+        // Ask the agent to capture and return a base64 PNG data URL, then decode
+        // and persist it to disk.
+        let result = self.send_rpc_request("captureScreenshot", serde_json::json!({
+            "componentId": component_id
+        }))?;
+
+        let data_url = result.as_str().ok_or_else(|| {
+            SwingError::connection("captureScreenshot did not return an image string")
+        })?;
+
+        crate::python::base_library::save_screenshot_data_url(data_url, &filepath)
     }
 
     // ========================

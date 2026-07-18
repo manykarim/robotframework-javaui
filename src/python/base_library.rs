@@ -62,6 +62,49 @@ pub struct UnifiedConnectionState {
 }
 
 
+/// Decode a base64 PNG data URL returned by the agent's `captureScreenshot`
+/// RPC and write the raw image bytes to `filepath`.
+///
+/// The agent returns a string of the form `data:image/png;base64,<...>`. This
+/// strips the data-URL prefix (if present), base64-decodes the payload, writes
+/// the bytes to disk, and returns the absolute path of the saved file.
+pub fn save_screenshot_data_url(data_url: &str, filepath: &str) -> PyResult<String> {
+    use base64::Engine;
+
+    // Strip the `data:...;base64,` prefix if present.
+    let b64 = match data_url.split_once("base64,") {
+        Some((_, payload)) => payload,
+        None => data_url,
+    };
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64.trim())
+        .map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Failed to decode screenshot data: {}",
+                e
+            ))
+        })?;
+
+    // Ensure the target directory exists.
+    if let Some(parent) = std::path::Path::new(filepath).parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
+        }
+    }
+
+    std::fs::write(filepath, &bytes)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
+
+    // Return the absolute path when it can be resolved, otherwise the input.
+    let abs = std::fs::canonicalize(filepath)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| filepath.to_string());
+
+    Ok(abs)
+}
+
 /// Convert Python object to f64, handling various number types
 pub fn py_to_f64(py: Python<'_>, obj: Option<PyObject>) -> Option<f64> {
     obj.and_then(|o| {
@@ -1110,7 +1153,7 @@ impl JavaGuiLibrary {
             let type_part = &locator[..eq_pos];
             let value_part = &locator[eq_pos + 1..];
             match type_part {
-                "class" | "name" | "text" | "index" | "id" => {
+                "class" | "name" | "text" | "type" | "index" | "id" => {
                     return (type_part.to_string(), value_part.to_string());
                 }
                 _ => {}
@@ -1121,7 +1164,7 @@ impl JavaGuiLibrary {
             let type_part = &locator[..colon_pos];
             let value_part = &locator[colon_pos + 1..];
             match type_part {
-                "class" | "name" | "text" | "index" | "id" => {
+                "class" | "name" | "text" | "type" | "index" | "id" => {
                     return (type_part.to_string(), value_part.to_string());
                 }
                 _ => {}

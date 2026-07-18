@@ -36,6 +36,53 @@ public class SwtReflectionBridge {
     }
 
     /**
+     * Capture a full-display screenshot as a PNG data URL, via pure reflection on the SWT
+     * bundle classes (runs on the UI thread). Used by the RCP/reflection RPC path, which
+     * cannot import SWT directly. widgetId is accepted for API parity but a full-display
+     * grab is always taken (sufficient for workbench visual confirmation).
+     */
+    public static String captureScreenshotDataUrl(int widgetId) throws Exception {
+        return syncExec(() -> {
+            Object display = getDisplay();
+            if (display == null) {
+                throw new IllegalStateException("Display is not available");
+            }
+            ClassLoader cl = swtClassLoader != null ? swtClassLoader : displayClass.getClassLoader();
+
+            Class<?> imageCls     = Class.forName("org.eclipse.swt.graphics.Image", true, cl);
+            Class<?> gcCls        = Class.forName("org.eclipse.swt.graphics.GC", true, cl);
+            Class<?> rectCls      = Class.forName("org.eclipse.swt.graphics.Rectangle", true, cl);
+            Class<?> deviceCls    = Class.forName("org.eclipse.swt.graphics.Device", true, cl);
+            Class<?> drawableCls  = Class.forName("org.eclipse.swt.graphics.Drawable", true, cl);
+            Class<?> imageDataCls = Class.forName("org.eclipse.swt.graphics.ImageData", true, cl);
+            Class<?> loaderCls    = Class.forName("org.eclipse.swt.graphics.ImageLoader", true, cl);
+            Class<?> swtCls       = Class.forName("org.eclipse.swt.SWT", true, cl);
+
+            Object bounds = displayClass.getMethod("getBounds").invoke(display);
+            int w = Math.max(1, rectCls.getField("width").getInt(bounds));
+            int h = Math.max(1, rectCls.getField("height").getInt(bounds));
+
+            Object image = imageCls.getConstructor(deviceCls, int.class, int.class).newInstance(display, w, h);
+            Object gc = gcCls.getConstructor(drawableCls).newInstance(display);
+            gcCls.getMethod("copyArea", imageCls, int.class, int.class).invoke(gc, image, 0, 0);
+            gcCls.getMethod("dispose").invoke(gc);
+
+            Object loader = loaderCls.getConstructor().newInstance();
+            Object imageData = imageCls.getMethod("getImageData").invoke(image);
+            Object dataArr = java.lang.reflect.Array.newInstance(imageDataCls, 1);
+            java.lang.reflect.Array.set(dataArr, 0, imageData);
+            loaderCls.getField("data").set(loader, dataArr);
+
+            int imagePng = swtCls.getField("IMAGE_PNG").getInt(null);
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            loaderCls.getMethod("save", java.io.OutputStream.class, int.class).invoke(loader, baos, imagePng);
+            imageCls.getMethod("dispose").invoke(image);
+
+            return "data:image/png;base64," + java.util.Base64.getEncoder().encodeToString(baos.toByteArray());
+        });
+    }
+
+    /**
      * Initialize the bridge by finding the SWT Display instance.
      * Must be called after the SWT application has started.
      */
@@ -102,6 +149,36 @@ public class SwtReflectionBridge {
             System.err.println("[SwtBridge] Initialization error: " + e.getMessage());
             e.printStackTrace();
             return false;
+        }
+    }
+
+    /**
+     * Block until the SWT Display is available, or until {@code timeoutMs} elapses.
+     *
+     * The agent RPC port opens at premain, several seconds before Eclipse/SWT loads and
+     * the Display exists. A client that connects early would otherwise get a permanent
+     * "SWT not initialized". This retries {@link #initialize()} (which re-runs
+     * {@code findDisplayViaInstrumentation} over the freshly loaded classes) until it
+     * succeeds or the deadline passes.
+     *
+     * @param timeoutMs maximum time to wait, in milliseconds
+     * @return true if SWT became ready within the timeout, false otherwise
+     */
+    public static boolean waitForSwtReady(long timeoutMs) {
+        long start = System.currentTimeMillis();
+        while (true) {
+            if (initialize()) {
+                return true;
+            }
+            if (System.currentTimeMillis() - start >= timeoutMs) {
+                return false;
+            }
+            try {
+                Thread.sleep(250);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return isInitialized();
+            }
         }
     }
 
@@ -184,31 +261,32 @@ public class SwtReflectionBridge {
                 return null;
             }
 
-            // Call Display.getDefault() to get the singleton
-            try {
-                Method getDefault = displayClass.getMethod("getDefault");
-                Object display = getDefault.invoke(null);
+            // Prefer non-creating lookups: Display.getDisplays() and
+            // Display.findDisplay(Thread) return existing displays only. Display.getDefault()
+            // can CREATE a display on the calling (wrong) thread, so it is a last resort.
 
-                if (display != null) {
+            // 1) Display.getDisplays() — enumerate all existing displays
+            try {
+                Method getDisplays = displayClass.getMethod("getDisplays");
+                Object[] displays = (Object[]) getDisplays.invoke(null);
+                if (displays != null) {
                     Method isDisposed = displayClass.getMethod("isDisposed");
-                    if (!(Boolean) isDisposed.invoke(display)) {
-                        System.err.println("[SwtBridge] Found Display via Instrumentation: " + display);
-                        System.err.flush();
-                        return display;
-                    } else {
-                        System.err.println("[SwtBridge] Display is disposed");
+                    for (Object display : displays) {
+                        if (display != null && !(Boolean) isDisposed.invoke(display)) {
+                            System.err.println("[SwtBridge] Found Display via getDisplays()");
+                            System.err.flush();
+                            return display;
+                        }
                     }
-                } else {
-                    System.err.println("[SwtBridge] Display.getDefault() returned null");
                 }
             } catch (Exception e) {
-                System.err.println("[SwtBridge] Error calling Display.getDefault(): " + e.getMessage());
-                e.printStackTrace();
+                System.err.println("[SwtBridge] getDisplays() unavailable: " + e.getMessage());
             }
 
-            // Try Display.findDisplay(Thread) for main thread
+            // 2) Display.findDisplay(Thread) for every live thread
             try {
                 Method findDisplay = displayClass.getMethod("findDisplay", Thread.class);
+                Method isDisposed = displayClass.getMethod("isDisposed");
 
                 // Get all threads and try each
                 ThreadGroup rootGroup = Thread.currentThread().getThreadGroup();
@@ -224,13 +302,10 @@ public class SwtReflectionBridge {
 
                     try {
                         Object display = findDisplay.invoke(null, t);
-                        if (display != null) {
-                            Method isDisposed = displayClass.getMethod("isDisposed");
-                            if (!(Boolean) isDisposed.invoke(display)) {
-                                System.err.println("[SwtBridge] Found Display on thread " + t.getName() + " via Instrumentation");
-                                System.err.flush();
-                                return display;
-                            }
+                        if (display != null && !(Boolean) isDisposed.invoke(display)) {
+                            System.err.println("[SwtBridge] Found Display on thread " + t.getName() + " via findDisplay()");
+                            System.err.flush();
+                            return display;
                         }
                     } catch (Exception e) {
                         // Continue
@@ -238,6 +313,28 @@ public class SwtReflectionBridge {
                 }
             } catch (Exception e) {
                 System.err.println("[SwtBridge] Error with findDisplay: " + e.getMessage());
+            }
+
+            // 3) Last resort: Display.getDefault() — may create a display on this thread
+            try {
+                Method getDefault = displayClass.getMethod("getDefault");
+                Object display = getDefault.invoke(null);
+
+                if (display != null) {
+                    Method isDisposed = displayClass.getMethod("isDisposed");
+                    if (!(Boolean) isDisposed.invoke(display)) {
+                        System.err.println("[SwtBridge] Found Display via getDefault() (last resort)");
+                        System.err.flush();
+                        return display;
+                    } else {
+                        System.err.println("[SwtBridge] Display is disposed");
+                    }
+                } else {
+                    System.err.println("[SwtBridge] Display.getDefault() returned null");
+                }
+            } catch (Exception e) {
+                System.err.println("[SwtBridge] Error calling Display.getDefault(): " + e.getMessage());
+                e.printStackTrace();
             }
 
         } catch (Exception e) {
