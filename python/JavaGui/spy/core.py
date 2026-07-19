@@ -32,6 +32,7 @@ class SpyCore:
         self._proc: subprocess.Popen | None = None
         self._flat: list[dict] = []
         self._by_id: dict[int, dict] = {}
+        self._tree_json: str | None = None   # raw get_ui_tree payload (offline Rust generator input)
         self._tree_ts: int = 0
         self._host: str = "localhost"
         self._port: int = 5678
@@ -119,6 +120,7 @@ class SpyCore:
     def refresh(self) -> None:
         raw = self.lib.get_ui_tree(format="json")
         tree = json.loads(raw)
+        self._tree_json = raw
         self._flat = G.flatten_forest(tree)
         self._by_id = {r["node_id"]: r for r in self._flat if r["node_id"] is not None}
         self._tree_ts = int(time.time() * 1000)
@@ -193,7 +195,13 @@ class SpyCore:
 
     def suggest(self, node_id: int, top: int = 3, strip_names: bool = False) -> dict:
         rec = self.node_by_id(node_id)
-        cands = G.suggest(self._flat, rec, self.resolve, strip_names=strip_names, top=top)
+        # Fast path: offline Rust generator (no per-candidate RPC). Falls back to the live
+        # Python oracle if the compiled core is unavailable or finds nothing unique offline.
+        cands = None
+        if self._tree_json is not None:
+            cands = G.rust_suggest(self._tree_json, int(node_id), strip_names, top)
+        if not cands:
+            cands = G.suggest(self._flat, rec, self.resolve, strip_names=strip_names, top=top)
         best = cands[0]["locator"] if cands else None
         snippets = {}
         data_note = None

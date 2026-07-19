@@ -172,6 +172,10 @@ jobs:
       - name: Run Python tests
         run: uv run pytest tests/python/
 
+      - name: Run spy tests (Linux, xvfb — drives the Swing app)
+        if: runner.os == 'Linux'
+        run: uv run pytest tests/spy/ -v
+
       - name: Upload Robot logs
         if: always()
         uses: actions/upload-artifact@v4

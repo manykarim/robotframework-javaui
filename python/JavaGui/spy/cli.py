@@ -11,6 +11,7 @@ import argparse
 import json
 import sys
 
+from . import generator as G
 from .core import SpyCore, SpyError
 
 SCHEMA = {
@@ -123,6 +124,15 @@ def main(argv=None) -> int:
             _err("ui", type(e).__name__, str(e))
             return 2
         return 0
+
+    # A locator syntax error is independent of the running app: surface a machine-readable
+    # parse error (byte position + valid-vocabulary hint) up front, before we even connect.
+    if args.cmd == "validate":
+        pe = G.explain_locator(args.locator)
+        if not pe.get("ok"):
+            _err("validate", "PARSE_ERROR", pe.get("message") or "invalid locator syntax",
+                 position=pe.get("position"), hint=pe.get("hint"))
+            return 2
 
     core = None
     try:

@@ -1905,36 +1905,150 @@ public class SwtReflectionBridge {
                         }
                     }
                 }
-                JsonObject out = new JsonObject();
-                if (target == null) { out.addProperty("hit", false); return out; }
-
-                out.addProperty("hit", true);
-                out.addProperty("id", getOrCreateWidgetId(target));
-                out.addProperty("className", target.getClass().getName());
-                out.addProperty("type", target.getClass().getSimpleName());
-                String name = getWidgetName(target);
-                if (name != null) out.addProperty("name", name);
-                String text = getWidgetText(target);
-                if (text != null) out.addProperty("text", text);
-
-                // root->leaf ancestor id path
-                java.util.List<Object> chain = new java.util.ArrayList<>();
-                for (Object c = target; c != null && controlClass.isInstance(c); ) {
-                    chain.add(c);
-                    try { c = controlClass.getMethod("getParent").invoke(c); }
-                    catch (Exception e) { break; }
+                if (target == null) {
+                    JsonObject out = new JsonObject();
+                    out.addProperty("hit", false);
+                    return out;
                 }
-                java.util.Collections.reverse(chain);
-                JsonArray path = new JsonArray();
-                for (Object c : chain) path.add(getOrCreateWidgetId(c));
-                out.add("ancestor_path", path);
-                return out;
+                return buildHitNode(target);
             });
             return r != null ? r : node;
         } catch (Exception e) {
             node.addProperty("hit", false);
             node.addProperty("error", e.getMessage() == null ? e.toString() : e.getMessage());
             return node;
+        }
+    }
+
+    /**
+     * Build the pick/hit result node ({hit:true, id, className, type, name, text, ancestor_path:[ids...]})
+     * for a target Control. MUST be called on the SWT UI thread — it makes reflective SWT calls.
+     * Shared by {@link #hitTest} and {@link #armPick} so both emit the identical JSON shape.
+     */
+    private static JsonObject buildHitNode(Object target) {
+        JsonObject out = new JsonObject();
+        out.addProperty("hit", true);
+        out.addProperty("id", getOrCreateWidgetId(target));
+        out.addProperty("className", target.getClass().getName());
+        out.addProperty("type", target.getClass().getSimpleName());
+        String name = getWidgetName(target);
+        if (name != null) out.addProperty("name", name);
+        String text = getWidgetText(target);
+        if (text != null) out.addProperty("text", text);
+
+        // root->leaf ancestor id path (walk getParent, then reverse; ids from the widget cache)
+        java.util.List<Object> chain = new java.util.ArrayList<>();
+        for (Object c = target; c != null && controlClass.isInstance(c); ) {
+            chain.add(c);
+            try { c = controlClass.getMethod("getParent").invoke(c); }
+            catch (Exception e) { break; }
+        }
+        java.util.Collections.reverse(chain);
+        JsonArray path = new JsonArray();
+        for (Object c : chain) path.add(getOrCreateWidgetId(c));
+        out.add("ancestor_path", path);
+        return out;
+    }
+
+    /**
+     * Wait (up to {@code timeoutMs}) for the user to Ctrl+Shift+click a widget in the live SWT/RCP
+     * app, then return the picked node in the same JSON shape as {@link #hitTest}
+     * ({hit:true, id, className, type, name, text, ancestor_path}); {hit:false, timeout:true} on
+     * timeout, or {hit:false, error:"..."} on any reflection failure (never throws).
+     *
+     * <p>Pure reflection, no SWT compile dependency: installs a global {@code Display.addFilter}
+     * for {@code SWT.MouseDown} whose {@code org.eclipse.swt.widgets.Listener} is a dynamic
+     * {@link java.lang.reflect.Proxy} over the discovered SWT bundle classloader. The filter reads
+     * {@code Event.stateMask} / {@code Event.widget} reflectively and records the first widget whose
+     * click carries both CTRL and SHIFT. Mirrors the Swing passive caveat: a filter observes the
+     * click globally but does not suppress it.
+     */
+    public static JsonObject armPick(int timeoutMs) {
+        final int wait = timeoutMs <= 0 ? 15000 : Math.max(1000, timeoutMs);
+        JsonObject miss = new JsonObject();
+        try {
+            final ClassLoader cl = swtClassLoader != null ? swtClassLoader
+                    : (displayClass != null ? displayClass.getClassLoader() : null);
+            if (cl == null || displayClass == null || displayInstance == null) {
+                miss.addProperty("hit", false);
+                miss.addProperty("error", "SWT bridge not initialized (no Display)");
+                return miss;
+            }
+
+            // SWT int constants + the Listener interface, all from the SWT bundle classloader.
+            final Class<?> swtCls = Class.forName("org.eclipse.swt.SWT", true, cl);
+            final Class<?> listenerCls = Class.forName("org.eclipse.swt.widgets.Listener", true, cl);
+            final int CTRL = swtCls.getField("CTRL").getInt(null);
+            final int SHIFT = swtCls.getField("SHIFT").getInt(null);
+            final int MOUSE_DOWN = swtCls.getField("MouseDown").getInt(null);
+
+            final Object lock = new Object();
+            final Object[] picked = {null};
+
+            // Listener.handleEvent(Event) implemented via a reflective Proxy — reads Event fields by reflection.
+            java.lang.reflect.InvocationHandler handler = (proxy, method, args) -> {
+                String mn = method.getName();
+                if ("handleEvent".equals(mn) && args != null && args.length == 1 && args[0] != null) {
+                    try {
+                        Object event = args[0];
+                        Class<?> evCls = event.getClass();
+                        int stateMask = evCls.getField("stateMask").getInt(event);
+                        if ((stateMask & CTRL) != 0 && (stateMask & SHIFT) != 0) {
+                            Object widget = evCls.getField("widget").get(event);
+                            if (widget != null && !isSpyOverlay(widget)) {
+                                synchronized (lock) {
+                                    if (picked[0] == null) { picked[0] = widget; lock.notifyAll(); }
+                                }
+                            }
+                        }
+                    } catch (Exception ignore) {
+                        // never let a listener callback throw back into the SWT event loop
+                    }
+                    return null;
+                }
+                // Object methods on the proxy itself
+                if ("equals".equals(mn)) return proxy == (args != null && args.length > 0 ? args[0] : null);
+                if ("hashCode".equals(mn)) return System.identityHashCode(proxy);
+                if ("toString".equals(mn)) return "javagui-armPick-listener";
+                return null;
+            };
+            final Object listener = java.lang.reflect.Proxy.newProxyInstance(
+                    cl, new Class<?>[]{listenerCls}, handler);
+
+            final Method addFilter = displayClass.getMethod("addFilter", int.class, listenerCls);
+            final Method removeFilter = displayClass.getMethod("removeFilter", int.class, listenerCls);
+
+            // Install the filter on the UI thread.
+            syncExec(() -> { addFilter.invoke(displayInstance, MOUSE_DOWN, listener); return null; });
+            try {
+                // Block OFF the UI thread until a pick arrives or the deadline elapses.
+                synchronized (lock) {
+                    long deadline = System.currentTimeMillis() + wait;
+                    while (picked[0] == null && System.currentTimeMillis() < deadline) {
+                        lock.wait(200);
+                    }
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            } finally {
+                // Always remove the filter on the UI thread.
+                try {
+                    syncExec(() -> { removeFilter.invoke(displayInstance, MOUSE_DOWN, listener); return null; });
+                } catch (Exception ignore) {}
+            }
+
+            final Object target = picked[0];
+            if (target == null) {
+                miss.addProperty("hit", false);
+                miss.addProperty("timeout", true);
+                return miss;
+            }
+            // Build the node on the UI thread, reusing the same id-cache + ancestor_path logic as hitTest.
+            return syncExec(() -> buildHitNode(target));
+        } catch (Exception e) {
+            miss.addProperty("hit", false);
+            miss.addProperty("error", e.getMessage() == null ? e.toString() : e.getMessage());
+            return miss;
         }
     }
     // ================= end javagui-spy =================

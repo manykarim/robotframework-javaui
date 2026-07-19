@@ -28,6 +28,8 @@ pub struct ParseError {
     pub column: usize,
     /// The problematic input fragment
     pub fragment: Option<String>,
+    /// Machine-readable expected tokens/rules at the failure position (pest positives)
+    pub expected: Vec<String>,
 }
 
 impl ParseError {
@@ -40,6 +42,7 @@ impl ParseError {
             line: 1,
             column: position + 1,
             fragment: None,
+            expected: Vec::new(),
         }
     }
 
@@ -58,12 +61,19 @@ impl ParseError {
             line,
             column,
             fragment: None,
+            expected: Vec::new(),
         }
     }
 
     /// Add a fragment to the error
     pub fn with_fragment(mut self, fragment: String) -> Self {
         self.fragment = Some(fragment);
+        self
+    }
+
+    /// Attach the machine-readable expected-token list.
+    pub fn with_expected(mut self, expected: Vec<String>) -> Self {
+        self.expected = expected;
         self
     }
 }
@@ -142,13 +152,26 @@ pub fn parse_locator(input: &str) -> Result<Locator, ParseError> {
             pest::error::LineColLocation::Pos((l, c)) => (l, c),
             pest::error::LineColLocation::Span((l, c), _) => (l, c),
         };
+        // Byte offset of the failure position.
+        let position = match e.location {
+            pest::error::InputLocation::Pos(p) => p,
+            pest::error::InputLocation::Span((s, _)) => s,
+        };
+        // Machine-readable expected tokens (pest "positives").
+        let expected: Vec<String> = match &e.variant {
+            pest::error::ErrorVariant::ParsingError { positives, .. } => {
+                positives.iter().map(|r| format!("{:?}", r)).collect()
+            }
+            _ => Vec::new(),
+        };
         ParseError::with_location(
             format!("Syntax error: {}", e.variant.message()),
             ParseErrorKind::SyntaxError,
-            0,
+            position,
             line,
             column,
         )
+        .with_expected(expected)
     })?;
 
     // Build AST from parsed pairs

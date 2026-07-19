@@ -102,6 +102,10 @@ fn _core(py: Python<'_>, m: &PyModule) -> PyResult<()> {
     // Add RCP library classes (backwards-compatible wrapper, extends SWT)
     m.add_class::<python::rcp_library::RcpLibrary>()?;
 
+    // Register offline locator generator + parse-error explainer (javagui-spy)
+    m.add_function(wrap_pyfunction!(locator::generator::suggest_locators, m)?)?;
+    m.add_function(wrap_pyfunction!(locator::generator::explain_locator, m)?)?;
+
     // Register exception types
     python::exceptions::register_exceptions(py, m)?;
 
