@@ -16,6 +16,17 @@ resolve deep no-name nodes; every uncovered node is an anonymous structural cont
 from __future__ import annotations
 from typing import Callable, Iterable
 
+from . import rules as _rules
+
+# Per-app recognition rules (widget class -> preferred attribute order) + data-widget types.
+# Loaded from defaults + an optional javagui-spy.rules.json; re-load via set_rules().
+RECOGNITION_RULES, DATA_WIDGET_TYPES = _rules.load()
+
+
+def set_rules(path: str | None = None) -> None:
+    global RECOGNITION_RULES, DATA_WIDGET_TYPES
+    RECOGNITION_RULES, DATA_WIDGET_TYPES = _rules.load(path)
+
 # ---------------------------------------------------------------------------
 # Nested tree accessors (get_ui_tree format=json:
 #   {roots:[node], ...}; node.id.hash_code, node.component_type.simple_name,
@@ -38,9 +49,11 @@ def node_tooltip(n: dict):
     return (n.get("identity") or {}).get("tooltip")
 
 def node_geometry(n: dict):
+    # tree geometry is nested: geometry.bounds.{x,y,width,height} (parent-relative)
     g = n.get("geometry") or {}
+    b = g.get("bounds") or g  # tolerate flat or nested
     try:
-        return (int(g["x"]), int(g["y"]), int(g["width"]), int(g["height"]))
+        return (int(b["x"]), int(b["y"]), int(b["width"]), int(b["height"]))
     except Exception:
         return None
 
@@ -91,15 +104,32 @@ _STABILITY = {"name": 1.00, "accessiblename": 0.90, "text": 0.75, "tooltip": 0.6
               "nth-of-type": 0.40, "index": 0.25, "geometry": 0.15}
 
 
+def _accessible_name(n: dict):
+    return (n.get("accessibility") or {}).get("accessible_name")
+
+
 def _qualifiers(n: dict, strip_names: bool) -> list[tuple[str, str]]:
+    getters = {
+        "name": lambda: (None if strip_names else node_name(n)),
+        "accessiblename": _lambda(_accessible_name, n),
+        "text": _lambda(node_text, n),
+        "tooltip": _lambda(node_tooltip, n),
+    }
+    # A per-app recognition rule for this widget class overrides the default order.
+    order = RECOGNITION_RULES.get(node_type(n)) or ["name", "accessiblename", "text", "tooltip"]
     qs: list[tuple[str, str]] = []
-    if not strip_names and node_name(n):
-        qs.append(("name", node_name(n)))
-    if node_text(n):
-        qs.append(("text", node_text(n)))
-    if node_tooltip(n):
-        qs.append(("tooltip", node_tooltip(n)))
+    for attr in order:
+        get = getters.get(attr)
+        if get is None:
+            continue
+        v = get()
+        if v:
+            qs.append((attr, v))
     return qs
+
+
+def _lambda(fn, n):
+    return lambda: fn(n)
 
 
 def _esc(v: str) -> str:

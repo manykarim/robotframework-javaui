@@ -27,6 +27,22 @@ public class SwtReflectionBridge {
     private static final Map<Integer, Object> widgetCache = new ConcurrentHashMap<>();
     private static int widgetIdCounter = 1;
 
+    // ================= javagui-spy: hit-test / highlight / generation =================
+    /** Reserved data-name so spy overlays never appear in their own tree/find scans. */
+    public static final String SPY_OVERLAY_NAME = "__javagui_spy_overlay__";
+
+    /** True if a widget was tagged as a spy overlay via setData("name", SPY_OVERLAY_NAME). */
+    private static boolean isSpyOverlay(Object widget) {
+        if (widget == null) return false;
+        try {
+            Method getData = widget.getClass().getMethod("getData", String.class);
+            Object nameData = getData.invoke(widget, "name");
+            return nameData != null && SPY_OVERLAY_NAME.equals(nameData.toString());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     /**
      * Get the SWT classloader for loading SWT classes.
      * @return The classloader used by SWT classes, or null if not initialized.
@@ -848,6 +864,8 @@ public class SwtReflectionBridge {
                             continue;
                         }
 
+                        if (isSpyOverlay(shell)) continue;  // never surface the spy overlay
+
                         System.err.println("[SwtBridge] DEBUG findWidgets: searching shell " + shell.getClass().getSimpleName());
                         System.err.flush();
 
@@ -891,6 +909,9 @@ public class SwtReflectionBridge {
             Boolean disposed = (Boolean) isDisposed.invoke(widget);
             if (disposed == null || disposed) {
                 return;
+            }
+            if (isSpyOverlay(widget)) {
+                return;  // never surface the spy overlay or descend into it
             }
 
             boolean matches = true;
@@ -1062,6 +1083,7 @@ public class SwtReflectionBridge {
                 if (shell == null) continue;
                 Method isDisposed = shellClass.getMethod("isDisposed");
                 if ((Boolean) isDisposed.invoke(shell)) continue;
+                if (isSpyOverlay(shell)) continue;  // never surface the spy overlay
 
                 JsonObject shellNode = buildWidgetTreeNode(shell, 10);
                 tree.add(shellNode);
@@ -1677,6 +1699,245 @@ public class SwtReflectionBridge {
         }
         return null;
     }
+
+    // ================= javagui-spy implementations (all reflection, all on UI thread) ==========
+
+    /** [x,y,w,h] of a Control in DISPLAY coordinates, or null if unavailable. */
+    private static int[] displayBounds(Object control) {
+        try {
+            Object bounds = controlClass.getMethod("getBounds").invoke(control);
+            Class<?> rectCls = bounds.getClass();
+            int w = rectCls.getField("width").getInt(bounds);
+            int h = rectCls.getField("height").getInt(bounds);
+            Object origin = controlClass.getMethod("toDisplay", int.class, int.class).invoke(control, 0, 0);
+            Class<?> ptCls = origin.getClass();
+            int x = ptCls.getField("x").getInt(origin);
+            int y = ptCls.getField("y").getInt(origin);
+            return new int[]{x, y, w, h};
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static boolean containsPoint(int[] b, int x, int y) {
+        return b != null && x >= b[0] && x < b[0] + b[2] && y >= b[1] && y < b[1] + b[3];
+    }
+
+    private static boolean isDisposed(Object widget) {
+        try {
+            return (Boolean) widgetClass.getMethod("isDisposed").invoke(widget);
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    private static boolean isControlVisible(Object control) {
+        try {
+            return (Boolean) controlClass.getMethod("isVisible").invoke(control);
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /** Total widget count reachable from a Composite (inclusive), used as a cheap change token. */
+    private static int countWidgets(Object widget) {
+        int n = 1;
+        if (compositeClass != null && compositeClass.isInstance(widget)) {
+            try {
+                Object[] children = (Object[]) compositeClass.getMethod("getChildren").invoke(widget);
+                if (children != null) {
+                    for (Object child : children) {
+                        if (child != null && !isDisposed(child) && !isSpyOverlay(child)) {
+                            n += countWidgets(child);
+                        }
+                    }
+                }
+            } catch (Exception ignore) {}
+        }
+        return n;
+    }
+
+    /**
+     * Cheap change token: (shell count) + (total widget count across shells) folded with the
+     * focused control's identity. Cheap to compute, changes when the UI structure or focus moves.
+     */
+    public static JsonObject getUiGeneration() {
+        JsonObject res = new JsonObject();
+        long gen;
+        try {
+            gen = syncExec(() -> {
+                long g = 0;
+                Object[] shells = (Object[]) displayClass.getMethod("getShells").invoke(displayInstance);
+                if (shells != null) {
+                    for (Object shell : shells) {
+                        if (shell == null || isDisposed(shell) || isSpyOverlay(shell)) continue;
+                        g = g * 1000003L + countWidgets(shell);
+                    }
+                }
+                try {
+                    Object focus = displayClass.getMethod("getFocusControl").invoke(displayInstance);
+                    if (focus != null) g = g * 31L + System.identityHashCode(focus);
+                } catch (Exception ignore) {}
+                return g;
+            });
+        } catch (Exception e) {
+            gen = 0L;
+        }
+        res.addProperty("generation", gen);
+        return res;
+    }
+
+    /**
+     * Flash a hollow, always-on-top red border around a Control; auto-disposes after durationMs.
+     * The overlay Shell is tagged with SPY_OVERLAY_NAME so it never appears in tree/find scans,
+     * and a hollow Region makes its interior click-through. Falls back to {"ok":false,...} on
+     * any reflection failure rather than throwing.
+     */
+    public static JsonObject highlight(int widgetId, int durationMs) {
+        JsonObject res = new JsonObject();
+        Object control = getWidgetById(widgetId);
+        if (control == null || !controlClass.isInstance(control)) {
+            res.addProperty("ok", false);
+            res.addProperty("error", "unknown or non-Control widget id");
+            return res;
+        }
+        final Object target = control;
+        final int dur = durationMs <= 0 ? 1500 : Math.max(200, durationMs);
+        try {
+            boolean ok = syncExec(() -> {
+                try {
+                    if (isDisposed(target) || !isControlVisible(target)) return false;
+                    int[] b = displayBounds(target);
+                    if (b == null) return false;
+
+                    ClassLoader cl = swtClassLoader != null ? swtClassLoader : displayClass.getClassLoader();
+                    Class<?> swtCls = Class.forName("org.eclipse.swt.SWT", true, cl);
+                    Class<?> colorCls = Class.forName("org.eclipse.swt.graphics.Color", true, cl);
+                    Class<?> regionCls = Class.forName("org.eclipse.swt.graphics.Region", true, cl);
+                    Class<?> deviceCls = Class.forName("org.eclipse.swt.graphics.Device", true, cl);
+
+                    int style = swtCls.getField("NO_TRIM").getInt(null) | swtCls.getField("ON_TOP").getInt(null);
+                    try { style |= swtCls.getField("NO_FOCUS").getInt(null); } catch (Exception ignore) {}
+
+                    Object shell = shellClass.getConstructor(displayClass, int.class).newInstance(displayInstance, style);
+                    // Tag so this overlay is excluded from getWidgetTree/findWidgets scans.
+                    shellClass.getMethod("setData", String.class, Object.class).invoke(shell, "name", SPY_OVERLAY_NAME);
+
+                    final int pad = 2;      // grow the overlay slightly outside the target
+                    final int border = 3;   // red border thickness
+                    int ow = b[2] + pad * 2;
+                    int oh = b[3] + pad * 2;
+
+                    // Hollow region: outer rectangle minus inner rectangle -> only the border ring is opaque.
+                    Object region = regionCls.getConstructor(deviceCls).newInstance(displayInstance);
+                    regionCls.getMethod("add", int.class, int.class, int.class, int.class)
+                            .invoke(region, 0, 0, ow, oh);
+                    regionCls.getMethod("subtract", int.class, int.class, int.class, int.class)
+                            .invoke(region, border, border, Math.max(0, ow - border * 2), Math.max(0, oh - border * 2));
+                    shellClass.getMethod("setRegion", regionCls).invoke(shell, region);
+
+                    Object red = colorCls.getConstructor(deviceCls, int.class, int.class, int.class)
+                            .newInstance(displayInstance, 255, 60, 60);
+                    controlClass.getMethod("setBackground", colorCls).invoke(shell, red);
+
+                    controlClass.getMethod("setBounds", int.class, int.class, int.class, int.class)
+                            .invoke(shell, b[0] - pad, b[1] - pad, ow, oh);
+                    controlClass.getMethod("setVisible", boolean.class).invoke(shell, true);
+
+                    Runnable disposer = () -> {
+                        try { if (!isDisposed(shell)) widgetClass.getMethod("dispose").invoke(shell); } catch (Exception ignore) {}
+                        try { regionCls.getMethod("dispose").invoke(region); } catch (Exception ignore) {}
+                        try { colorCls.getMethod("dispose").invoke(red); } catch (Exception ignore) {}
+                    };
+                    displayClass.getMethod("timerExec", int.class, Runnable.class).invoke(displayInstance, dur, disposer);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            });
+            res.addProperty("ok", ok);
+            if (!ok) res.addProperty("error", "overlay creation unavailable via reflection");
+        } catch (Exception e) {
+            res.addProperty("ok", false);
+            res.addProperty("error", e.getMessage() == null ? e.toString() : e.getMessage());
+        }
+        return res;
+    }
+
+    /** Deepest visible non-overlay Control under (screenX,screenY), with its child chain. */
+    private static Object hitTestRecurse(Object control, int sx, int sy) {
+        Object deepest = control;
+        if (compositeClass != null && compositeClass.isInstance(control)) {
+            try {
+                Object[] children = (Object[]) compositeClass.getMethod("getChildren").invoke(control);
+                if (children != null) {
+                    for (Object child : children) {
+                        if (child == null || isDisposed(child) || isSpyOverlay(child)) continue;
+                        if (!controlClass.isInstance(child) || !isControlVisible(child)) continue;
+                        int[] b = displayBounds(child);
+                        if (containsPoint(b, sx, sy)) {
+                            deepest = hitTestRecurse(child, sx, sy); // later child in z-order wins
+                        }
+                    }
+                }
+            } catch (Exception ignore) {}
+        }
+        return deepest;
+    }
+
+    /**
+     * Deepest visible Control at a display (screen) point, with its root->leaf ancestor id path.
+     * Best-effort: returns the containing shell rather than throwing if traversal is only partial.
+     */
+    public static JsonObject hitTest(int screenX, int screenY) {
+        JsonObject node = new JsonObject();
+        try {
+            JsonObject r = syncExec(() -> {
+                Object target = null;
+                Object[] shells = (Object[]) displayClass.getMethod("getShells").invoke(displayInstance);
+                if (shells != null) {
+                    for (Object shell : shells) {
+                        if (shell == null || isDisposed(shell) || isSpyOverlay(shell)) continue;
+                        if (!isControlVisible(shell)) continue;
+                        int[] b = displayBounds(shell);
+                        if (containsPoint(b, screenX, screenY)) {
+                            target = hitTestRecurse(shell, screenX, screenY); // later shell in stacking wins
+                        }
+                    }
+                }
+                JsonObject out = new JsonObject();
+                if (target == null) { out.addProperty("hit", false); return out; }
+
+                out.addProperty("hit", true);
+                out.addProperty("id", getOrCreateWidgetId(target));
+                out.addProperty("className", target.getClass().getName());
+                out.addProperty("type", target.getClass().getSimpleName());
+                String name = getWidgetName(target);
+                if (name != null) out.addProperty("name", name);
+                String text = getWidgetText(target);
+                if (text != null) out.addProperty("text", text);
+
+                // root->leaf ancestor id path
+                java.util.List<Object> chain = new java.util.ArrayList<>();
+                for (Object c = target; c != null && controlClass.isInstance(c); ) {
+                    chain.add(c);
+                    try { c = controlClass.getMethod("getParent").invoke(c); }
+                    catch (Exception e) { break; }
+                }
+                java.util.Collections.reverse(chain);
+                JsonArray path = new JsonArray();
+                for (Object c : chain) path.add(getOrCreateWidgetId(c));
+                out.add("ancestor_path", path);
+                return out;
+            });
+            return r != null ? r : node;
+        } catch (Exception e) {
+            node.addProperty("hit", false);
+            node.addProperty("error", e.getMessage() == null ? e.toString() : e.getMessage());
+            return node;
+        }
+    }
+    // ================= end javagui-spy =================
 
     /**
      * Clear the widget cache.

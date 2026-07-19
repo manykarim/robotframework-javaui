@@ -177,6 +177,8 @@ javagui-spy screenshot -o proof.png          # 5. visual confirmation
 
 [full guide](docs/spy.md)
 
+Also: a **web inspector** (`javagui-spy ui` — click a widget on a live screenshot, get ranked verified locators with a live match-count bar), **click-to-pick** (`pick --at X,Y`, in-JVM hit-test), **highlight**, and an **MCP server** (`javagui-spy mcp`) exposing the same verbs as tools.
+
 [Full guide → docs/spy.md](docs/spy.md)
 
 ## Libraries

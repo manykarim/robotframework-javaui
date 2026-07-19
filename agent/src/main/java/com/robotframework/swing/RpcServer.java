@@ -127,6 +127,19 @@ public class RpcServer implements Runnable {
             case "listWindows":
                 return ComponentInspector.getWindows();
 
+            // javagui-spy: hit-test / highlight / change-generation
+            case "hitTest":
+                return ComponentInspector.hitTest(paramsObj.get("x").getAsInt(),
+                                                  paramsObj.get("y").getAsInt());
+            case "highlight":
+                return ComponentInspector.highlight(paramsObj.get("componentId").getAsInt(),
+                        paramsObj.has("durationMs") ? paramsObj.get("durationMs").getAsInt() : 1500);
+            case "getUiGeneration":
+                return ComponentInspector.getUiGeneration();
+            case "armPick":
+                return ComponentInspector.armPick(
+                        paramsObj.has("timeoutMs") ? paramsObj.get("timeoutMs").getAsInt() : 15000);
+
             case "getComponentTree":
                 if (paramsObj.has("componentId")) {
                     int compId = paramsObj.get("componentId").getAsInt();

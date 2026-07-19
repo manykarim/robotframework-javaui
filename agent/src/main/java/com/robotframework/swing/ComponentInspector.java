@@ -91,7 +91,7 @@ public class ComponentInspector {
             JsonArray roots = new JsonArray();
 
             for (Window window : Window.getWindows()) {
-                if (window.isShowing()) {
+                if (window.isShowing() && !isSpyOverlay(window)) {
                     roots.add(buildComponentNode(window, 0, maxDepth));
                 }
             }
@@ -122,6 +122,198 @@ public class ComponentInspector {
     /**
      * Build a JSON node for a component and its children.
      */
+    // ================= javagui-spy: hit-test / highlight / generation =================
+    /** Reserved name so spy overlays never appear in their own scans. */
+    public static final String SPY_OVERLAY_NAME = "__javagui_spy_overlay__";
+
+    private static boolean isSpyOverlay(Component c) {
+        return c != null && SPY_OVERLAY_NAME.equals(c.getName());
+    }
+
+    private static String textOf(Component c) {
+        try {
+            if (c instanceof AbstractButton) return ((AbstractButton) c).getText();
+            if (c instanceof JLabel) return ((JLabel) c).getText();
+            if (c instanceof JTextComponent) return ((JTextComponent) c).getText();
+            if (c instanceof Frame) return ((Frame) c).getTitle();
+        } catch (Exception ignore) {}
+        return null;
+    }
+
+    /** Deepest visible component at screen point (x,y), with its root->leaf ancestor id path. */
+    public static JsonObject hitTest(int screenX, int screenY) {
+        JsonObject r = EdtHelper.runOnEdtAndReturn(() -> {
+            Component target = null;
+            for (Window w : Window.getWindows()) {
+                if (!w.isShowing() || isSpyOverlay(w)) continue;
+                Point o;
+                try { o = w.getLocationOnScreen(); } catch (Exception e) { continue; }
+                Rectangle b = new Rectangle(o.x, o.y, w.getWidth(), w.getHeight());
+                if (!b.contains(screenX, screenY)) continue;
+                Component c = SwingUtilities.getDeepestComponentAt(w, screenX - o.x, screenY - o.y);
+                if (c != null && !isSpyOverlay(c)) target = c; // later window in stacking order wins
+            }
+            JsonObject node = new JsonObject();
+            if (target == null) { node.addProperty("hit", false); return node; }
+            node.addProperty("hit", true);
+            node.addProperty("id", getOrCreateId(target));
+            node.addProperty("class", target.getClass().getName());
+            node.addProperty("simpleClass", target.getClass().getSimpleName());
+            if (target.getName() != null) node.addProperty("name", target.getName());
+            String txt = textOf(target);
+            if (txt != null) node.addProperty("text", txt);
+            try {
+                Point sp = target.getLocationOnScreen();
+                node.addProperty("screenX", sp.x);
+                node.addProperty("screenY", sp.y);
+            } catch (Exception ignore) {}
+            node.addProperty("width", target.getWidth());
+            node.addProperty("height", target.getHeight());
+            JsonArray path = new JsonArray();
+            java.util.List<Component> chain = new java.util.ArrayList<>();
+            for (Component c = target; c != null; c = c.getParent()) chain.add(c);
+            java.util.Collections.reverse(chain);
+            for (Component c : chain) path.add(getOrCreateId(c));
+            node.add("ancestor_path", path);
+            return node;
+        });
+        return r != null ? r : new JsonObject();
+    }
+
+    /** Flash a hollow, non-focusable, always-on-top red border around a component; auto-disposes. */
+    public static JsonObject highlight(int componentId, int durationMs) {
+        JsonObject res = new JsonObject();
+        final Component c = componentCache.get(componentId);
+        if (c == null) { res.addProperty("ok", false); res.addProperty("error", "unknown component id"); return res; }
+        final int dur = durationMs <= 0 ? 1500 : Math.max(200, durationMs);
+        EdtHelper.runOnEdt(() -> {
+            try {
+                if (!c.isShowing()) return;
+                Point o = c.getLocationOnScreen();
+                final JWindow w = new JWindow();
+                w.setName(SPY_OVERLAY_NAME);
+                w.setFocusableWindowState(false);
+                w.setAlwaysOnTop(true);
+                JPanel p = new JPanel() {
+                    @Override protected void paintComponent(Graphics g) {
+                        Graphics2D g2 = (Graphics2D) g;
+                        g2.setColor(new Color(255, 60, 60));
+                        g2.setStroke(new BasicStroke(3f));
+                        g2.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                    }
+                };
+                p.setOpaque(false);
+                w.setContentPane(p);
+                w.setBounds(o.x - 2, o.y - 2, c.getWidth() + 4, c.getHeight() + 4);
+                try {
+                    java.awt.geom.Area ring = new java.awt.geom.Area(new Rectangle(0, 0, w.getWidth(), w.getHeight()));
+                    ring.subtract(new java.awt.geom.Area(new Rectangle(4, 4, w.getWidth() - 8, w.getHeight() - 8)));
+                    w.setShape(ring);
+                } catch (Exception ignore) {}
+                w.setVisible(true);
+                javax.swing.Timer t = new javax.swing.Timer(dur, ev -> w.dispose());
+                t.setRepeats(false);
+                t.start();
+            } catch (Exception ignore) {}
+        });
+        res.addProperty("ok", true);
+        return res;
+    }
+
+    /** Cheap change token: component counts across windows + focus owner identity. */
+    public static JsonObject getUiGeneration() {
+        Long gen = EdtHelper.runOnEdtAndReturn(() -> {
+            long g = 0;
+            for (Window w : Window.getWindows()) {
+                if (!w.isShowing() || isSpyOverlay(w)) continue;
+                g = g * 1000003L + countComponents(w);
+            }
+            Component fo = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+            if (fo != null) g = g * 31L + System.identityHashCode(fo);
+            return g;
+        });
+        JsonObject res = new JsonObject();
+        res.addProperty("generation", gen == null ? 0L : gen);
+        return res;
+    }
+
+    private static int countComponents(Component c) {
+        int n = 1;
+        if (c instanceof Container) {
+            for (Component ch : ((Container) c).getComponents()) n += countComponents(ch);
+        }
+        return n;
+    }
+
+    /** Build the same node shape hitTest returns, on the EDT. */
+    private static JsonObject componentNodeOnEdt(Component target) {
+        return EdtHelper.runOnEdtAndReturn(() -> {
+            JsonObject node = new JsonObject();
+            node.addProperty("hit", true);
+            node.addProperty("id", getOrCreateId(target));
+            node.addProperty("class", target.getClass().getName());
+            node.addProperty("simpleClass", target.getClass().getSimpleName());
+            if (target.getName() != null) node.addProperty("name", target.getName());
+            String txt = textOf(target);
+            if (txt != null) node.addProperty("text", txt);
+            try {
+                Point sp = target.getLocationOnScreen();
+                node.addProperty("screenX", sp.x);
+                node.addProperty("screenY", sp.y);
+            } catch (Exception ignore) {}
+            node.addProperty("width", target.getWidth());
+            node.addProperty("height", target.getHeight());
+            JsonArray path = new JsonArray();
+            java.util.List<Component> chain = new java.util.ArrayList<>();
+            for (Component c = target; c != null; c = c.getParent()) chain.add(c);
+            java.util.Collections.reverse(chain);
+            for (Component c : chain) path.add(getOrCreateId(c));
+            node.add("ancestor_path", path);
+            return node;
+        });
+    }
+
+    /** Wait (up to timeoutMs) for the user to Ctrl+Shift+click a widget; return the picked node.
+     *  Passive: it records the click but does not suppress it (documented caveat). */
+    public static JsonObject armPick(int timeoutMs) {
+        final int wait = timeoutMs <= 0 ? 15000 : Math.max(1000, timeoutMs);
+        final Object lock = new Object();
+        final Component[] picked = {null};
+        java.awt.event.AWTEventListener listener = ev -> {
+            if (ev instanceof java.awt.event.MouseEvent) {
+                java.awt.event.MouseEvent me = (java.awt.event.MouseEvent) ev;
+                if (me.getID() == java.awt.event.MouseEvent.MOUSE_PRESSED
+                        && me.isControlDown() && me.isShiftDown()) {
+                    Component src = me.getComponent();
+                    Component deep = (src != null)
+                            ? SwingUtilities.getDeepestComponentAt(src, me.getX(), me.getY()) : null;
+                    synchronized (lock) {
+                        if (picked[0] == null) { picked[0] = (deep != null) ? deep : src; lock.notifyAll(); }
+                    }
+                }
+            }
+        };
+        Toolkit.getDefaultToolkit().addAWTEventListener(listener, java.awt.AWTEvent.MOUSE_EVENT_MASK);
+        try {
+            synchronized (lock) {
+                long deadline = System.currentTimeMillis() + wait;
+                while (picked[0] == null && System.currentTimeMillis() < deadline) lock.wait(200);
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        } finally {
+            Toolkit.getDefaultToolkit().removeAWTEventListener(listener);
+        }
+        if (picked[0] == null) {
+            JsonObject miss = new JsonObject();
+            miss.addProperty("hit", false);
+            miss.addProperty("timeout", true);
+            return miss;
+        }
+        return componentNodeOnEdt(picked[0]);
+    }
+    // ================= end javagui-spy =================
+
     private static JsonObject buildComponentNode(Component component, int depth, int maxDepth) {
         JsonObject node = new JsonObject();
 

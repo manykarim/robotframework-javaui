@@ -109,6 +109,12 @@ else
 fi
 grab "05_workbench_rendered"
 
+# Optional: probe the SWT/RCP javagui-spy RPCs (hitTest/highlight/getUiGeneration) live.
+if [ "${SPY_PROBE:-}" = "1" ]; then
+  log "running SWT spy probe ..."
+  python3 /work/tests/docker/rcp/swt_spy_probe.py 2>&1 | tee "$LOGS/swt_spy_probe.log" || log "spy probe rc=$?"
+fi
+
 # ---------------------------------------------------------------------------
 # 5. Run the Robot experiment suite (driver co-located, so screenshots are local)
 # ---------------------------------------------------------------------------

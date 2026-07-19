@@ -169,6 +169,27 @@ public class SwtReflectionRpcServer implements Runnable {
                         params.has("widgetId") ? params.get("widgetId").getAsInt()
                         : params.has("componentId") ? params.get("componentId").getAsInt() : -1));
 
+            // javagui-spy: hit-test / highlight / change-generation (param shapes mirror Swing)
+            case "hitTest":
+                return SwtReflectionBridge.hitTest(
+                        params.get("x").getAsInt(), params.get("y").getAsInt());
+
+            case "highlight":
+                return SwtReflectionBridge.highlight(
+                        params.get("componentId").getAsInt(),
+                        params.has("durationMs") ? params.get("durationMs").getAsInt() : 1500);
+
+            case "getUiGeneration":
+                return SwtReflectionBridge.getUiGeneration();
+
+            case "armPick": {
+                // In-app Ctrl+Shift pick is Swing-only in this build; SWT/RCP use hitTest / pick --at.
+                JsonObject armed = new JsonObject();
+                armed.addProperty("hit", false);
+                armed.addProperty("error", "armPick is Swing-only in this build; use 'pick --at X,Y' or hitTest on SWT/RCP");
+                return armed;
+            }
+
             case "click":
                 SwtReflectionBridge.click(getWidgetId(params));
                 return new JsonPrimitive(true);
