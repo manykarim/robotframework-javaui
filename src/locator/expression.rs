@@ -12,6 +12,8 @@ use std::fmt;
 pub struct LocatorParseError {
     pub message: String,
     pub position: Option<usize>,
+    /// Machine-readable hint: the expected tokens/valid vocabulary at the failure.
+    pub hint: Option<String>,
 }
 
 impl LocatorParseError {
@@ -19,6 +21,7 @@ impl LocatorParseError {
         Self {
             message: message.into(),
             position: None,
+            hint: None,
         }
     }
 
@@ -26,7 +29,14 @@ impl LocatorParseError {
         Self {
             message: message.into(),
             position: Some(position),
+            hint: None,
         }
+    }
+
+    /// Attach a machine-readable hint (expected tokens).
+    pub fn with_hint(mut self, hint: impl Into<String>) -> Self {
+        self.hint = Some(hint.into());
+        self
     }
 }
 
@@ -44,7 +54,16 @@ impl std::error::Error for LocatorParseError {}
 
 impl From<parser::ParseError> for LocatorParseError {
     fn from(err: parser::ParseError) -> Self {
-        Self::new(err.to_string())
+        let hint = if err.expected.is_empty() {
+            None
+        } else {
+            Some(format!("expected: {}", err.expected.join(", ")))
+        };
+        Self {
+            message: err.to_string(),
+            position: Some(err.position),
+            hint,
+        }
     }
 }
 

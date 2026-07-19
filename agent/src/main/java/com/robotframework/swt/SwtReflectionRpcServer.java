@@ -182,13 +182,9 @@ public class SwtReflectionRpcServer implements Runnable {
             case "getUiGeneration":
                 return SwtReflectionBridge.getUiGeneration();
 
-            case "armPick": {
-                // In-app Ctrl+Shift pick is Swing-only in this build; SWT/RCP use hitTest / pick --at.
-                JsonObject armed = new JsonObject();
-                armed.addProperty("hit", false);
-                armed.addProperty("error", "armPick is Swing-only in this build; use 'pick --at X,Y' or hitTest on SWT/RCP");
-                return armed;
-            }
+            case "armPick":
+                return SwtReflectionBridge.armPick(
+                        params.has("timeoutMs") ? params.get("timeoutMs").getAsInt() : 15000);
 
             case "click":
                 SwtReflectionBridge.click(getWidgetId(params));

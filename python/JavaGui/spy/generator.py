@@ -206,6 +206,44 @@ def _enumerate(target: dict, flat: list[dict], strip_names: bool) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+def rust_suggest(tree_json: str, node_id: int, strip_names: bool = False, top: int = 3):
+    """Fast OFFLINE candidate generation via the Rust ``_core`` extension.
+
+    Ports this module's algorithm to Rust and verifies each candidate against the get_ui_tree
+    JSON with the production matcher — no per-candidate RPC. Returns a list of candidate dicts
+    (same contract as :func:`suggest`) or ``None`` if the extension is unavailable or errors, in
+    which case callers fall back to the live Python oracle.
+    """
+    try:
+        from JavaGui import _core
+    except Exception:
+        return None
+    fn = getattr(_core, "suggest_locators", None)
+    if fn is None:
+        return None
+    try:
+        return fn(str(tree_json), int(node_id), bool(strip_names), int(top)) or None
+    except Exception:
+        return None
+
+
+def explain_locator(locator: str) -> dict:
+    """Structured parse check via the Rust ``_core`` parser: ``{ok, position, hint, message}``.
+
+    ``position`` is the byte offset of the first bad token and ``hint`` names the valid vocabulary
+    expected there. Falls back to ``{ok: True}`` when the extension is unavailable (validation then
+    deferred to the matcher), so callers behave identically without the compiled core.
+    """
+    try:
+        from JavaGui import _core
+        fn = getattr(_core, "explain_locator", None)
+        if fn is not None:
+            return fn(str(locator))
+    except Exception:
+        pass
+    return {"ok": True, "position": None, "hint": None, "message": None}
+
+
 def suggest(flat: list[dict], target: dict, resolve: Callable[[str], Iterable[int]],
             *, strip_names: bool = False, top: int = 3) -> list[dict]:
     """Return up to ``top`` verified-unique candidates for ``target``, best score first.

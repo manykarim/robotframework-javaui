@@ -38,5 +38,11 @@ for (x, y) in [(150, 140), (800, 400), (100, 300)]:
         print(f"[swt highlight id={h.get('id')}] ok={hl.get('ok')}")
         break
 
+# armPick timeout path (no click -> graceful timeout; validates the SWT reflection listener install/remove)
+t0 = time.time()
+ap = rpc("armPick", {"timeoutMs": 2000}).get("result", {})
+print(f"[swt armPick] returned in {time.time()-t0:.1f}s hit={ap.get('hit')} timeout={ap.get('timeout')} err={ap.get('error')}")
+ok &= (ap.get("hit") is False)
+
 print("=== swt spy probe done ===")
 sys.exit(0 if ok else 1)

@@ -37,6 +37,18 @@ def test_recognition_rule_reorders_qualifiers():
     assert quals and quals[0] == ("text", "Input")  # rule says text-first for FormsLabel
 
 
+def test_explain_locator_parse_error_position_and_hint():
+    """2.4: the Rust parser surfaces a byte position + valid-vocabulary hint (no app needed)."""
+    from JavaGui.spy import generator as G
+    ok = G.explain_locator("JButton[name='x']")
+    assert ok["ok"] is True and ok["position"] is None
+    bad = G.explain_locator("JButton[naem='x'")   # missing closing bracket
+    assert bad["ok"] is False
+    assert isinstance(bad["position"], int) and bad["position"] > 0
+    assert bad["hint"] and "expected" in bad["hint"]
+    assert bad["message"] and "Parse error" in bad["message"]
+
+
 # ---- live coverage ----
 
 pytestmark_live = pytest.mark.skipif(
@@ -81,3 +93,18 @@ def test_hittest_and_generation_live(core):
 def test_arm_pick_times_out_cleanly(core):
     r = core.arm_pick(1500)
     assert r.get("hit") is False and r.get("timeout") is True
+
+
+@pytestmark_live
+def test_rust_offline_suggest_parity(core):
+    """1.5: the offline Rust generator agrees with the live Python oracle and its top
+    candidate uniquely resolves to the target — no per-candidate RPC."""
+    from JavaGui.spy import generator as G
+    btn = next(r for r in core._flat if G.node_type(r["node"]) == "JButton" and G.node_name(r["node"]))
+    nid = btn["node_id"]
+    rust = G.rust_suggest(core._tree_json, nid, False, 3)
+    assert rust, "Rust offline generator returned nothing (extension missing or errored)"
+    py = G.suggest(core._flat, btn, core.resolve, top=3)
+    assert rust[0]["locator"] == py[0]["locator"]      # same best locator
+    assert rust[0]["unique"] is True
+    assert core.resolve(rust[0]["locator"]) == [nid]   # resolves LIVE to exactly the target

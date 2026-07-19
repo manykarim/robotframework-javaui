@@ -2,6 +2,7 @@
 
 pub mod ast;
 pub mod expression;
+pub mod generator;
 pub mod matcher;
 pub mod parser;
 pub mod swt_matcher;
