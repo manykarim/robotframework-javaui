@@ -4,6 +4,11 @@ Automate Java desktop apps — **Swing**, **SWT**, and **Eclipse RCP** — strai
 
 The Swiss Army knife for Java GUI testing: one library, three toolkits, human-readable tests.
 
+📖 **[Keyword Documentation](https://manykarim.github.io/robotframework-javaui/)** — every keyword, with a runnable example:
+**[Swing](https://manykarim.github.io/robotframework-javaui/keywords/Swing.html)** ·
+**[SWT](https://manykarim.github.io/robotframework-javaui/keywords/Swt.html)** ·
+**[Eclipse RCP](https://manykarim.github.io/robotframework-javaui/keywords/Rcp.html)**
+
 ## Features
 
 - **High Performance**: Core library written in Rust with PyO3 bindings for Python
@@ -29,6 +34,7 @@ The three toolkits are not at the same level of maturity. Support level reflects
 
 ## Table of Contents
 
+- 📖 [Keyword Documentation (GitHub Pages)](https://manykarim.github.io/robotframework-javaui/)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Libraries](#libraries)
@@ -160,7 +166,11 @@ This package provides three libraries for different Java GUI frameworks:
 | **Swt** | `Library    JavaGui.Swt` | SWT applications (Eclipse widgets) |
 | **Rcp** | `Library    JavaGui.Rcp` | Eclipse RCP applications (views, editors, perspectives) |
 
-**Full keyword reference:** every keyword — with a runnable example — lives in the generated Libdoc HTML: [`docs/keywords/Swing.html`](docs/keywords/Swing.html), [`docs/keywords/Swt.html`](docs/keywords/Swt.html), [`docs/keywords/Rcp.html`](docs/keywords/Rcp.html). Regenerate any time with `uv run invoke docs`.
+**Full keyword reference (GitHub Pages):** every keyword, with a runnable example —
+[**Swing**](https://manykarim.github.io/robotframework-javaui/keywords/Swing.html) ·
+[**SWT**](https://manykarim.github.io/robotframework-javaui/keywords/Swt.html) ·
+[**Eclipse RCP**](https://manykarim.github.io/robotframework-javaui/keywords/Rcp.html).
+Hosted from `docs/keywords/` — regenerate with `uv run invoke docs`.
 
 ### Library Import Options
 
