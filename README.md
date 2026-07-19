@@ -35,6 +35,7 @@ The three toolkits are not at the same level of maturity. Support level reflects
 ## Table of Contents
 
 - 📖 [Keyword Documentation (GitHub Pages)](https://manykarim.github.io/robotframework-javaui/)
+- 🔎 [Spy Tool — javagui-spy](#spy-tool--javagui-spy)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Libraries](#libraries)
@@ -155,6 +156,28 @@ Example Login Test
 ```bash
 robot my_test.robot
 ```
+
+## Spy Tool — `javagui-spy`
+
+Point it at a running Swing/SWT/RCP app and it hands you **unique, verified Robot Framework locators** — no guessing, no `sleep`-and-hope. Every candidate is checked through the *same* matcher your tests run, so a suggested locator cannot fail to parse in a suite. A UI is coming; the agentic CLI is here today.
+
+It ships in the wheel: `pip install robotframework-javagui` gives you the `javagui-spy` command. Attach to a live app on its agent port, or `--launch app.jar` to start one under the bundled agent.
+
+The five-call workflow:
+
+```bash
+javagui-spy dump-tree --visible-only        # 1. orient
+javagui-spy find "text:Save"                 # 2. shortlist
+javagui-spy suggest --node-id 7              # 3. ranked verified locators
+javagui-spy validate "JButton[name='save']"  # 4. exit 0 = unique, done
+javagui-spy screenshot -o proof.png          # 5. visual confirmation
+```
+
+`suggest` returns ranked candidates plus ready-to-paste `rf_snippets` (`Click    JButton[name='toolbarNewButton']`). Deep, nameless widgets get nearest-stable-ancestor `>>` chains; `--strip-names` simulates off-the-shelf apps with no names. Connection flags (`--host`, `--port`, `--toolkit`, `--timeout`) sit on every verb.
+
+[full guide](docs/spy.md)
+
+[Full guide → docs/spy.md](docs/spy.md)
 
 ## Libraries
 
