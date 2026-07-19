@@ -33,9 +33,9 @@ locator-authoring workflow. This is a research + design change; implementation f
 - [ ] 3.3 PR tier (swing/swt/showcase, xvfb) + nightly DBeaver gate; permanent failed-locator corpus; perturbation suite
 
 ## 4. Agent RPCs v1.1 (small, public-API-only)
-- [ ] 4.1 `hitTest(x,y)` (ancestor path), `highlight` (hollow tagged-filtered overlay), `getUiGeneration` — Swing first, then SWT (`syncExec` + timeouts), RCP part-id enrichment
-- [ ] 4.2 CLI `pick --at` upgraded to in-JVM ground truth
+- [x] 4.1 `hitTest(x,y)` (ancestor path), `highlight` (hollow tagged-filtered overlay), `getUiGeneration` — Swing first, then SWT (`syncExec` + timeouts), RCP part-id enrichment
+- [x] 4.2 CLI `pick --at` upgraded to in-JVM ground truth
 
 ## 5. Web GUI + full
-- [ ] 5.1 Single self-contained HTML page over SpyCore HTTP/SSE (tree / screenshot / inspector), live locator bar with match-count badge, breadcrumbs, Copy-as-RF, Flash-matches, RF-resource export
-- [ ] 5.2 `armPick` (Ctrl+Shift in-app pick), MCP server façade, per-app recognition-rules config, data-locator suggestions for tables/trees
+- [x] 5.1 Single self-contained HTML page over SpyCore HTTP/SSE (tree / screenshot / inspector), live locator bar with match-count badge, breadcrumbs, Copy-as-RF, Flash-matches, RF-resource export
+- [x] 5.2 `armPick` (Ctrl+Shift in-app pick), MCP server façade, per-app recognition-rules config, data-locator suggestions for tables/trees

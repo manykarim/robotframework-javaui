@@ -5,6 +5,7 @@ Owns ONE library connection to a running instrumented Java app, a cached widget 
 """
 from __future__ import annotations
 import json
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -32,15 +33,64 @@ class SpyCore:
         self._flat: list[dict] = []
         self._by_id: dict[int, dict] = {}
         self._tree_ts: int = 0
+        self._host: str = "localhost"
+        self._port: int = 5678
+        self._rpc_id: int = 0
 
     # ---- lifecycle ------------------------------------------------------
     def connect(self, host: str = "localhost", port: int | None = None, timeout: float = 30) -> None:
         port = port or (5678 if self.toolkit == "swing" else 5679)
+        self._host, self._port = host, port
         if self.toolkit == "swing":
             self.lib.connect_to_application(host=host, port=port, timeout=timeout)
         else:
             self.lib.connect_to_swt_application(self.toolkit, host, port, timeout)
         self.refresh()
+
+    # ---- raw JSON-RPC channel for spy-only verbs (agent accepts concurrent clients) ----
+    def _rpc(self, method: str, params: dict | None = None):
+        # The agent pretty-prints responses (multi-line JSON), so read until a COMPLETE
+        # JSON object is decodable rather than to the first newline.
+        s = socket.create_connection((self._host, self._port), timeout=10)
+        dec = json.JSONDecoder()
+        resp = None
+        try:
+            self._rpc_id += 1
+            s.sendall((json.dumps({"jsonrpc": "2.0", "id": self._rpc_id,
+                                   "method": method, "params": params or {}}) + "\n").encode())
+            buf = b""
+            while True:
+                chunk = s.recv(65536)
+                if not chunk:
+                    break
+                buf += chunk
+                try:
+                    resp, _ = dec.raw_decode(buf.decode("utf-8", "ignore").lstrip())
+                    break
+                except json.JSONDecodeError:
+                    continue
+        finally:
+            s.close()
+        if resp is None:
+            raise SpyError(f"RPC {method}: no/invalid response from agent")
+        if resp.get("error"):
+            raise SpyError(f"RPC {method} failed: {resp['error']}")
+        return resp.get("result")
+
+    def hit_test(self, x: int, y: int) -> dict:
+        """Deepest widget at screen (x,y) + its ancestor id path (in-JVM ground truth)."""
+        return self._rpc("hitTest", {"x": int(x), "y": int(y)}) or {"hit": False}
+
+    def highlight(self, node_id: int, duration_ms: int = 1500) -> dict:
+        return self._rpc("highlight", {"componentId": int(node_id), "durationMs": int(duration_ms)}) or {}
+
+    def ui_generation(self) -> int:
+        r = self._rpc("getUiGeneration") or {}
+        return int(r.get("generation", 0))
+
+    def arm_pick(self, timeout_ms: int = 15000) -> dict:
+        """Wait for the user to Ctrl+Shift+click a widget; return the picked node."""
+        return self._rpc("armPick", {"timeoutMs": int(timeout_ms)}) or {"hit": False}
 
     def launch(self, jar: str, port: int | None = None, agent_jar: str | None = None,
                wait: float = 6.0) -> None:
@@ -146,11 +196,25 @@ class SpyCore:
         cands = G.suggest(self._flat, rec, self.resolve, strip_names=strip_names, top=top)
         best = cands[0]["locator"] if cands else None
         snippets = {}
+        data_note = None
         if best:
             snippets = {"click": f"Click    {best}",
                         "get_text": f"${{value}}=    Get Element Text    {best}",
                         "should_be_visible": f"Element Should Be Visible    {best}"}
-        return {"target": self._summary(rec), "candidates": cands, "rf_snippets": snippets}
+            # data widgets: cells/items are stamped renderers, not addressable components —
+            # suggest a data keyword against the container instead of a child locator.
+            t = G.node_type(rec["node"])
+            if t in G.DATA_WIDGET_TYPES:
+                data_note = ("cells/items are stamped renderers — address by row/col or item text, "
+                             "not a child component locator")
+                if t in ("JTable", "Table"):
+                    snippets["table_cell"] = f"${{value}}=    Get Table Cell Value    {best}    ${{row}}    ${{col}}"
+                elif t in ("JTree", "Tree"):
+                    snippets["tree_node"] = f"Select Tree Item    {best}    Root/Child/Leaf"
+                else:  # JList / List
+                    snippets["list_item"] = f"Select List Item    {best}    ${{item_text}}"
+        return {"target": self._summary(rec), "candidates": cands,
+                "rf_snippets": snippets, "data_locator_note": data_note}
 
     def screenshot(self, path: str, annotate: str | None = None) -> str:
         return self.lib.capture_screenshot(path)
