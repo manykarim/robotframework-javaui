@@ -46,6 +46,9 @@ dev = [
     "pyyaml>=6.0",
 ]
 
+[project.scripts]
+javagui-spy = "JavaGui.spy.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/manykarim/robotframework-javaui"
 Documentation = "https://github.com/manykarim/robotframework-javaui#readme"
