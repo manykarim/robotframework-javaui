@@ -105,6 +105,10 @@ def test_discover_jvms_classifies_webstart_launcher(monkeypatch):
     is filtered out of the default (app-only) listing."""
     import os
 
+    # Force the Linux /proc discovery branch regardless of the host OS (CI runs on macOS/Windows too).
+    monkeypatch.setattr(_attach.sys, "platform", "linux")
+    real_isdir = os.path.isdir
+    monkeypatch.setattr(os.path, "isdir", lambda p: True if p == "/proc" else real_isdir(p))
     monkeypatch.setattr(_attach, "_own_pid_tree", lambda: set())
     monkeypatch.setattr(_attach, "_cmdline", lambda pid: _LAUNCHER_CMDLINE)
     real_listdir = os.listdir
@@ -128,6 +132,10 @@ def test_discover_jvms_classifies_plain_app_not_launcher(monkeypatch):
     """A plain ``java -jar app.jar`` JVM is an application, not a launcher."""
     import os
 
+    # Force the Linux /proc discovery branch regardless of the host OS (CI runs on macOS/Windows too).
+    monkeypatch.setattr(_attach.sys, "platform", "linux")
+    real_isdir = os.path.isdir
+    monkeypatch.setattr(os.path, "isdir", lambda p: True if p == "/proc" else real_isdir(p))
     monkeypatch.setattr(_attach, "_own_pid_tree", lambda: set())
     monkeypatch.setattr(_attach, "_cmdline", lambda pid: "/usr/bin/java -jar /opt/my-app.jar")
     real_listdir = os.listdir
