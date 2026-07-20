@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jnlp spec="1.0+" codebase="http://127.0.0.1:8099/" href="app.jnlp">
+  <information><title>Swing Test App</title><vendor>test</vendor></information>
+  <resources>
+    <j2se version="1.7+"/>
+    <jar href="app.jar" main="true"/>
+  </resources>
+  <application-desc main-class="testapp.SwingTestApp"/>
+</jnlp>

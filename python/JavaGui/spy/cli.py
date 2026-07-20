@@ -52,7 +52,10 @@ def _err(command: str, code: str, message: str, **extra) -> None:
 
 def _connect(args) -> SpyCore:
     core = SpyCore(toolkit=args.toolkit)
-    if args.launch:
+    if getattr(args, "attach_pid", None) or getattr(args, "attach_main_class", None) or getattr(args, "attach_title", None):
+        core.attach(pid=args.attach_pid, main_class=args.attach_main_class, title=args.attach_title,
+                    host=args.host, port=args.port, timeout=args.timeout)
+    elif args.launch:
         core.launch(args.launch, port=args.port)
     else:
         core.connect(host=args.host, port=args.port, timeout=args.timeout)
@@ -65,6 +68,9 @@ def _add_conn(p):
     p.add_argument("--toolkit", default="swing", choices=["swing", "swt", "rcp"])
     p.add_argument("--timeout", type=float, default=30)
     p.add_argument("--launch", metavar="JAR", default=None, help="launch JAR with the agent instead of connecting")
+    p.add_argument("--attach-pid", type=int, default=None, help="attach the agent to a running JVM by PID (no -javaagent needed)")
+    p.add_argument("--attach-main-class", default=None, metavar="REGEX", help="attach by main-class/jar regex")
+    p.add_argument("--attach-title", default=None, metavar="PATTERN", help="attach by window title (needs wmctrl)")
 
 
 def main(argv=None) -> int:

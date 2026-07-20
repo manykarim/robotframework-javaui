@@ -1669,23 +1669,115 @@ class SwingLibrary(GetterKeywords, TableKeywords, TreeKeywords, ListKeywords):
         """
         self._lib.log_ui_tree(locator)
 
-    def list_applications(self) -> List[str]:
-        """List available Java applications to connect to.
+    def list_applications(self, include_launchers: bool = False) -> List[Dict[str, Any]]:
+        """List running Java (JVM) processes that can be attached to.
 
-        *Not implemented.* Automatic JVM/agent discovery is not available in this
-        release. This keyword raises an error rather than returning misleading
-        empty results. To connect, launch the target application with the
-        ``javagui-agent`` attached and use `Connect To Application` with an
-        explicit ``port`` (and optionally ``host``/``title``/``main_class``).
+        Discovers JVMs owned by the current user (via ``/proc``/``jcmd``) and classifies each as
+        an application or a Web Start/bootstrap launcher. Use the returned ``pid`` or ``main_class``
+        with `Attach To Application` to inject the agent into an app that was started *without*
+        ``-javaagent``.
+
+        | **Argument** | **Description** |
+        | ``include_launchers`` | Also return WebStart/bootstrap launcher JVMs. Default ``False``. |
+
+        Returns a list of dicts: ``pid``, ``main_class``, ``display_name``, ``command_line``,
+        ``is_launcher``, ``markers``.
 
         Example:
-        | Connect To Application    port=18080
+        | ${apps}=    List Applications
+        | Log    ${apps}
+        | Attach To Application    main_class=com.example.MyApp
 
         """
-        raise NotImplementedError(
-            "List Applications is not implemented: automatic Java application "
-            "discovery is unavailable. Use 'Connect To Application' with an "
-            "explicit port instead."
+        from JavaGui import _attach
+        return [p.to_dict() for p in _attach.discover_jvms(include_launchers=include_launchers)]
+
+    def attach_to_application(
+        self,
+        pid: Optional[int] = None,
+        main_class: Optional[str] = None,
+        title: Optional[str] = None,
+        host: str = "127.0.0.1",
+        port: Optional[int] = None,
+        toolkit: str = "swing",
+        timeout=None,
+    ) -> None:
+        """Attach the agent to an already-running Swing app and connect to it.
+
+        Unlike `Connect To Application` (which needs the target launched with ``-javaagent`` and an
+        open agent port), this discovers the target JVM, injects the agent at runtime via the JDK
+        Attach API, and connects — so you can automate an app that is *already running* (or one you
+        cannot relaunch, e.g. a Java Web Start app). Requires a JDK on the machine running the tests
+        (or a ``jattach`` binary for JRE-only hosts) and same-user access to the target.
+
+        | **Argument** | **Description** |
+        | ``pid`` | Process ID of the target JVM (most explicit). |
+        | ``main_class`` | Regex matched against the target's main class / entry jar / command line. |
+        | ``title`` | Window-title pattern (``*`` wildcards; needs ``wmctrl``). |
+        | ``host`` | Interface for the agent's RPC port. Default ``127.0.0.1``. |
+        | ``port`` | Agent RPC port to open; a free port is chosen when omitted. |
+        | ``toolkit`` | Agent toolkit hint: ``swing`` (default), ``swt``, ``rcp``, or ``auto``. |
+        | ``timeout`` | Overall attach+connect timeout in seconds. |
+
+        Selection is unambiguous or it errors: if 0 or >1 JVMs match, the keyword raises with the
+        candidate list rather than guessing.
+
+        Example:
+        | Attach To Application    main_class=com.example.MyApp
+        | Attach To Application    pid=48213
+        | ${apps}=    List Applications
+        | Attach To Application    pid=${apps}[0][pid]
+
+        """
+        from JavaGui import _attach
+        timeout_val = self._parse_timeout(timeout, self._timeout) or 30.0
+        _attach.attach_and_connect(
+            lambda h, p, t: self.connect_to_application(host=h, port=p, timeout=t),
+            get_agent_jar_path(), toolkit,
+            pid=pid, main_class=main_class, title=title, host=host, port=port, timeout=timeout_val,
+        )
+
+    def launch_web_start_application(
+        self,
+        jnlp: str,
+        launcher: Optional[str] = None,
+        host: str = "127.0.0.1",
+        port: Optional[int] = None,
+        toolkit: str = "auto",
+        settle: float = 8.0,
+        timeout: float = 60.0,
+    ) -> None:
+        """Launch a Java Web Start (JNLP) app, attach the agent at runtime, and connect to it.
+
+        Web Start apps are launched by ``javaws``/OpenWebStart/IcedTea-Web, so you cannot add
+        ``-javaagent`` at launch (it is not on the JNLP secure vm-args whitelist). This keyword
+        launches the ``.jnlp``, discovers the application JVM — whether it runs *in-process* in the
+        launcher or in a *forked* child — injects the agent via the JDK Attach API, and connects.
+
+        | **Argument** | **Description** |
+        | ``jnlp`` | Path or URL to the ``.jnlp`` file. |
+        | ``launcher`` | ``javaws`` binary or an IcedTea-Web image dir. Default: ``JAVAGUI_JAVAWS`` env or ``javaws`` on PATH. |
+        | ``host`` / ``port`` | Agent RPC interface/port (free port chosen when omitted). |
+        | ``toolkit`` | Agent toolkit hint. Default ``auto`` (detected from loaded classes). |
+        | ``settle`` | Seconds to wait for the app JVM to appear before attaching. Default ``8``. |
+        | ``timeout`` | Overall launch+attach+connect timeout in seconds. |
+
+        Sandbox note: an app running under a restrictive ``SecurityManager`` (e.g. a *sandboxed*
+        IcedTea-Web app) can deny the agent's initialization — this keyword raises a clear error in
+        that case. All-permissions apps and modern OpenWebStart / JDK 24+ do not have this limit.
+
+        Example:
+        | Launch Web Start Application    https://example.com/app.jnlp
+        | Launch Web Start Application    /path/to/app.jnlp    launcher=/opt/icedtea-web-image
+        """
+        from JavaGui import _attach
+        proc, app_pid = _attach.launch_webstart(jnlp, launcher=launcher, settle=float(settle),
+                                                 timeout=float(timeout))
+        self._webstart_proc = proc  # kept so callers can terminate the launcher in teardown
+        _attach.attach_and_connect(
+            lambda h, p, t: self.connect_to_application(host=h, port=p, timeout=t),
+            get_agent_jar_path(), toolkit,
+            pid=app_pid, host=host, port=port, timeout=float(timeout),
         )
 
     # ==========================================================================
@@ -2554,6 +2646,54 @@ class SwtLibrary(SwtGetterKeywords, SwtTableKeywords, SwtTreeKeywords):
         | Connect To Swt Application    MyApp    host=localhost    port=5679
         """
         return self._lib.connect_to_swt_application(app, host, port, timeout)
+
+    def list_applications(self, include_launchers: bool = False) -> List[Dict[str, Any]]:
+        """List running Java (JVM) processes that can be attached to (see `Attach To Application`).
+
+        | **Argument** | **Description** |
+        | ``include_launchers`` | Also return WebStart/bootstrap launcher JVMs. Default ``False``. |
+
+        Example:
+        | ${apps}=    List Applications
+        """
+        from JavaGui import _attach
+        return [p.to_dict() for p in _attach.discover_jvms(include_launchers=include_launchers)]
+
+    def attach_to_application(
+        self,
+        pid: Optional[int] = None,
+        main_class: Optional[str] = None,
+        title: Optional[str] = None,
+        host: str = "127.0.0.1",
+        port: Optional[int] = None,
+        toolkit: str = "swt",
+        timeout: Optional[float] = None,
+    ) -> None:
+        """Attach the agent to an already-running SWT app at runtime and connect to it.
+
+        Injects the agent via the JDK Attach API into a JVM started *without* ``-javaagent``
+        (see `Attach To Application` on the Swing library for full details). ``toolkit`` defaults
+        to ``swt``; use ``auto`` to let the agent detect the toolkit from loaded classes.
+
+        | **Argument** | **Description** |
+        | ``pid`` | Process ID of the target JVM. |
+        | ``main_class`` | Regex matched against the target main class / entry jar / command line. |
+        | ``title`` | Window-title pattern (``*`` wildcards; needs ``wmctrl``). |
+        | ``host`` / ``port`` | Agent RPC interface/port (free port chosen when omitted). |
+        | ``toolkit`` | ``swt`` (default), ``rcp``, or ``auto``. |
+        | ``timeout`` | Overall attach+connect timeout in seconds. |
+
+        Example:
+        | Attach To Application    main_class=MySwtApp
+        | Attach To Application    pid=48213
+        """
+        from JavaGui import _attach
+        t = float(timeout if timeout is not None else (self._timeout or 30.0))
+        _attach.attach_and_connect(
+            lambda h, p, tt: self.connect_to_swt_application("attach", h, p, tt),
+            get_agent_jar_path(), toolkit,
+            pid=pid, main_class=main_class, title=title, host=host, port=port, timeout=t,
+        )
 
     def disconnect(self):
         """Disconnect from the SWT application.
@@ -3582,6 +3722,55 @@ class RcpLibrary(RcpKeywords):
         | Connect To Application    MyRcpApp    port=5679
         """
         return self._lib.connect_to_application(app, host, port, timeout)
+
+    def list_applications(self, include_launchers: bool = False) -> List[Dict[str, Any]]:
+        """List running Java (JVM) processes that can be attached to (see `Attach To Application`).
+
+        | **Argument** | **Description** |
+        | ``include_launchers`` | Also return WebStart/bootstrap launcher JVMs. Default ``False``. |
+
+        Example:
+        | ${apps}=    List Applications
+        """
+        from JavaGui import _attach
+        return [p.to_dict() for p in _attach.discover_jvms(include_launchers=include_launchers)]
+
+    def attach_to_application(
+        self,
+        pid: Optional[int] = None,
+        main_class: Optional[str] = None,
+        title: Optional[str] = None,
+        host: str = "127.0.0.1",
+        port: Optional[int] = None,
+        toolkit: str = "swt",
+        timeout: Optional[float] = None,
+    ) -> None:
+        """Attach the agent to an already-running RCP/Eclipse app at runtime and connect to it.
+
+        Injects the agent via the JDK Attach API into a JVM started *without* ``-javaagent``
+        (see `Attach To Application` on the Swing library for full details). For Eclipse RCP the
+        agent must resolve SWT via the OSGi bundle classloader — attaching *after* the workbench is
+        up (which this keyword does) is when that detection is most reliable.
+
+        | **Argument** | **Description** |
+        | ``pid`` | Process ID of the target JVM. |
+        | ``main_class`` | Regex matched against the target main class / entry jar / command line. |
+        | ``title`` | Window-title pattern (``*`` wildcards; needs ``wmctrl``). |
+        | ``host`` / ``port`` | Agent RPC interface/port (free port chosen when omitted). |
+        | ``toolkit`` | ``swt`` (default; RCP uses the SWT server), or ``auto``. |
+        | ``timeout`` | Overall attach+connect timeout in seconds. |
+
+        Example:
+        | Attach To Application    main_class=org.eclipse.equinox.launcher
+        | Attach To Application    pid=48213
+        """
+        from JavaGui import _attach
+        t = float(timeout if timeout is not None else (self._timeout or 30.0))
+        _attach.attach_and_connect(
+            lambda h, p, tt: self.connect_to_swt_application("attach", h, p, tt),
+            get_agent_jar_path(), toolkit,
+            pid=pid, main_class=main_class, title=title, host=host, port=port, timeout=t,
+        )
 
     def disconnect(self):
         """Disconnect from the RCP application.

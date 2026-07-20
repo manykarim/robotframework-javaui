@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Sandbox Java Web Start (JNLP) skeleton for the robotframework-javaui harness.
+
+  It reuses the already-built Swing test app jar
+  (tests/apps/swing/target/swing-test-app-1.0.0.jar, Main-Class testapp.SwingTestApp)
+  so no extra application has to be authored or maintained.
+
+  This is the *sandbox* (default-permission) variant: it has no <security> element.
+  For a signed all-permissions variant, run make_signed_jnlp.sh, which emits a
+  parallel app.jnlp with <security><all-permissions/></security> into a target dir.
+
+  The codebase is a placeholder for a local 'python3 -m http.server' bound to
+  127.0.0.1:8099. Both this app.jnlp and swing-test-app-1.0.0.jar must be served
+  from that same directory (the robot suite stages them into a serve dir for you).
+-->
+<jnlp spec="1.0+" codebase="http://127.0.0.1:8099/" href="app.jnlp">
+  <information>
+    <title>Swing Test App (Web Start, sandbox)</title>
+    <vendor>robotframework-javaui</vendor>
+    <description>Deterministic JNLP test harness reusing the Swing test app.</description>
+    <description kind="short">Swing test app launched via Java Web Start.</description>
+  </information>
+  <resources>
+    <j2se version="1.7+"/>
+    <jar href="swing-test-app-1.0.0.jar" main="true"/>
+  </resources>
+  <application-desc main-class="testapp.SwingTestApp"/>
+</jnlp>
