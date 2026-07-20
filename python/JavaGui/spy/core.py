@@ -48,6 +48,17 @@ class SpyCore:
             self.lib.connect_to_swt_application(self.toolkit, host, port, timeout)
         self.refresh()
 
+    def attach(self, pid: int | None = None, main_class: str | None = None,
+               title: str | None = None, host: str = "127.0.0.1",
+               port: int | None = None, timeout: float = 30) -> None:
+        """Inject the agent into an already-running JVM (no -javaagent) and connect the spy to it."""
+        from JavaGui import _attach, get_agent_jar_path
+        tk = "auto" if self.toolkit == "swing" else self.toolkit
+        jvm = _attach.select_jvm(pid=pid, main_class=main_class, title=title)
+        use_port = int(port) if port else _attach.free_port(host)
+        _attach.inject_agent(jvm.pid, get_agent_jar_path(), use_port, toolkit=tk, host=host, timeout=timeout)
+        self.connect(host=host, port=use_port, timeout=timeout)
+
     # ---- raw JSON-RPC channel for spy-only verbs (agent accepts concurrent clients) ----
     def _rpc(self, method: str, params: dict | None = None):
         # The agent pretty-prints responses (multi-line JSON), so read until a COMPLETE
@@ -118,12 +129,39 @@ class SpyCore:
 
     # ---- tree + oracle --------------------------------------------------
     def refresh(self) -> None:
-        raw = self.lib.get_ui_tree(format="json")
-        tree = json.loads(raw)
+        if self.toolkit == "swing":
+            raw = self.lib.get_ui_tree(format="json")
+            tree = json.loads(raw)
+        else:
+            # SWT/RCP have no get_ui_tree on the library; the agent's getComponentTree RPC returns
+            # a flatter node shape ({id,className,type,text,widgetId,children}). Normalize it to the
+            # generator's nested shape so dump-tree/find/suggest work for SWT/RCP too.
+            roots = self._rpc("getComponentTree") or []
+            if isinstance(roots, dict):
+                roots = roots.get("roots") or roots.get("children") or [roots]
+            tree = {"roots": [self._normalize_swt_node(n) for n in roots]}
+            raw = json.dumps(tree)
         self._tree_json = raw
         self._flat = G.flatten_forest(tree)
         self._by_id = {r["node_id"]: r for r in self._flat if r["node_id"] is not None}
         self._tree_ts = int(time.time() * 1000)
+
+    @staticmethod
+    def _normalize_swt_node(n: dict) -> dict:
+        """Map an agent getComponentTree node to the generator's nested node shape."""
+        cls = n.get("className") or ""
+        simple = n.get("type") or (cls.rsplit(".", 1)[-1] if cls else "Widget")
+        b = n.get("bounds") or {}
+        node = {
+            "id": {"hash_code": n.get("id")},
+            "component_type": {"simple_name": simple, "class_name": cls},
+            "identity": {"name": n.get("widgetId") or n.get("name"), "text": n.get("text")},
+            "state": {"visible": n.get("visible"), "enabled": n.get("enabled")},
+            "children": [SpyCore._normalize_swt_node(c) for c in (n.get("children") or [])],
+        }
+        if b:
+            node["geometry"] = {"bounds": {k: b.get(k) for k in ("x", "y", "width", "height")}}
+        return node
 
     def resolve(self, locator: str) -> list[int]:
         """Live uniqueness oracle: matched node ids via the production matcher."""

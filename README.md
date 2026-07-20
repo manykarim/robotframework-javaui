@@ -38,6 +38,8 @@ The three toolkits are not at the same level of maturity. Support level reflects
 - 🔎 [Spy Tool — javagui-spy](#spy-tool--javagui-spy)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Attach to a Running Application](#attach-to-a-running-application)
+  - [Java Web Start (JNLP)](#java-web-start-jnlp)
 - [Libraries](#libraries)
 - [Locator Syntax](#locator-syntax)
 - [Assertion Engine](#assertion-engine)
@@ -156,6 +158,96 @@ Example Login Test
 ```bash
 robot my_test.robot
 ```
+
+## Attach to a Running Application
+
+`Connect To Application` needs the target started with `-javaagent:javagui-agent.jar=port=…`. Sometimes you cannot do that — the app is *already running*, someone else launched it, or it comes up through a launcher (Java Web Start) that will not let you add JVM args. `Attach To Application` handles those cases: it finds the target JVM, loads the agent at runtime through the JDK Attach API, and connects — no `-javaagent` on the command line.
+
+```robotframework
+*** Settings ***
+Library    JavaGui.Swing
+
+*** Test Cases ***
+Automate An Already-Running Swing App
+    Attach To Application    main_class=testapp.SwingTestApp
+    Click    JButton[text='OK']
+    [Teardown]    Disconnect
+```
+
+You point it at exactly one JVM. Selection is unambiguous or it errors — if 0 or >1 processes match, the keyword raises with the candidate list instead of guessing.
+
+| Argument | Selects by |
+|----------|------------|
+| `pid` | Process ID — the most explicit. |
+| `main_class` | Regex matched against the target's main class / entry jar / command line. |
+| `title` | Window-title pattern (`*` wildcards; needs `wmctrl`). |
+
+Not sure what is running? `List Applications` returns the discovered JVMs so you can pick one:
+
+```robotframework
+${apps}=    List Applications
+Log    ${apps}
+Attach To Application    pid=${apps}[0][pid]
+```
+
+Each entry is a dict with `pid`, `main_class`, `command_line`, `display_name`, `is_launcher`, and `markers`. Launchers (`javaws`, an IDE bootstrap, etc.) are filtered out by default; pass `include_launchers=True` to see them too.
+
+SWT and Eclipse RCP work the same way — the toolkit just defaults differently:
+
+```robotframework
+*** Settings ***
+Library    JavaGui.Swt
+
+*** Test Cases ***
+Attach To A Running SWT App
+    Attach To Application    main_class=MySwtApp    toolkit=auto
+    Click    Button[text='Save']
+    [Teardown]    Disconnect
+```
+
+`toolkit=auto` detects Swing vs SWT from the classes loaded in the target, so it is a safe default when you are not sure. `List Applications` and `Attach To Application` are available on `JavaGui.Swing`, `JavaGui.Swt`, and `JavaGui.Rcp` (SWT/RCP default `toolkit=swt`; Swing defaults `toolkit=swing`).
+
+### When to use it vs `Connect To Application`
+
+| Use | When |
+|-----|------|
+| `Connect To Application` | You launch the app yourself and can add `-javaagent:…`. Lowest overhead, works on any JVM. |
+| `Attach To Application` | The app is already running, you cannot relaunch it, or it starts via Java Web Start. |
+
+### Requirements
+
+- **A JDK on the machine running the tests.** Runtime attach uses the JDK Attach API (`jdk.attach`). A plain JRE has no attach support — install a JDK, or provide a `jattach` binary (set `JAVAGUI_JATTACH`, or put it on `PATH`).
+- **Same-user access to the target.** The OS only lets you attach to JVMs owned by your user.
+- **JDK 21+** prints a one-line *"dynamic agent loading"* warning on the target — harmless. **JDK 24+** additionally requires the *target* to be launched with `-XX:+EnableDynamicAgentLoading`; that flag is set at the target's launch, not by the test.
+
+### Java Web Start (JNLP)
+
+Web Start apps are started by `javaws` (OpenWebStart, IcedTea-Web), which builds the JVM command line itself. You **cannot** add `-javaagent` at launch — it is not on the JNLP secure vm-args whitelist, so the launcher strips it. Runtime attach is the way in. `Launch Web Start Application` starts the `.jnlp`, finds the application JVM (whether it runs in-process in the launcher or in a forked child), attaches the agent, and connects:
+
+```robotframework
+*** Settings ***
+Library    JavaGui.Swing
+
+*** Test Cases ***
+Automate A Web Start App
+    Launch Web Start Application    https://example.com/app.jnlp    toolkit=auto
+    Click    JButton[text='Start']
+    [Teardown]    Disconnect
+```
+
+Point `launcher=` at a specific `javaws` binary or an IcedTea-Web image directory (or set `JAVAGUI_JAVAWS`); omit it to use `javaws` on `PATH`. `settle` (default `8`s) controls how long to wait for the app JVM to appear before attaching.
+
+**What works, and what does not:**
+
+| Target | Runtime attach |
+|--------|----------------|
+| Plain running app (`java -jar app.jar`, no `-javaagent`) | ✅ Works |
+| JNLP under **modern OpenWebStart** / **JDK 24+** | ✅ Works |
+| JNLP under **IcedTea-Web** (legacy `SecurityManager`) | ❌ Blocked |
+
+The IcedTea-Web block is **structural**, not a permissions setting: ITW installs a `JNLPSecurityManager` that cannot classify the foreign code an attach-loaded agent brings in, so it denies the agent's initialization. This is **independent of the app's permission level** — an `all-permissions`, signed JNLP is blocked exactly the same way. When this happens, `Launch Web Start Application` raises a clear `AttachError` naming the `SecurityManager`, rather than hanging. Use a launcher without the legacy `SecurityManager` (OpenWebStart, or a JDK 24+ `javaws`) for Web Start automation.
+
+See **[docs/runtime-attach.md](docs/runtime-attach.md)** for the injection model, the full JDK/launcher matrix, troubleshooting, and the `javagui-spy --attach-pid` flags.
 
 ## Spy Tool — `javagui-spy`
 
@@ -465,7 +557,10 @@ These keywords support inline assertions with automatic retry:
 
 | Keyword | Arguments | Description |
 |---------|-----------|-------------|
-| `Connect To Application` | `main_class=`, `title=`, `host=`, `port=`, `timeout=` | Connect to a running Swing application |
+| `Connect To Application` | `main_class=`, `title=`, `host=`, `port=`, `timeout=` | Connect to an app launched with `-javaagent` |
+| `Attach To Application` | `pid=`, `main_class=`, `title=`, `host=`, `port=`, `toolkit=`, `timeout=` | Inject the agent into an already-running JVM and connect (no `-javaagent` needed) — see [Attach to a Running Application](#attach-to-a-running-application) |
+| `List Applications` | `include_launchers=` | List discovered Java processes you can attach to |
+| `Launch Web Start Application` | `jnlp`, `launcher=`, `host=`, `port=`, `toolkit=`, `settle=`, `timeout=` | Launch a JNLP app, attach at runtime, and connect |
 | `Disconnect` | | Disconnect from the application |
 | `Is Connected` | | Returns connection status |
 

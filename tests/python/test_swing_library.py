@@ -101,17 +101,19 @@ class TestConnectionKeywords:
         assert lib._lib._connected is False
 
     def test_list_applications(self, mock_rust_core):
-        """List Applications is not implemented and must fail loudly.
+        """List Applications performs real JVM discovery and returns a list of candidates.
 
-        It must not return misleading empty results (see keyword-honesty spec).
+        Honesty (keyword-honesty spec): it returns real discovery results — a list of dicts each
+        with at least ``pid`` and ``main_class`` — rather than the old misleading stub. An empty
+        list (no other JVMs running) is an honest result, not a fabricated one.
         """
-        import pytest
-
         from JavaGui import SwingLibrary
 
         lib = SwingLibrary()
-        with pytest.raises(NotImplementedError):
-            lib.list_applications()
+        apps = lib.list_applications()
+        assert isinstance(apps, list)
+        for a in apps:
+            assert "pid" in a and "main_class" in a and "is_launcher" in a
 
 
 class TestElementFindingKeywords:

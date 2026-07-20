@@ -55,6 +55,12 @@
                     <source>17</source>
                     <target>17</target>
                     <!-- SWT-dependent files moved to swt/disabled/, only reflection-based classes compiled -->
+                    <!-- jdk.attach: AttachMain uses com.sun.tools.attach to load the agent into a
+                         running JVM (runtime dynamic attach). Not in the default classpath root set. -->
+                    <compilerArgs>
+                        <arg>--add-modules</arg>
+                        <arg>jdk.attach</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
 

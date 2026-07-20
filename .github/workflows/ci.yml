@@ -261,3 +261,67 @@ jobs:
             results/dbeaver/shots/**
             results/dbeaver/logs/**
           if-no-files-found: warn
+
+  # Java Web Start (JNLP) proof, headless in Docker. Serves the sandbox JNLP
+  # (tests/apps/jnlp, reusing the Swing test app), launches it with portable
+  # IcedTea-Web, and drives the runtime dynamic-attach flow. HONEST scope: under
+  # IcedTea-Web a JNLPSecurityManager structurally blocks attach, so this proves
+  # launch + discover + the documented SecurityManager AttachError, not a green
+  # attach (which needs OpenWebStart / JDK 24+). The Robot suite asserts that
+  # either/or. Kept a separate job so it never blocks the build-test matrix.
+  webstart-jnlp:
+    name: Web Start (JNLP) headless
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          version: latest
+
+      - name: Setup Python
+        run: uv python install 3.12
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install build tools
+        run: uv tool install maturin
+
+      - name: Install dependencies (dev)
+        run: uv sync --all-extras --group dev
+
+      - name: Build agent + in-source Rust extension
+        run: |
+          uv run invoke build
+          uv run maturin develop --release
+
+      - name: Build Swing test app
+        run: (cd tests/apps/swing && mvn clean package)
+
+      - name: Build harness image (downloads IcedTea-Web + JDK 17)
+        run: docker build -t jnlp-harness tests/docker/jnlp
+
+      - name: Run JNLP Web Start harness (headless)
+        run: docker run --rm --shm-size=512m -v "$PWD":/work jnlp-harness
+
+      - name: Upload Web Start evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webstart-jnlp-evidence
+          path: |
+            results/jnlp/log.html
+            results/jnlp/report.html
+            results/jnlp/output.xml
+            results/jnlp/logs/**
+          if-no-files-found: warn

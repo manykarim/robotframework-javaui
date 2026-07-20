@@ -43,7 +43,13 @@ public class SwtReflectionRpcServer implements Runnable {
             while (running.get()) {
                 try {
                     Socket clientSocket = serverSocket.accept();
-                    handleClient(clientSocket);
+                    // Thread-per-client so the agent accepts CONCURRENT connections (parity with
+                    // the Swing server). Actual SWT ops are serialized on the UI thread via
+                    // syncExec, so this only overlaps request framing, not widget access. Lets a
+                    // spy/inspector hold one connection while another drives the app.
+                    Thread t = new Thread(() -> handleClient(clientSocket), "SwtRpc-client");
+                    t.setDaemon(true);
+                    t.start();
                 } catch (SocketException e) {
                     if (!running.get()) {
                         break; // Server was stopped

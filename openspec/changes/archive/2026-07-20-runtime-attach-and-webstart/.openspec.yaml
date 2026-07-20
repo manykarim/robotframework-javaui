@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-07-20
+goal: Attach the javagui agent to an already-running JVM (no launch-time
+  -javaagent), enabling automation of found-in-the-wild and WebStart-launched
+  apps
