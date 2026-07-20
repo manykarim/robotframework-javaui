@@ -35,6 +35,70 @@ public class ComponentInspector {
     private static final Map<Integer, Component> componentCache = Collections.synchronizedMap(new java.util.HashMap<>());
     private static final Map<Component, Integer> reverseCache = Collections.synchronizedMap(new java.util.HashMap<>());
 
+    // --- AppContext-aware window enumeration -------------------------------------------------
+    // java.awt.Window.getWindows() is AppContext-scoped: an agent attached on the RPC socket
+    // thread only sees windows created in ITS AppContext, so it MISSES windows created in a
+    // separate AppContext — exactly what Java Web Start and applets do (proven empirically).
+    // allWindows() enumerates every AppContext and merges their window lists, opening the
+    // required java.desktop internals via the agent's Instrumentation. It falls back to the
+    // plain Window.getWindows() when those internals cannot be opened, so behavior never
+    // regresses on the common single-context case or on locked-down JVMs.
+    private static volatile boolean appCtxAccessTried = false;
+    private static Method windowsByCtx;   // java.awt.Window.getWindows(sun.awt.AppContext)
+    private static Method getAppContexts; // sun.awt.AppContext.getAppContexts()
+
+    static Window[] allWindows() {
+        ensureAppContextAccess();
+        if (windowsByCtx != null && getAppContexts != null) {
+            try {
+                java.util.LinkedHashSet<Window> all = new java.util.LinkedHashSet<>();
+                Object ctxs = getAppContexts.invoke(null);
+                if (ctxs instanceof java.util.Collection) {
+                    for (Object ctx : (java.util.Collection<?>) ctxs) {
+                        Object arr = windowsByCtx.invoke(null, ctx);
+                        if (arr instanceof Window[]) {
+                            java.util.Collections.addAll(all, (Window[]) arr);
+                        }
+                    }
+                }
+                if (!all.isEmpty()) {
+                    return all.toArray(new Window[0]);
+                }
+            } catch (Throwable ignore) {
+                // fall through to the single-context path
+            }
+        }
+        return Window.getWindows();
+    }
+
+    private static synchronized void ensureAppContextAccess() {
+        if (appCtxAccessTried) {
+            return;
+        }
+        appCtxAccessTried = true;
+        try {
+            Module javaDesktop = Window.class.getModule();
+            Module self = ComponentInspector.class.getModule();
+            java.lang.instrument.Instrumentation inst = com.robotframework.UnifiedAgent.getInstrumentation();
+            if (inst != null && javaDesktop.isNamed()) {
+                // Open sun.awt (AppContext) + java.awt (private getWindows) to our module.
+                java.util.Map<String, java.util.Set<Module>> pkgs = new java.util.HashMap<>();
+                pkgs.put("sun.awt", java.util.Set.of(self));
+                pkgs.put("java.awt", java.util.Set.of(self));
+                inst.redefineModule(javaDesktop, java.util.Set.of(), pkgs, pkgs,
+                        java.util.Set.of(), java.util.Map.of());
+            }
+            Class<?> appCtx = Class.forName("sun.awt.AppContext");
+            getAppContexts = appCtx.getMethod("getAppContexts");
+            getAppContexts.setAccessible(true);
+            windowsByCtx = Window.class.getDeclaredMethod("getWindows", appCtx);
+            windowsByCtx.setAccessible(true);
+        } catch (Throwable t) {
+            windowsByCtx = null;
+            getAppContexts = null;  // fall back to single-context Window.getWindows()
+        }
+    }
+
     /**
      * Get all visible frames/windows in the application.
      *
@@ -44,7 +108,7 @@ public class ComponentInspector {
         return EdtHelper.runOnEdtAndReturn(() -> {
             JsonArray windows = new JsonArray();
 
-            for (Window window : Window.getWindows()) {
+            for (Window window : allWindows()) {
                 if (window.isShowing()) {
                     JsonObject windowInfo = new JsonObject();
                     windowInfo.addProperty("id", getOrCreateId(window));
@@ -90,7 +154,7 @@ public class ComponentInspector {
             JsonObject result = new JsonObject();
             JsonArray roots = new JsonArray();
 
-            for (Window window : Window.getWindows()) {
+            for (Window window : allWindows()) {
                 if (window.isShowing() && !isSpyOverlay(window)) {
                     roots.add(buildComponentNode(window, 0, maxDepth));
                 }
@@ -144,7 +208,7 @@ public class ComponentInspector {
     public static JsonObject hitTest(int screenX, int screenY) {
         JsonObject r = EdtHelper.runOnEdtAndReturn(() -> {
             Component target = null;
-            for (Window w : Window.getWindows()) {
+            for (Window w : allWindows()) {
                 if (!w.isShowing() || isSpyOverlay(w)) continue;
                 Point o;
                 try { o = w.getLocationOnScreen(); } catch (Exception e) { continue; }
@@ -224,7 +288,7 @@ public class ComponentInspector {
     public static JsonObject getUiGeneration() {
         Long gen = EdtHelper.runOnEdtAndReturn(() -> {
             long g = 0;
-            for (Window w : Window.getWindows()) {
+            for (Window w : allWindows()) {
                 if (!w.isShowing() || isSpyOverlay(w)) continue;
                 g = g * 1000003L + countComponents(w);
             }
@@ -699,7 +763,7 @@ public class ComponentInspector {
             if (searchRoot != null) {
                 findComponents(searchRoot, type, value, matches);
             } else {
-                for (Window window : Window.getWindows()) {
+                for (Window window : allWindows()) {
                     if (window.isShowing()) {
                         findComponents(window, type, value, matches);
                     }
@@ -739,7 +803,7 @@ public class ComponentInspector {
             if (searchRoot != null) {
                 findComponents(searchRoot, type, value, matches);
             } else {
-                for (Window window : Window.getWindows()) {
+                for (Window window : allWindows()) {
                     if (window.isShowing()) {
                         findComponents(window, type, value, matches);
                     }

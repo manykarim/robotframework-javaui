@@ -103,6 +103,47 @@ Runtime attach depends on the **test host's** JVM and, for Web Start, the launch
 
 ---
 
+## Injection vectors (deployment matrix)
+
+There is more than one way to get `javagui-agent.jar` into a target JVM. The library uses exactly one by default — dynamic attach — and it is the right choice almost everywhere. The others exist only for constrained CI/launcher scenarios and carry real caveats. This matrix states, per vector, when the agent code actually lands in the **application** JVM (not the launcher), and what it costs.
+
+| Vector | How the agent loads | Status | Use it when |
+|--------|--------------------|--------|-------------|
+| **Dynamic attach** (default) | `agentmain` via the JDK Attach API — injected into the *live* target JVM after it starts. | ✅ Supported, the default. | Always, unless a launcher structurally blocks it. Covers plain running apps and Web Start on a no-`SecurityManager` launcher. |
+| **OpenWebStart JVM args** | `-javaagent:…` set as OWS per-JNLP / default JVM args in `deployment.properties`, so the flag rides along at the **app JVM's** launch. | ⚠️ Opt-in, **unverified** (spike pending). | CI only, when dynamic attach is unavailable and you control the OWS install. |
+| **`JAVA_TOOL_OPTIONS` / `_JAVA_OPTIONS`** | Environment variable carrying `-javaagent:…`, read by *every* JVM the process tree spawns. | ❌ Rejected — last-resort scripted fallback only. | Effectively never; see the hard constraints below. |
+
+### 1. Dynamic attach — the default vector
+
+This is the discover → inject → connect flow described above: the target starts on its own, then the agent is loaded into the running JVM through `agentmain`. It needs no cooperation from the launcher and no environment plumbing, which is why it is the default for plain apps **and** for Web Start on launchers without the legacy `SecurityManager` (modern OpenWebStart, JDK 24+ `javaws`). Its only limits are the JDK-version and `SecurityManager` rules already tabled above.
+
+### 2. OpenWebStart JVM args — opt-in CI vector
+
+`-javaagent` is **not** on the JNLP secure vm-args whitelist, so you cannot put it in the `.jnlp` and you cannot pass it to `javaws` — the launcher strips it (see [Java Web Start](#java-web-start-jnlp) below). The **only** way to make `-javaagent` ride along to the *application* JVM is to set it as a default/per-JNLP JVM argument in OpenWebStart's own `deployment.properties`, which OWS applies when it builds the app JVM's command line. That gets the agent loaded at launch (via `premain`) rather than by attach — sidestepping any dynamic-agent-load restriction entirely.
+
+This vector is **opt-in and currently unverified** against a specific OpenWebStart release — a validation spike is pending. Treat it as a documented possibility for a CI harness you fully control, not a proven path. It applies only to OpenWebStart; IcedTea-Web's `JNLPSecurityManager` block is orthogonal and not solved by this.
+
+### 3. `JAVA_TOOL_OPTIONS` / `_JAVA_OPTIONS` — rejected
+
+Setting `JAVA_TOOL_OPTIONS='-javaagent:javagui-agent.jar=…'` (or `_JAVA_OPTIONS`) looks like an easy universal switch. It is not, and the library does not use it. Two failures:
+
+- **It double-loads into the wrong JVM.** The variable is read by the **launcher** JVM as well as the app JVM. With Web Start the launcher runs first — so the agent tries to load there before the application JVM even exists. IcedTea-Web bug [#949](https://github.com/AdoptOpenJDK/IcedTea-Web/issues/949) is exactly this: a Java 8 `javaws` launcher tried to load a Java 11 agent and died with `UnsupportedClassVersionError` before the app ever started.
+- **It leaks into every Java process.** The variable is inherited by *every* JVM the shell and its children spawn, agent and all, for as long as it is exported. That is a broad, hard-to-scope side effect on any shared CI host.
+
+If you truly have no other option, this is a **scripted last resort only**, and then the agent jar must be compiled to **Java 8 bytecode** and carry a **`premain` self-guard** that no-ops when it finds itself loaded into a launcher / wrong JVM. Do not reach for it before dynamic attach (vector 1) or the OWS JVM-args vector (vector 2).
+
+### JDK-version behavior (applies to attach vectors)
+
+The dynamic-attach vector's behavior tracks the **target** JDK version:
+
+| Target JDK | Dynamic attach behavior |
+|------------|-------------------------|
+| **≤ 20** | Clean — no warning, no flag needed. |
+| **21 – 23** | Attaches; prints a one-line *"a dynamic agent has been loaded"* warning on the target console. Harmless. |
+| **24+** | Refuses dynamic agent loading **unless** the target was launched with `-XX:+EnableDynamicAgentLoading`. That flag must be set **at the target's launch** — which you cannot do for an app you found running in the wild. On such targets, use a launch-time vector (a `-javaagent` you control, or the OWS JVM-args vector). |
+
+---
+
 ## Java Web Start (JNLP)
 
 ```robotframework
