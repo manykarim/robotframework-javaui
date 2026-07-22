@@ -1,0 +1,7 @@
+---
+description: Canonical agent instructions (points to AGENTS.md)
+alwaysApply: true
+---
+
+The canonical instructions for this repository are in `AGENTS.md` at the repo root.
+Read and follow it. It is the single source of truth for build, test, conventions, and gotchas.

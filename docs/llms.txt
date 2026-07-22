@@ -1,0 +1,40 @@
+# robotframework-javagui
+
+> Robot Framework library for automating Java desktop GUIs — Swing, SWT, and Eclipse RCP — driven by a Rust/PyO3 core and an in-JVM Java agent. This file orients an automation agent that is *using* the library to write tests; it points to the self-describing surfaces that are the source of truth rather than restating them.
+
+Three RF libraries ship in one wheel: `JavaGui.Swing`, `JavaGui.Swt`, `JavaGui.Rcp`. You drive a target JVM by attaching an agent to it (at launch or at runtime), then locating widgets with a CSS/XPath-like grammar and calling keywords. Prefer the generated libdoc for keyword truth and `javagui-spy schema` for locator/tooling truth — do not rely on prose.
+
+## Getting started
+- [Install](README.md#installation): `pip install robotframework-javagui` (or `uv pip install robotframework-javagui`) — bundles the agent JAR and the `javagui-spy` CLI. From source use `uv sync --all-groups` then `uv run invoke build-dev`; `uv` is required (do not use pip directly for a source build).
+- [Import a library](README.md#quick-start): add `Library    JavaGui.Swing` (or `JavaGui.Swt` / `JavaGui.Rcp`) to `*** Settings ***`. Options: `timeout=`, `screenshot_dir=`.
+- [Inline assertions](README.md#assertion-engine): `Get*` keywords take an optional `assertion_operator`/`expected` with auto-retry, e.g. `Get Text    JLabel[name='status']    ==    Ready    timeout=10`.
+
+## Attach vs Connect
+- [Connect To Application](README.md#quick-start): use when *you* launch the app with `-javaagent:javagui-agent.jar=port=NNNN` — lowest overhead. `Connect To Application    port=NNNN`. Default ports: 5678 Swing, 5679 SWT/RCP.
+- [Attach To Application](docs/runtime-attach.md): use when the app is *already running* (someone else launched it, or you cannot relaunch it). Injects the agent into the live JVM via the JDK Attach API, then connects. `Attach To Application    main_class=...` | `pid=...` | `title=...`. Needs a JDK with `jdk.attach` on the test host (or a `jattach` binary); selection must resolve to exactly one JVM or it errors with the candidate list. `List Applications` enumerates attachable JVMs.
+- [Launch Web Start Application](docs/runtime-attach.md#java-web-start-jnlp): use for JNLP apps — `javaws` strips `-javaagent`, so attach is the only way in. `Launch Web Start Application    app.jnlp`. Works under modern OpenWebStart / JDK 24+ `javaws`; blocked structurally under legacy IcedTea-Web `SecurityManager`.
+
+## Locators
+- [Locator syntax](README.md#locator-syntax): CSS-like (`JButton[name='ok']`, `#okButton`, `text:Login`, `JPanel > JButton`, `:nth-of-type(2)`, `:has(...)`) plus XPath-style (`//JButton[@text='OK']`). `>` = direct child; `>>` = anchored "then, inside" chain for pinning deep/nameless widgets (e.g. `JToolBar[name='main'] >> JButton[text='Save']`); `*` captures in a cascaded chain; geometry attrs `[x][y][width][height]` exist for last-resort matching. SWT/RCP use the same grammar with SWT type names (`Button`, `Text`, `Tree`, …).
+- [Grammar cheatsheet (authoritative)](docs/spy.md#locator-grammar-cheatsheet): the exact grammar the production `find_elements` matcher speaks — `javagui-spy schema` prints it as machine-readable JSON, which is the source of truth over any prose table.
+
+## Keywords by toolkit
+- [Swing keyword reference](docs/keywords/Swing.html): generated libdoc — every Swing keyword with signature and a runnable example. This is the authoritative keyword list; do not infer keyword names from prose.
+- [SWT keyword reference](docs/keywords/Swt.html): generated libdoc for `JavaGui.Swt`.
+- [Eclipse RCP keyword reference](docs/keywords/Rcp.html): generated libdoc for `JavaGui.Rcp` (workbench, perspectives, views, editors). Regenerate all three with `uv run invoke docs`.
+
+## Spy workflow
+- [javagui-spy guide](docs/spy.md): stateless, JSON-first CLI that hands you unique, pre-verified locators. Five-call loop: `dump-tree` (orient) → `find` (shortlist) → `suggest --node-id N` (ranked verified candidates + ready-to-paste `rf_snippets`) → `validate LOCATOR` (exit code is the verdict: 0 unique / 3 zero / 4 ambiguous / 2 error) → `screenshot`. Also `describe`, `pick --at X,Y`/`--arm`, `highlight`, `ui` (web inspector), and `--attach-pid`/`--attach-main-class`/`--attach-title` to spy a running JVM.
+- [Machine-readable source of truth](docs/spy.md#verbs-reference): `javagui-spy schema` prints the full verb list, the locator grammar cheatsheet, and the candidate contract with no app or connection needed — bootstrap from it. `javagui-spy mcp` runs an MCP stdio server exposing every verb as a tool; prefer these self-describing surfaces over any static doc.
+- [Agent usage cheatsheet](docs/agent-usage-cheatsheet.md): condensed keyword/locator recipes for driving the library as an automation agent (companion to this file; see AGENTS.md).
+
+## Gotchas
+- [Element Text divergence](README.md#keywords-reference): on some fields (e.g. JGSearchField) `Element Text Should Be` reads `''` while `Get Element Text` returns the real value — use `Get Element Text` for text you rely on.
+- [Toolkit at launch time](AGENTS.md): for SWT/RCP the agent must be forced `toolkit=swt` at `premain` (launch-time `-javaagent`); auto-detection only works at runtime *attach* (`agentmain`), where `toolkit=auto` is safe.
+- [Transport flakiness](AGENTS.md): `Broken pipe (os error 32)` is flaky under load / large responses, not a real failure — re-run and reduce concurrency; scope tree reads with `max_depth`/`Get Component Subtree` on large UIs.
+- [Process lifecycle](AGENTS.md): launched apps do not persist across separate shell/tool invocations — launch the app and drive it in one command (`xvfb-run`, `subprocess.Popen`, or a Robot `Suite Setup`); and never `pkill -f <pattern>` with a pattern that appears in your own command line (it self-kills the shell).
+
+## Optional
+- [Runtime attach deep dive](docs/runtime-attach.md): injection-vector matrix, JDK-version/launcher behavior (JDK 24+ `-XX:+EnableDynamicAgentLoading`), the IcedTea-Web `SecurityManager` block, and full troubleshooting table.
+- [AGENTS.md](AGENTS.md): canonical contract for building/testing the repo itself (build commands, verify-loop baselines, layout) — read this if you are modifying the library, not just using it.
+- [OpenSpec changes](openspec/): specs and in-flight change proposals; the workflow non-trivial changes go through.

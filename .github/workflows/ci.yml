@@ -5,6 +5,20 @@ on:
   pull_request:
 
 jobs:
+  # Fast anti-drift check for the agent-facing docs: tool pointers resolve to AGENTS.md,
+  # no dead relative links in the canonical docs, and the generated keyword reference exists.
+  doc-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Doc-lint (agent docs)
+        run: python scripts/doc_lint.py
+
   build-test:
     runs-on: ${{ matrix.os }}
     strategy:
